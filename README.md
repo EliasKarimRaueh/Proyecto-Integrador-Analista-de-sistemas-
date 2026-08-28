@@ -1,28 +1,45 @@
-# Proyecto-Integrador-Analista-de-sistemas-# 🍗 Sistema de Gestión para Pollería
+# 🍗 Sistema de Gestión para Pollería
 
-Sistema en desarrollo para la administración de pedidos, stock y clientes de la polulería.
+Sistema desarrollado para la administración integral de pedidos, stock, clientes y autenticación de usuarios de la polulería.
 
-## 📁 Estructura del Proyecto
+## 🏛️ Arquitectura del Proyecto
 
-El repositorio está organizado de la siguiente manera:
+El proyecto sigue una arquitectura de **monolito bien estructurado**, separando claramente las responsabilidades en tres capas principales dentro del mismo repositorio:
+- **Frontend (`/frontend`):** Interfaz de usuario interactiva y tipada.
+- **Backend (`/backend`):** API REST encargada de la lógica de negocio y los servicios.
+- **Database (`/database`):** Esquemas y scripts de persistencia de datos.
 
-- `database/`: Scripts SQL, esquemas y datos iniciales de la base de datos.
-- `backend/`: Lógica del servidor, rutas y conexión con la base de datos.
-- `frontend/`: Interfaz de usuario para la interacción con el sistema.
+## 🚀 Stack Tecnológico
 
-## 🚀 Tecnologías Utilizadas
+- **Frontend:** 
+  - [React](https://react.dev/)
+  - [TypeScript](https://www.typescriptlang.org/)
+- **Backend:** 
+  - [Node.js](https://nodejs.org/) con [Express](https://expressjs.com/)
+  - [TypeScript](https://www.typescriptlang.org/)
+  - **Autenticación:** JSON Web Tokens (JWT)
+- **Base de Datos:** 
+  - [PostgreSQL](https://www.postgresql.org/)
+- **Calidad y Testing:** 
+  - [Jest](https://jestjs.io/) / [Vitest](https://vitest.dev/)
+- **Documentación:** 
+  - [Swagger / OpenAPI](https://swagger.io/)
+- **Control de Versiones:** 
+  - [GitHub](https://github.com/)
 
-*(Aquí puedes ir agregando las tecnologías a medida que las definas)*
-- **Base de datos:** [Ej: PostgreSQL / MySQL / SQLite]
-- **Backend:** [Ej: Node.js con Express / Python con FastAPI]
-- **Frontend:** [Ej: React / HTML, CSS y JavaScript]
+## 📁 Estructura del Repositorio
 
-## ⚙️ Configuración del Entorno
+- `frontend/`: Código fuente de la interfaz de usuario.
+- `backend/`: API REST, controladores, rutas y lógica de negocio.
+- `database/`: Scripts SQL de creación de tablas y migraciones.
 
-1. Clona este repositorio en tu computadora.
-2. Crea un archivo `.env` en la raíz del proyecto basándote en el archivo de ejemplo (`.env.example`).
-3. Configura tus credenciales locales dentro del archivo `.env`.
+## ⚙️ Guía de Configuración e Instalación
 
-## 📌 Estado del Proyecto
+### Prerrequisitos
+- Node.js instalado en tu computadora.
+- PostgreSQL instalado y configurado localmente o en un servidor remoto.
 
-Actualmente el proyecto se encuentra en su fase de diseño y estructuración de directorios.
+### 1. Clonar el repositorio
+```bash
+git clone <url-de-tu-repositorio>
+cd <nombre-del-proyecto>
