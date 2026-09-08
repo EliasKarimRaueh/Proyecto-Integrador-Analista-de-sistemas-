@@ -60,3 +60,24 @@ Para mantener la calidad y escalabilidad del proyecto, el equipo de desarrollo a
 ```bash
 git clone <url-de-tu-repositorio>
 cd <nombre-del-proyecto>
+```
+
+### 2. Iniciar el frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+La interfaz se sirve en `http://localhost:5173`. Requiere Node.js 22.12+ o 24 LTS.
+Consultá [la documentación del frontend](frontend/README.md) para conocer la estructura, los comandos y la conexión con el backend.
+
+### 3. Iniciar el backend
+En otra terminal, desde la raíz del repositorio:
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+El backend utiliza el puerto `3000` por defecto. Las pantallas del frontend son una base inicial; las operaciones de pedidos, stock, clientes y autenticación todavía deben implementarse.
