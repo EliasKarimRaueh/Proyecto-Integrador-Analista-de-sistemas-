@@ -1,6 +1,6 @@
 # 🍗 Sistema de Gestión para Pollería
 
-Sistema desarrollado para la administración integral de pedidos, stock, clientes y autenticación de usuarios de la polulería.
+Sistema desarrollado para la administración integral de pedidos, stock, clientes y autenticación de usuarios de la pollería.
 
 ## 🏛️ Arquitectura del Proyecto
 
@@ -32,6 +32,23 @@ El proyecto sigue una arquitectura de **monolito bien estructurado**, separando 
 - `frontend/`: Código fuente de la interfaz de usuario.
 - `backend/`: API REST, controladores, rutas y lógica de negocio.
 - `database/`: Scripts SQL de creación de tablas y migraciones.
+
+## 🛠️ Buenas Prácticas de Desarrollo
+
+Para mantener la calidad y escalabilidad del proyecto, el equipo de desarrollo adopta los siguientes estándares:
+
+### ✍️ Escritura de Código
+- **Prioriza la legibilidad:** Escribe código claro para que otros desarrolladores puedan entenderlo sin esfuerzo.
+- **Funciones pequeñas:** Haz que cada función cumpla una sola tarea específica.
+- **Nombres claros:** Usa nombres de variables y funciones que expliquen por sí mismos su propósito (código autodescriptivo).
+- **Evita repetir código (Principio DRY):** Reutiliza funciones y módulos en lugar de copiar y pegar fragmentos idénticos.
+
+### 🛡️ Mantenimiento y Control
+- **Control de versiones:** Usa Git y GitHub para registrar cada cambio en el código, respetando la estructura de ramas.
+- **Testing:** Comprueba de forma automática que el software funciona bien tras cada cambio importante.
+- **Refactorización:** Mejora la estructura interna del código periódicamente sin cambiar su comportamiento externo.
+
+---
 
 ## ⚙️ Guía de Configuración e Instalación
 
