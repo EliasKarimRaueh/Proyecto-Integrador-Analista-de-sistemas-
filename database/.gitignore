@@ -1,0 +1,4 @@
+.env
+.env.*
+seeders/
+node_modules/

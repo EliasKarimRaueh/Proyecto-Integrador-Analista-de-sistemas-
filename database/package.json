@@ -1,0 +1,24 @@
+{
+  "name": "polleria-database",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Modelos y repositorios del sistema de gestión para la pollería",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx --watch src/index.ts",
+    "test:connection": "tsx src/test/test-connection.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.1",
+    "@supabase/supabase-js": "^2.110.3",
+    "dotenv": "^17.4.2",
+    "sequelize": "^6.37.8",
+    "pg": "^8.x"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
