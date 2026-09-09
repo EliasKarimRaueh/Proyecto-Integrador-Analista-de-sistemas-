@@ -15,6 +15,18 @@ ProductoProveedor.init({
         type: DataTypes.INTEGER,
         allowNull: false,
         primaryKey: true
+    },
+
+    activo: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true
+    },
+
+    fechaBaja: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
     }
 
 }, {

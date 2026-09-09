@@ -20,6 +20,18 @@ Proveedor.init({
                 msg: "El nombre del proveedor debe tener menos de 50 caracteres."
             }
         }
+    },
+
+    activo: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true
+    },
+
+    fechaBaja: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
     }
 
 //FALTA COMPLETAR, ES PARA PODER HACER LA RELACION CON PRODUCTO

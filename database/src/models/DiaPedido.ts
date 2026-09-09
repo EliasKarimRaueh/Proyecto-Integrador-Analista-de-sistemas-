@@ -23,6 +23,18 @@ DiaPedido.init({
         ),
         allowNull: false,
         unique: true
+    },
+
+    activo: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true
+    },
+
+    fechaBaja: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
     }
 
 }, {

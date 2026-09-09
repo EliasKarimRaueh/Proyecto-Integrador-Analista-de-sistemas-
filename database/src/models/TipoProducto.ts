@@ -19,6 +19,18 @@ TipoProducto.init({
                 msg: "El nombre del tipo de producto no puede superar los 50 caracteres."
             }
         }
+    },
+
+    activo: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true
+    },
+
+    fechaBaja: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
     }
 }, {
     sequelize, 
