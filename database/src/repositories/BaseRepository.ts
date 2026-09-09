@@ -61,42 +61,48 @@ class BaseRepository<T extends Model> {
     }
 
     async findBy(keys: WhereOptions<T>): Promise<T | null> {
-    return await this.model.findOne({
-        where: keys
-    });
-}
-
-async updateBy(
-    keys: WhereOptions<T>,
-    data: Partial<T>
-): Promise<T | null> {
-
-    const record = await this.findBy(keys);
-
-    if (!record) {
-        return null;
+        return await this.model.findOne({
+            where: keys
+        });
     }
 
-    await record.update(data);
+    async updateBy(
+        keys: WhereOptions<T>,
+        data: Partial<T>
+    ): Promise<T | null> {
 
-    return record;
-}
+        const record = await this.findBy(keys);
 
-async deleteBy(keys: WhereOptions<T>): Promise<T | null> {
+        if (!record) {
+            return null;
+        }
 
-    const record = await this.findBy(keys);
+        await record.update(data);
 
-    if (!record) {
-        return null;
+        return record;
     }
 
-    await record.update({
-        activo: false,
-        fechaBaja: new Date()
-    } as any);
+    async deleteBy(keys: WhereOptions<T>): Promise<T | null> {
 
-    return record;
-}
+        const record = await this.findBy(keys);
+
+        if (!record) {
+            return null;
+        }
+
+        await record.update({
+            activo: false,
+            fechaBaja: new Date()
+        } as any);
+
+        return record;
+    }
+
+
+    async count(where: WhereOptions = {}): Promise<number> {
+        return await this.model.count({ where });
+    }
+
 }
 
 export default BaseRepository;
