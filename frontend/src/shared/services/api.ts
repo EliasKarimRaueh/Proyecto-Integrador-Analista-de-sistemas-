@@ -1,3 +1,11 @@
+import type { Product } from '../../features/products/products'
+
+// Agregamos nuestra llamada usando el apiRequest que ya existe
+export async function fetchProducts(): Promise<Product[]> {
+  // apiRequest ya le agrega el "/" y la URL base automáticamente
+  return apiRequest<Product[]>('productos')
+}
+
 const apiUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
 
 /** Envía una solicitud a un endpoint que devuelve JSON. */

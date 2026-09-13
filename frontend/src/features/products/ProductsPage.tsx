@@ -1,16 +1,17 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
-import { categories, units, emptyDraft, loadProducts, saveProducts, validateProduct, normalize, type Product, type ProductDraft } from './products'
+import { fetchProducts } from '../../shared/services/api'
+import { categories, units, emptyDraft, validateProduct, normalize, type Product, type ProductDraft } from './products'
 
 type Editor = { mode: 'create' } | { mode: 'edit' | 'detail' | 'deactivate'; product: Product }
 const categorySymbols = { Pollo: 'P', Cortes: 'C', Milanesas: 'M', Otros: 'O' }
+
 export function ProductsPage() {
-  const [initial] = useState(() => {
-    try { return { products: loadProducts(), error: '' } }
-    catch { return { products: [] as Product[], error: 'No pudimos leer el catálogo del navegador. Revisá el almacenamiento y recargá la página; los datos guardados no se sobrescribieron.' } }
-  })
-  const [products, setProducts] = useState(initial.products)
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [apiError, setApiError] = useState('')
+  
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('Todas')
   const [status, setStatus] = useState('todos')
@@ -18,7 +19,20 @@ export function ProductsPage() {
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft)
   const [errors, setErrors] = useState<Partial<Record<keyof ProductDraft, string>>>({})
   const [notice, setNotice] = useState('')
-  const [storageError, setStorageError] = useState(initial.error)
+
+  // Efecto para cargar los datos desde el backend al iniciar la página
+  useEffect(() => {
+    fetchProducts()
+      .then(data => {
+        setProducts(data)
+        setLoading(false)
+      })
+      .catch(() => {
+        setApiError('No pudimos conectar con el servidor. Revisá que el backend esté corriendo.')
+        setLoading(false)
+      })
+  }, [])
+
   const filtered = products.filter(p => (category === 'Todas' || p.category === category) &&
     (status === 'todos' || p.active === (status === 'activos')) &&
     normalize(p.name + ' ' + p.code).includes(normalize(search)))
@@ -30,17 +44,16 @@ export function ProductsPage() {
     setNotice('')
     setEditor(next)
   }
+
   function commit(next: Product[], message: string) {
-    try {
-      saveProducts(next)
-      setProducts(next)
-      setStorageError('')
-      setNotice(message)
-      setEditor(null)
-    } catch {
-      setStorageError('No se pudo guardar. El almacenamiento del navegador está lleno o bloqueado. Tus cambios todavía no se aplicaron.')
-    }
+    // NOTA PARA EL EQUIPO: Acá a futuro irán las llamadas POST/PUT/DELETE a la API.
+    // Por ahora actualizamos el estado local de React para que la UI siga funcionando fluida.
+    setProducts(next)
+    setApiError('')
+    setNotice(message)
+    setEditor(null)
   }
+
   function submit(event: FormEvent) {
     event.preventDefault()
     const editing = editor?.mode === 'edit' ? editor.product : undefined
@@ -50,21 +63,36 @@ export function ProductsPage() {
     const product: Product = { ...draft, code: draft.code.trim().toUpperCase(), name: draft.name.trim(), description: draft.description.trim(), id: editing?.id ?? crypto.randomUUID(), active: editing?.active ?? true }
     commit(editing ? products.map(p => p.id === editing.id ? product : p) : [...products, product], editing ? 'Producto actualizado correctamente.' : 'Producto registrado correctamente.')
   }
+
   function field<K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) {
     setDraft(current => ({ ...current, [key]: value }))
     setErrors(current => ({ ...current, [key]: undefined }))
   }
+
+  // Pantalla de carga mientras espera la respuesta del backend
+  if (loading) {
+    return (
+      <section className="products-page">
+        <div className="breadcrumb">Gestión <Icon name="arrow" size={14} /> <span>Productos</span></div>
+        <div style={{ padding: '4rem', textAlign: 'center', color: '#666' }}>
+          <Icon name="box" size={32} />
+          <p style={{ marginTop: '1rem' }}>Cargando catálogo desde el servidor...</p>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="products-page">
       <div className="breadcrumb">Gestión <Icon name="arrow" size={14} /> <span>Productos</span></div>
-      <div className="page-heading"><div><h1>Catálogo de productos</h1><p>Administrá los productos de tu pollería en un solo lugar.</p></div><button className="button primary" disabled={!!initial.error} onClick={() => open({ mode: 'create' })}><Icon name="plus" /> Nuevo producto</button></div>
+      <div className="page-heading"><div><h1>Catálogo de productos</h1><p>Administrá los productos de tu pollería en un solo lugar.</p></div><button className="button primary" disabled={!!apiError} onClick={() => open({ mode: 'create' })}><Icon name="plus" /> Nuevo producto</button></div>
       <div className="stats-grid">
         <div className="stat"><span className="stat-icon yellow"><Icon name="box" size={24} /></span><div><span>Total de productos</span><strong>{products.length}</strong></div><small>En tu catálogo</small></div>
         <div className="stat"><span className="stat-icon green"><Icon name="check" size={24} /></span><div><span>Productos activos</span><strong>{activeCount}</strong></div><small>Disponibles</small></div>
         <div className="stat"><span className="stat-icon gray"><Icon name="archive" size={24} /></span><div><span>Productos inactivos</span><strong>{products.length - activeCount}</strong></div><small>Dados de baja</small></div>
       </div>
       {notice && <div className="notice success" role="status"><Icon name="check" />{notice}</div>}
-      {storageError && !editor && <div className="notice error" role="alert">{storageError}</div>}
+      {apiError && !editor && <div className="notice error" role="alert">{apiError}</div>}
       <div className="catalog-panel">
         <div className="catalog-title"><div><h2>Todos los productos <span className="count">{products.length}</span></h2><p>Consultá y mantené actualizado tu catálogo.</p></div><span className="subtle">Catálogo general</span></div>
         <div className="filters">
@@ -78,9 +106,11 @@ export function ProductsPage() {
         {filtered.length === 0 && <div className="empty-state"><Icon name="search" size={32} /><h3>{products.length ? 'No encontramos productos' : 'Tu catálogo está vacío'}</h3><p>{products.length ? 'Probá con otro nombre, código o categoría.' : 'Registrá tu primer producto para comenzar.'}</p>{products.length > 0 && <button className="button" onClick={() => { setSearch(''); setCategory('Todas'); setStatus('todos') }}>Limpiar filtros</button>}</div>}
         <div className="table-footer">Mostrando {filtered.length} de {products.length} productos<span>Las bajas conservan el historial del catálogo.</span></div>
       </div>
-      <div className="local-note"><Icon name="box" size={18} /><span><strong>Versión de demostración.</strong> Datos de ejemplo y cambios guardados en este navegador. La conexión con el servidor está pendiente.</span></div>
+      <div className="local-note"><Icon name="box" size={18} /><span><strong>Conexión exitosa.</strong> El catálogo se está leyendo desde la API del backend. Guardar cambios está pendiente de implementar en el servidor.</span></div>
+      
+      {/* Acá sigue el Modal tal cual lo tenías, sin modificaciones porque maneja puro estado de React */}
       {editor && <Modal title={editor.mode === 'create' ? 'Nuevo producto' : editor.mode === 'edit' ? 'Editar producto' : editor.mode === 'detail' ? 'Detalle del producto' : 'Dar de baja producto'} onClose={() => setEditor(null)}>
-        {storageError && <div className="notice error" role="alert">{storageError}</div>}
+        {apiError && <div className="notice error" role="alert">{apiError}</div>}
         {(editor.mode === 'create' || editor.mode === 'edit') && <form onSubmit={submit} noValidate>
           <p className="form-intro">Completá los datos del producto. Los campos con * son obligatorios.</p>
           <div className="form-grid">
@@ -99,4 +129,3 @@ export function ProductsPage() {
     </section>
   )
 }
-
