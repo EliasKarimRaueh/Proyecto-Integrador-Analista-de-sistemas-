@@ -2,12 +2,35 @@ import { type Request, type Response } from 'express';
 
 export const getProductos = async (req: Request, res: Response) => {
   try {
-    // Acá más adelante llamaremos a Supabase: await productoRepository.getAll()
-    // Por ahora mandamos datos de prueba:
+    // Datos mockeados alineados 100% con la interfaz Product del frontend
     const productosMock = [
-      { id: 1, nombre: "Pollo entero (Cajón)", precioMinorista: 2500, unidadVenta: "kg" },
-      { id: 2, nombre: "Pata muslo", precioMinorista: 1800, unidadVenta: "kg" },
-      { id: 3, nombre: "Pan rallado", precioMinorista: 1200, unidadVenta: "kg" }
+      { 
+        id: '1', 
+        code: 'POL-001', 
+        name: 'Pollo entero', 
+        category: 'Pollo', 
+        unit: 'kg', 
+        description: 'Pollo entero fresco, sin menudos.', 
+        active: true 
+      },
+      { 
+        id: '2', 
+        code: 'COR-001', 
+        name: 'Pata y muslo', 
+        category: 'Cortes', 
+        unit: 'kg', 
+        description: 'Cuarto trasero de pollo fresco.', 
+        active: true 
+      },
+      { 
+        id: '8', 
+        code: 'OTR-002', 
+        name: 'Pan rallado · 500 g', 
+        category: 'Otros', 
+        unit: 'paquete', 
+        description: 'Paquete de pan rallado de 500 gramos.', 
+        active: true 
+      }
     ];
     
     res.status(200).json(productosMock);
