@@ -1,13 +1,25 @@
-import express from "express";
+import express, { type Application } from 'express';
+import cors from 'cors';
+import productoRoutes from './routes/productoRoutes.js';
 
-const app = express();
+const app: Application = express();
 
+const corsOptions = {
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true 
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.json({
-    message: "Backend de la pollería funcionando",
-  });
+// Ruta de prueba
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'API de AvixSoft conectada y funcionando' });
 });
+
+// NUESTRAS RUTAS DE NEGOCIO
+app.use('/api/productos', productoRoutes); // <-- Conectamos la ruta
 
 export default app;
