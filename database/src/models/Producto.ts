@@ -11,6 +11,15 @@ Producto.init({
         autoIncrement: true
     },
 
+    tipoProductoId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'tipos_producto',
+            key: 'id'
+        }
+    },
+
     nombre: {
         type: DataTypes.STRING,
         allowNull: false,

@@ -1,10 +1,19 @@
 // backend/src/routes/productoRoutes.ts
 import { Router } from 'express';
-import { getProductos } from '../controllers/productoController.js';
+import {
+    getProductos,
+    getProductoById,
+    createProducto,
+    updateProducto,
+    deleteProducto
+} from '../controllers/productoController.js';
 
 const router = Router();
 
-// Cuando hagan un GET a la ruta base de productos, ejecuta la función getProductos
 router.get('/', getProductos);
+router.get('/:id', getProductoById);
+router.post('/', createProducto);
+router.put('/:id', updateProducto);
+router.delete('/:id', deleteProducto);
 
 export default router;

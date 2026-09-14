@@ -1,4 +1,4 @@
-import { Model, ModelStatic, WhereOptions } from 'sequelize';
+import { Model, type ModelStatic, type WhereOptions } from 'sequelize';
 
 class BaseRepository<T extends Model> {
 

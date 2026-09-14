@@ -7,8 +7,10 @@
     "dev": "tsx watch src/server.ts"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "polleria-database": "file:../database"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
