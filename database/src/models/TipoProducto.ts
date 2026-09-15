@@ -1,7 +1,12 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
-class TipoProducto extends Model {}
+class TipoProducto extends Model {
+    declare id: number;
+    declare nombre: string;
+    declare activo: boolean;
+    declare fechaBaja: Date | null;
+}
 
 TipoProducto.init({
     id: {

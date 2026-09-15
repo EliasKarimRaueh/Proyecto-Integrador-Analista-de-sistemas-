@@ -1,20 +1,33 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
-class ProductoProveedor extends Model {}
+class ProductoProveedor extends Model {
+    declare productoId: number;
+    declare proveedorId: number;
+    declare activo: boolean;
+    declare fechaBaja: Date | null;
+}
 
 ProductoProveedor.init({
 
     productoId: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        primaryKey: true
+        primaryKey: true,
+        references: {
+            model: 'productos',
+            key: 'id'
+        }
     },
 
     proveedorId: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        primaryKey: true
+        primaryKey: true,
+        references: {
+            model: 'proveedores',
+            key: 'id'
+        }
     },
 
     activo: {

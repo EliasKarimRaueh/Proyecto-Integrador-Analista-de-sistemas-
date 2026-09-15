@@ -1,7 +1,29 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
-class Producto extends Model {}
+class Producto extends Model {
+    declare id: number;
+    declare nombre: string;
+    declare tipoProductoId: number;
+    declare unidadCompra:
+        | 'KILOS'
+        | 'UNIDADES'
+        | 'CAJONES'
+        | 'CAJAS'
+        | 'BOLSAS'
+        | 'BULTOS';
+    declare unidadVenta: 'UNIDADES' | 'KILOS';
+    declare factorConversion: number;
+    declare stockActual: number;
+    declare costoActual: string;
+    declare activo: boolean;
+    declare fechaBaja: Date | null;
+    declare tipoReposicion:
+        | 'stockMinimo'
+        | 'diario'
+        | 'semanal';
+    declare stockMinimo: number | null;
+}
 
 Producto.init({
 
@@ -24,20 +46,20 @@ Producto.init({
 
     unidadCompra: {
         type: DataTypes.ENUM(
-            'kilos',
-            'unidades',
-            'cajones',
-            'cajas',
-            'bolsas',
-            'bultos'
+            'KILOS',
+            'UNIDADES',
+            'CAJONES',
+            'CAJAS',
+            'BOLSAS',
+            'BULTOS'
         ),
         allowNull: false
     },
 
     unidadVenta: {
         type: DataTypes.ENUM(
-            'unidades',
-            'kilos'
+            'UNIDADES',
+            'KILOS'
         ),
         allowNull: false
     },
@@ -66,9 +88,9 @@ Producto.init({
         allowNull: false,
         validate: {
             isPositive(value: string) {
-                if (Number(value) <= 0) {
+                if (Number(value) < 0) {
                     throw new Error(
-                        "El costo actual debe ser positivo."
+                        "El costo actual no puede ser negativo."
                     );
                 }
             }
@@ -96,12 +118,21 @@ Producto.init({
         allowNull: false
     },
 
+    tipoProductoId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'tipos_producto',
+            key: 'id'
+        }
+    },
+
     stockMinimo: {
         type: DataTypes.FLOAT,
         allowNull: true,
         validate: {
             isPositive(value: number | null) {
-                if (value !== null && value <= 0) {
+                if (value !== null && value < 0) {
                     throw new Error(
                         "El stock mínimo debe ser positivo."
                     );
@@ -130,15 +161,6 @@ Producto.init({
             ) {
                 throw new Error(
                     "El stock mínimo es obligatorio cuando el tipo de reposición es stockMinimo."
-                );
-            }
-
-            if (
-                this.tipoReposicion !== 'stockMinimo' &&
-                this.stockMinimo !== null
-            ) {
-                throw new Error(
-                    "El stock mínimo debe ser NULL cuando el tipo de reposición no es stockMinimo."
                 );
             }
         }

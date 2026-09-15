@@ -1,20 +1,33 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
-class ProductoDiaPedido extends Model {}
+class ProductoDiaPedido extends Model {
+    declare productoId: number;
+    declare diaPedidoId: number;
+    declare activo: boolean;
+    declare fechaBaja: Date | null;
+}
 
 ProductoDiaPedido.init({
 
     productoId: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        primaryKey: true
+        primaryKey: true,
+        references: {
+            model: 'productos',
+            key: 'id'
+        }
     },
 
     diaPedidoId: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        primaryKey: true
+        primaryKey: true,
+        references: {
+            model: 'dias_pedido',
+            key: 'id'
+        }
     },
     
     activo: {

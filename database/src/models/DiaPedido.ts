@@ -1,7 +1,19 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
-class DiaPedido extends Model {}
+class DiaPedido extends Model {
+    declare id: number;
+    declare nombre:
+        | 'Lunes'
+        | 'Martes'
+        | 'Miércoles'
+        | 'Jueves'
+        | 'Viernes'
+        | 'Sábado'
+        | 'Domingo';
+    declare activo: boolean;
+    declare fechaBaja: Date | null;
+}
 
 DiaPedido.init({
 
@@ -11,15 +23,15 @@ DiaPedido.init({
         autoIncrement: true
     },
 
-    dia: {
+    nombre: {
         type: DataTypes.ENUM(
-            'lunes',
-            'martes',
-            'miércoles',
-            'jueves',
-            'viernes',
-            'sábado',
-            'domingo'
+            'Lunes',
+            'Martes',
+            'Miércoles',
+            'Jueves',
+            'Viernes',
+            'Sábado',
+            'Domingo'
         ),
         allowNull: false,
         unique: true

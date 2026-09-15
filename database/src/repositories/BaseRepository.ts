@@ -12,6 +12,23 @@ class BaseRepository<T extends Model> {
         return await this.model.findByPk(id);
     }
 
+    async findAllBy(
+        where: WhereOptions<T>,
+        page = 1,
+        limit = 10,
+        orderBy = 'id',
+        orderDirection: 'ASC' | 'DESC' = 'ASC'
+    ) {
+        const offset = (page - 1) * limit;
+
+        return await this.model.findAndCountAll({
+            where,
+            limit,
+            offset,
+            order: [[orderBy, orderDirection]]
+        });
+    }
+
     async findAll(
         page = 1,
         limit = 10,

@@ -1,7 +1,12 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
-class Proveedor extends Model {}
+class Proveedor extends Model {
+    declare id: number;
+    declare nombre: string;
+    declare activo: boolean;
+    declare fechaBaja: Date | null;
+}
 
 Proveedor.init({
 
