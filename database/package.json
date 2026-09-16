@@ -8,7 +8,8 @@
     "build": "tsc",
     "dev": "tsx --watch src/index.ts",
     "test:connection": "tsx src/test/test-connection.ts",
-    "seed_productos": "tsx src/seeders/seederProductos.ts"
+    "test:repositories": "tsx src/test/test-repositories.ts",
+    "seed:productos": "tsx src/seeders/seederProductos.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.1",
