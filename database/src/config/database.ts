@@ -1,5 +1,9 @@
 import { Sequelize } from "sequelize";
-import 'dotenv/config'; // Esto carga las variables del archivo .env
+import { config } from 'dotenv';
+import { fileURLToPath } from 'node:url';
+
+// Carga el .env de database aunque el consumidor se ejecute desde otra carpeta.
+config({ path: fileURLToPath(new URL('../../.env', import.meta.url)) });
 
 
 const databaseUrl = process.env.DATABASE_URL;

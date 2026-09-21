@@ -5,7 +5,7 @@ import { fetchProducts } from '../../shared/services/api'
 import { categories, units, emptyDraft, validateProduct, normalize, type Product, type ProductDraft } from './products'
 
 type Editor = { mode: 'create' } | { mode: 'edit' | 'detail' | 'deactivate'; product: Product }
-const categorySymbols = { Pollo: 'P', Cortes: 'C', Milanesas: 'M', Otros: 'O' }
+const categorySymbols: Record<Product['category'], string> = { Fresco: 'F', Congelado: 'C', 'Seco Almacen': 'S' }
 
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
