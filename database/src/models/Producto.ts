@@ -3,7 +3,9 @@ import sequelize from '../config/database.js';
 
 class Producto extends Model {
     declare id: number;
+    declare codigo: string;
     declare nombre: string;
+    declare descripcion: string;
     declare tipoProductoId: number;
     declare unidadCompra:
         | 'KILOS'
@@ -33,6 +35,15 @@ Producto.init({
         autoIncrement: true
     },
 
+    codigo: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        unique: true,
+        validate: {
+            is: /^[A-Z0-9-]{2,20}$/i
+        }
+    },
+
     nombre: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -42,6 +53,12 @@ Producto.init({
                 msg: "El nombre del producto debe tener menos de 50 caracteres."
             }
         }
+    },
+
+    descripcion: {
+        type: DataTypes.STRING(300),
+        allowNull: false,
+        defaultValue: ''
     },
 
     unidadCompra: {

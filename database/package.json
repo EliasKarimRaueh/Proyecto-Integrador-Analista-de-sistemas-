@@ -4,6 +4,12 @@
   "version": "1.0.0",
   "description": "Modelos y repositorios del sistema de gestión para la pollería",
   "type": "module",
+  "exports": {
+    "./config/database": "./src/config/database.ts",
+    "./migrations/productCatalog": "./src/migrations/productCatalog.ts",
+    "./repositories/productoRepository": "./src/repositories/productoRepository.ts",
+    "./repositories/tipoProductoRepository": "./src/repositories/tipoProductoRepository.ts"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx --watch src/index.ts",
