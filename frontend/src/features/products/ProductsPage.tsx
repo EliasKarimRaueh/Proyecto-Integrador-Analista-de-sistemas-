@@ -1,11 +1,32 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react'
 import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
 import { createProduct, deactivateProduct, fetchProducts, updateProduct } from '../../shared/services/api'
-import { categories, units, emptyDraft, validateProduct, normalize, type Product, type ProductDraft } from './products'
+import {
+  categories, units, emptyDraft, validateProduct, normalize,
+  formatearPeso, LIMITE_FOTO_BYTES, TIPOS_FOTO,
+  type Product, type ProductDraft,
+} from './products'
 
 type Editor = { mode: 'create' } | { mode: 'edit' | 'detail' | 'deactivate'; product: Product }
 const categorySymbols: Record<Product['category'], string> = { Fresco: 'F', Congelado: 'C', 'Seco Almacen': 'S' }
+
+/**
+ * Muestra la foto del producto y vuelve a la letra de categoría si no hay
+ * archivo o si la imagen no se puede cargar. El fallback importa: una foto
+ * borrada desde la base dejaría un ícono roto si no lo contemplamos.
+ */
+function FotoProducto({ producto }: { producto: Product }) {
+  const [fallo, setFallo] = useState(false)
+  const letra = categorySymbols[producto.category]
+  const clase = 'product-symbol symbol-' + producto.category.toLowerCase()
+
+  if (!producto.imagen || fallo) {
+    return <span className={clase}>{letra}</span>
+  }
+
+  return <img className="product-foto" src={producto.imagen.url} alt={producto.name} onError={() => setFallo(true)} />
+}
 
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -20,6 +41,29 @@ export function ProductsPage() {
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft)
   const [errors, setErrors] = useState<Partial<Record<keyof ProductDraft, string>>>({})
   const [notice, setNotice] = useState('')
+
+  // La foto vive acá y no en el draft: es un File, y el draft es el modelo del
+  // producto que se manda al backend.
+  const [fotoArchivo, setFotoArchivo] = useState<File | null>(null)
+  const [quitarFoto, setQuitarFoto] = useState(false)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+  const [fotoError, setFotoError] = useState('')
+  const previewRef = useRef<string | null>(null)
+
+  // La previsualización es una URL temporal que hay que liberar, si no se
+  // filtran blobs en memoria. Se crea y se destruye en los eventos que la
+  // originan; el efecto solo queda para el cierre del componente.
+  useEffect(() => () => {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+  }, [])
+
+  function liberarPreview() {
+    if (previewRef.current) {
+      URL.revokeObjectURL(previewRef.current)
+      previewRef.current = null
+    }
+    setFotoPreview(null)
+  }
 
   // Efecto para cargar los datos desde el backend al iniciar la página
   useEffect(() => {
@@ -40,10 +84,55 @@ export function ProductsPage() {
   const activeCount = products.filter(p => p.active).length
 
   function open(next: Editor) {
-    setDraft(next.mode === 'create' ? { ...emptyDraft } : { ...next.product })
+    // Solo se copian los campos editables: la imagen guardada no se manda en el
+    // draft, se decide aparte con elegirFoto o quitarFoto.
+    setDraft(next.mode === 'create' ? { ...emptyDraft } : {
+      code: next.product.code,
+      name: next.product.name,
+      category: next.product.category,
+      unit: next.product.unit,
+      description: next.product.description,
+    })
     setErrors({})
     setNotice('')
+    liberarPreview()
+    setFotoArchivo(null)
+    setQuitarFoto(false)
+    setFotoError('')
     setEditor(next)
+  }
+
+  function elegirFoto(event: ChangeEvent<HTMLInputElement>) {
+    const archivo = event.target.files?.[0]
+    if (!archivo) return
+
+    // Chequeo temprano para no hacer esperar al usuario un ida y vuelta. El
+    // backend vuelve a validar: acá solo es la respuesta inmediata.
+    if (!TIPOS_FOTO.includes(archivo.type)) {
+      setFotoError('Elegí una foto JPG, PNG o WebP.')
+      event.target.value = ''
+      return
+    }
+    if (archivo.size > LIMITE_FOTO_BYTES) {
+      setFotoError(`La foto supera el límite de ${Math.round(LIMITE_FOTO_BYTES / 1024 / 1024)}MB.`)
+      event.target.value = ''
+      return
+    }
+
+    setFotoError('')
+    setQuitarFoto(false)
+    liberarPreview()
+    const url = URL.createObjectURL(archivo)
+    previewRef.current = url
+    setFotoPreview(url)
+    setFotoArchivo(archivo)
+  }
+
+  function descartarFoto() {
+    liberarPreview()
+    setFotoArchivo(null)
+    setQuitarFoto(true)
+    setFotoError('')
   }
 
   async function submit(event: FormEvent) {
@@ -56,7 +145,9 @@ export function ProductsPage() {
     setSaving(true)
     setApiError('')
     try {
-      const product = editing ? await updateProduct(editing.id, payload) : await createProduct(payload)
+      const product = editing
+        ? await updateProduct(editing.id, payload, fotoArchivo, quitarFoto)
+        : await createProduct(payload, fotoArchivo)
       setProducts(current => editing ? current.map(item => item.id === editing.id ? product : item) : [...current, product])
       setNotice(editing ? 'Producto actualizado correctamente.' : 'Producto registrado correctamente.')
       setEditor(null)
@@ -119,7 +210,7 @@ export function ProductsPage() {
         </div>
         <div className="category-tabs" role="group" aria-label="Filtrar por categoría">{['Todas', ...categories].map(c => <button key={c} className={category === c ? 'selected' : ''} aria-pressed={category === c} onClick={() => setCategory(c)}>{c === 'Todas' ? 'Todos' : c}</button>)}</div>
         <div className="table-scroll"><table><thead><tr><th scope="col">Producto</th><th scope="col">Código</th><th scope="col">Categoría</th><th scope="col">Unidad de venta</th><th scope="col">Estado</th><th scope="col" className="actions-heading">Acciones</th></tr></thead><tbody>
-          {filtered.map(p => <tr key={p.id}><td><div className="product-cell"><span className={'product-symbol symbol-' + p.category.toLowerCase()}>{categorySymbols[p.category]}</span><div><button className="product-link" onClick={() => open({ mode: 'detail', product: p })}>{p.name}</button><span className="product-description">{p.description || 'Sin descripción'}</span></div></div></td><td><code>{p.code}</code></td><td><span className="category-label">{p.category}</span></td><td>{p.unit === 'kg' ? 'Kilogramo (kg)' : p.unit[0].toUpperCase() + p.unit.slice(1)}</td><td><span className={'badge ' + (p.active ? 'active' : 'inactive')}><span />{p.active ? 'Activo' : 'Inactivo'}</span></td><td><div className="row-actions"><button className="icon-button" title="Ver detalle" aria-label={'Ver ' + p.name} onClick={() => open({ mode: 'detail', product: p })}><Icon name="eye" size={18} /></button><button className="icon-button" title="Editar producto" aria-label={'Editar ' + p.name} onClick={() => open({ mode: 'edit', product: p })}><Icon name="edit" size={18} /></button><button className="icon-button danger-text" disabled={!p.active} title={p.active ? 'Dar de baja' : 'Producto inactivo'} aria-label={'Dar de baja ' + p.name} onClick={() => open({ mode: 'deactivate', product: p })}><Icon name="archive" size={18} /></button></div></td></tr>)}
+          {filtered.map(p => <tr key={p.id}><td><div className="product-cell"><FotoProducto producto={p} /><div><button className="product-link" onClick={() => open({ mode: 'detail', product: p })}>{p.name}</button><span className="product-description">{p.description || 'Sin descripción'}</span></div></div></td><td><code>{p.code}</code></td><td><span className="category-label">{p.category}</span></td><td>{p.unit === 'kg' ? 'Kilogramo (kg)' : p.unit[0].toUpperCase() + p.unit.slice(1)}</td><td><span className={'badge ' + (p.active ? 'active' : 'inactive')}><span />{p.active ? 'Activo' : 'Inactivo'}</span></td><td><div className="row-actions"><button className="icon-button" title="Ver detalle" aria-label={'Ver ' + p.name} onClick={() => open({ mode: 'detail', product: p })}><Icon name="eye" size={18} /></button><button className="icon-button" title="Editar producto" aria-label={'Editar ' + p.name} onClick={() => open({ mode: 'edit', product: p })}><Icon name="edit" size={18} /></button><button className="icon-button danger-text" disabled={!p.active} title={p.active ? 'Dar de baja' : 'Producto inactivo'} aria-label={'Dar de baja ' + p.name} onClick={() => open({ mode: 'deactivate', product: p })}><Icon name="archive" size={18} /></button></div></td></tr>)}
         </tbody></table></div>
         {filtered.length === 0 && <div className="empty-state"><Icon name="search" size={32} /><h3>{products.length ? 'No encontramos productos' : 'Tu catálogo está vacío'}</h3><p>{products.length ? 'Probá con otro nombre, código o categoría.' : 'Registrá tu primer producto para comenzar.'}</p>{products.length > 0 && <button className="button" onClick={() => { setSearch(''); setCategory('Todas'); setStatus('todos') }}>Limpiar filtros</button>}</div>}
         <div className="table-footer">Mostrando {filtered.length} de {products.length} productos<span>Las bajas conservan el historial del catálogo.</span></div>
@@ -138,10 +229,30 @@ export function ProductsPage() {
             <label>Unidad de venta *<select value={draft.unit} onChange={e => field('unit', e.target.value as Product['unit'])}>{units.map(u => <option key={u} value={u}>{u === 'kg' ? 'Kilogramo (kg)' : u}</option>)}</select></label>
             <label className="full-width">Descripción<textarea value={draft.description} maxLength={300} rows={3} onChange={e => field('description', e.target.value)} placeholder="Agregá detalles para identificar el producto" /><small>{draft.description.length}/300 caracteres</small></label>
           </div>
+          <div className="foto-field">
+            <span className="foto-label">Foto del producto</span>
+            <div className="foto-controls">
+              {fotoPreview
+                ? <img className="foto-preview" src={fotoPreview} alt="Previsualización de la foto elegida" />
+                : editor?.mode === 'edit' && editor.product.imagen && !quitarFoto
+                  ? <img className="foto-preview" src={editor.product.imagen.url} alt={editor.product.name} />
+                  : <span className="foto-vacia"><Icon name="image" size={22} /></span>}
+              <div className="foto-acciones">
+                <label className="button">
+                  <Icon name="image" size={18} />Elegir foto
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={elegirFoto} />
+                </label>
+                {(fotoArchivo || (editor?.mode === 'edit' && editor.product.imagen && !quitarFoto)) && <button type="button" className="button danger" onClick={descartarFoto}><Icon name="trash" size={18} />{fotoArchivo ? 'Quitar la elegida' : 'Quitar la foto'}</button>}
+                <small className="foto-help">JPG, PNG o WebP de hasta {Math.round(LIMITE_FOTO_BYTES / 1024 / 1024)}MB. Es opcional.</small>
+                {fotoError && <small className="field-error" role="alert">{fotoError}</small>}
+                {!fotoError && quitarFoto && <small className="foto-aviso" role="status">La foto se quitará al guardar.</small>}
+              </div>
+            </div>
+          </div>
           <div className="form-note">El precio y las ofertas se gestionarán en su propio módulo.</div>
           <div className="modal-footer"><button type="button" className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button type="submit" className="button primary" disabled={saving}><Icon name="check" size={18} />{saving ? 'Guardando...' : editor.mode === 'create' ? 'Registrar producto' : 'Guardar cambios'}</button></div>
         </form>}
-        {editor.mode === 'detail' && <><div className="detail-product"><span className={'product-symbol symbol-' + editor.product.category.toLowerCase()}>{categorySymbols[editor.product.category]}</span><div><h3>{editor.product.name}</h3><span className={'badge ' + (editor.product.active ? 'active' : 'inactive')}>{editor.product.active ? 'Activo' : 'Inactivo'}</span></div></div><dl className="detail-grid"><div><dt>Código</dt><dd>{editor.product.code}</dd></div><div><dt>Categoría</dt><dd>{editor.product.category}</dd></div><div><dt>Unidad de venta</dt><dd>{editor.product.unit}</dd></div><div className="full-width"><dt>Descripción</dt><dd>{editor.product.description || 'Sin descripción'}</dd></div></dl><div className="modal-footer"><button className="button" onClick={() => setEditor(null)}>Cerrar</button><button className="button primary" onClick={() => open({ mode: 'edit', product: editor.product })}><Icon name="edit" size={18} />Editar producto</button></div></>}
+        {editor.mode === 'detail' && <><div className="detail-product"><FotoProducto producto={editor.product} /><div><h3>{editor.product.name}</h3><span className={'badge ' + (editor.product.active ? 'active' : 'inactive')}>{editor.product.active ? 'Activo' : 'Inactivo'}</span></div></div><dl className="detail-grid"><div><dt>Código</dt><dd>{editor.product.code}</dd></div><div><dt>Categoría</dt><dd>{editor.product.category}</dd></div><div><dt>Unidad de venta</dt><dd>{editor.product.unit}</dd></div>{editor.product.imagen && <div className="full-width"><dt>Foto</dt><dd>{editor.product.imagen.nombre} · {formatearPeso(editor.product.imagen.bytes)}</dd></div>}<div className="full-width"><dt>Descripción</dt><dd>{editor.product.description || 'Sin descripción'}</dd></div></dl><div className="modal-footer"><button className="button" onClick={() => setEditor(null)}>Cerrar</button><button className="button primary" onClick={() => open({ mode: 'edit', product: editor.product })}><Icon name="edit" size={18} />Editar producto</button></div></>}
         {editor.mode === 'deactivate' && <><div className="confirmation-icon"><Icon name="archive" size={28} /></div><p>¿Querés dar de baja <strong>{editor.product.name}</strong>?</p><p>El producto quedará inactivo. Sus datos se conservarán y podrás consultarlo usando el filtro de estado.</p><div className="modal-footer"><button autoFocus className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button className="button danger" disabled={saving} onClick={() => deactivate(editor.product)}>{saving ? 'Procesando...' : 'Confirmar baja'}</button></div></>}
       </Modal>}
     </section>

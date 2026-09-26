@@ -641,9 +641,73 @@
                                                                                                                                                                                                                                                                                   background:white;
                                                                                                                                                                                                                                                                                   padding:15px;
                                                                                                                                                                                                                                                                                   z-index:10}
-                                                                                                                                                                                                                                                                                  .skip-link:focus{
-                                                                                                                                                                                                                                                                                    top:15px}
-                                                                                                                                                                                                                                                                                    @media(min-width:1500px){
+                                                                                                                      .skip-link:focus{
+                                                                                                                        top:15px}
+
+                                                                                                                      /* La foto reemplaza la letra de categoría
+                                                                                                                         con las mismas medidas, así la fila
+                                                                                                                         no cambia de alto al cargarse. */
+                                                                                                                      .product-foto{
+                                                                                                                        width:44px;
+                                                                                                                        height:44px;
+                                                                                                                        border-radius:10px;
+                                                                                                                        object-fit:cover;
+                                                                                                                        flex-shrink:0;
+                                                                                                                        background:#f2f4f8}
+                                                                                                                      .foto-field{
+                                                                                                                        margin-top:4px}
+                                                                                                                      .foto-label{
+                                                                                                                        display:block;
+                                                                                                                        font-size:12px;
+                                                                                                                        font-weight:600;
+                                                                                                                        color:#5b6a80;
+                                                                                                                        margin-bottom:8px}
+                                                                                                                      .foto-controls{
+                                                                                                                        display:flex;
+                                                                                                                        align-items:center;
+                                                                                                                        gap:16px}
+                                                                                                                      .foto-preview{
+                                                                                                                        width:84px;
+                                                                                                                        height:84px;
+                                                                                                                        border-radius:12px;
+                                                                                                                        object-fit:cover;
+                                                                                                                        background:#f2f4f8;
+                                                                                                                        border:1px solid #e3e8f0;
+                                                                                                                        flex-shrink:0}
+                                                                                                                      .foto-vacia{
+                                                                                                                        display:grid;
+                                                                                                                        place-items:center;
+                                                                                                                        width:84px;
+                                                                                                                        height:84px;
+                                                                                                                        border-radius:12px;
+                                                                                                                        background:#f7f8fb;
+                                                                                                                        border:1px dashed #cfd8e6;
+                                                                                                                        color:#a6b2c4;
+                                                                                                                        flex-shrink:0}
+                                                                                                                      .foto-acciones{
+                                                                                                                        display:flex;
+                                                                                                                        flex-direction:column;
+                                                                                                                        align-items:flex-start;
+                                                                                                                        gap:8px}
+                                                                                                                      /* El input real queda oculto: el <label>
+                                                                                                                         es el botón, y así igual se llega con
+                                                                                                                         el teclado y se anuncia como control. */
+                                                                                                                      .foto-acciones .button input[type=file]{
+                                                                                                                        position:absolute;
+                                                                                                                        width:1px;
+                                                                                                                        height:1px;
+                                                                                                                        opacity:0;
+                                                                                                                        pointer-events:none}
+                                                                                                                      .foto-acciones .button:focus-within{
+                                                                                                                        outline:2px solid #e1b939;
+                                                                                                                        outline-offset:2px}
+                                                                                                                      .foto-help{
+                                                                                                                        font-size:11px;
+                                                                                                                        color:#77859a}
+                                                                                                                      .foto-aviso{
+                                                                                                                        font-size:11px;
+                                                                                                                        color:#b07d2a}
+                                                                                                                      @media(min-width:1500px){
                                                                                                                                                                                                                                                                                       td{
                                                                                                                                                                                                                                                                                         padding-block:20px}
                                                                                                                                                                                                                                                                                         .container{
