@@ -6,6 +6,16 @@ import ProveedorRepository from '../repositories/proveedorRepository.js';
 import ProductoRepository from '../repositories/productoRepository.js';
 import ProductoProveedorRepository from '../repositories/ProductoProveedorRepository.js';
 import ProductoDiaPedidoRepository from '../repositories/productoDiaPedidoRepository.js';
+import PrecioRepository from '../repositories/precioRepository.js';
+import OfertaRepository from '../repositories/ofertaRepository.js';
+import OfertaProductoRepository from '../repositories/ofertaProductoRepository.js';
+
+import Precio from '../models/Precio.js';
+import Oferta from '../models/Oferta.js';
+import OfertaProducto from '../models/OfertaProducto.js';
+import Producto from '../models/Producto.js';
+import TipoProducto from '../models/TipoProducto.js';
+import Proveedor from '../models/Proveedor.js';
 
 
 // ============================================================
@@ -22,6 +32,10 @@ const productoProveedorRepository =
 
 const productoDiaPedidoRepository =
     new ProductoDiaPedidoRepository();
+const precioRepository = new PrecioRepository();
+const ofertaRepository = new OfertaRepository();
+const ofertaProductoRepository =
+    new OfertaProductoRepository();
 
 
 // ============================================================
@@ -295,14 +309,27 @@ async function test1() {
 
 
         // ----------------------------------------------------
-        // ELIMINACIÓN FÍSICA
-        // ----------------------------------------------------
+        // LIMPIEZA
         //
-        // No se realiza.
-        //
-        // El sistema utiliza baja lógica.
-        // El registro de prueba queda conservado.
+        // El alta/baja/restauración de arriba es el objeto de la
+        // prueba y usa baja lógica, que es el comportamiento real del
+        // sistema. Lo que NO debe quedar es el registro de prueba: si
+        // se conserva, cada corrida suma un TEST_TIPO_* permanente a
+        // la base.
         // ----------------------------------------------------
+
+        logInfo(
+            'Limpiando el tipo de producto de la prueba...'
+        );
+
+        await TipoProducto.destroy({
+            where: { id: tipoCreado.id }
+        });
+
+        logOk(
+            'Tipo de producto de prueba eliminado.'
+        );
+
 
         pruebaExitosa();
 
@@ -660,6 +687,27 @@ async function test3() {
         );
 
 
+        // ----------------------------------------------------
+        // LIMPIEZA
+        //
+        // La baja lógica ya se probó más arriba; lo que se borra acá
+        // es el registro de prueba, para no acumular un
+        // TEST_PROVEEDOR_* por cada corrida.
+        // ----------------------------------------------------
+
+        logInfo(
+            'Limpiando el proveedor de la prueba...'
+        );
+
+        await Proveedor.destroy({
+            where: { id: proveedorCreado.id }
+        });
+
+        logOk(
+            'Proveedor de prueba eliminado.'
+        );
+
+
         pruebaExitosa();
 
     } catch (error) {
@@ -719,6 +767,9 @@ async function test4() {
         const nombre =
             `TEST_PRODUCTO_${Date.now()}`;
 
+        const codigo =
+            `TEST-${Date.now()}`;
+
         logInfo(
             `Creando producto "${nombre}"...`
         );
@@ -727,6 +778,8 @@ async function test4() {
             await productoRepository.create({
 
                 nombre,
+
+                codigo,
 
                 tipoProductoId: tipo.id,
 
@@ -976,6 +1029,27 @@ async function test4() {
         logOk(
             `Resultado final: activo=${productoRestaurado.activo}, ` +
             `fechaBaja=${productoRestaurado.fechaBaja}`
+        );
+
+
+        // ----------------------------------------------------
+        // LIMPIEZA
+        //
+        // El producto de prueba se borra físicamente: antes esta
+        // prueba fallaba al dar de alta y no dejaba rastro, así que
+        // sin esto cada corrida acumularía un producto más.
+        // ----------------------------------------------------
+
+        logInfo(
+            'Limpiando el producto de la prueba...'
+        );
+
+        await Producto.destroy({
+            where: { id: productoCreado.id }
+        });
+
+        logOk(
+            'Producto de prueba eliminado.'
         );
 
 
@@ -1583,6 +1657,848 @@ async function test6() {
 
 
 // ============================================================
+// PRUEBA 7
+//
+// PRECIO
+//
+// Alta → consulta → cambio de precio → historial → cierre
+// → reapertura → baja → restauración
+// ============================================================
+
+async function test7() {
+
+    iniciarPrueba(
+        7,
+        'Precio: alta, vigencia, historial y baja lógica'
+    );
+
+    const productoId = 1;
+
+    try {
+
+        // ----------------------------------------------------
+        // CONSULTA DEL PRODUCTO
+        // ----------------------------------------------------
+
+        const producto =
+            await productoRepository.findById(productoId);
+
+        if (!producto) {
+
+            throw new Error(
+                'No se encontró el producto del precio.'
+            );
+        }
+
+        logInfo('Registrando el primer precio...');
+
+        const primero = await precioRepository.registrarPrecio(
+            productoId,
+            '1000.00',
+            '900.00'
+        );
+
+        logOk(
+            `Precio registrado: id=${primero.id}, ` +
+            `minorista=${primero.precioMinorista}, ` +
+            `mayorista=${primero.precioMayorista}`
+        );
+
+        if (primero.fechaHasta !== null) {
+
+            throw new Error(
+                'El precio registrado no debería tener fechaHasta.'
+            );
+        }
+
+
+        // ----------------------------------------------------
+        // CONSULTA DEL PRECIO VIGENTE
+        // ----------------------------------------------------
+
+        logInfo('Consultando el precio vigente...');
+
+        const vigente =
+            await precioRepository.findVigente(productoId);
+
+        if (!vigente) {
+
+            throw new Error(
+                'No se encontró el precio vigente.'
+            );
+        }
+
+        if (vigente.id !== primero.id) {
+
+            throw new Error(
+                'El precio vigente no es el registrado.'
+            );
+        }
+
+        logOk(
+            `Vigente: id=${vigente.id}, ` +
+            `minorista=${vigente.precioMinorista}`
+        );
+
+        const abierto =
+            await precioRepository.findAbierto(productoId);
+
+        if (!abierto || abierto.id !== primero.id) {
+
+            throw new Error(
+                'No se encontró el precio abierto.'
+            );
+        }
+
+        logOk('findAbierto devolvió el precio abierto.');
+
+
+        // ----------------------------------------------------
+        // CAMBIO DE PRECIO
+        // ----------------------------------------------------
+
+        logInfo('Registrando un segundo precio...');
+
+        const segundo = await precioRepository.registrarPrecio(
+            productoId,
+            '1200.00',
+            '1100.00'
+        );
+
+        const primeroCerrado =
+            await precioRepository.findById(primero.id);
+
+        if (!primeroCerrado || primeroCerrado.fechaHasta === null) {
+
+            throw new Error(
+                'El precio anterior no se cerró al registrar el nuevo.'
+            );
+        }
+
+        logOk(
+            `Anterior cerrado: fechaHasta=${primeroCerrado.fechaHasta}`
+        );
+
+        const vigenteNuevo =
+            await precioRepository.findVigente(productoId);
+
+        if (!vigenteNuevo || vigenteNuevo.id !== segundo.id) {
+
+            throw new Error(
+                'El precio vigente no se actualizó al nuevo.'
+            );
+        }
+
+        logOk('El precio vigente pasó a ser el nuevo.');
+
+
+        // ----------------------------------------------------
+        // HISTORIAL
+        // ----------------------------------------------------
+
+        logInfo('Consultando el historial de precios...');
+
+        const historial =
+            await precioRepository.findHistorial(productoId, 1, 10);
+
+        if (historial.length !== 2) {
+
+            throw new Error(
+                `El historial debía traer 2 precios y trajo ${historial.length}.`
+            );
+        }
+
+        logOk(`Historial con ${historial.length} precios.`);
+
+
+        // ----------------------------------------------------
+        // CIERRE DE VIGENCIA
+        // ----------------------------------------------------
+
+        logInfo('Cerrando la vigencia del precio actual...');
+
+        const cerrado = await precioRepository.cerrarVigencia(
+            segundo.id
+        );
+
+        if (!cerrado || cerrado.fechaHasta === null) {
+
+            throw new Error(
+                'No se pudo cerrar la vigencia del precio.'
+            );
+        }
+
+        const sinVigente =
+            await precioRepository.findVigente(productoId);
+
+        if (sinVigente) {
+
+            throw new Error(
+                'No debería haber un precio vigente tras cerrarlo.'
+            );
+        }
+
+        logOk('Tras el cierre no hay precio vigente.');
+
+
+        // ----------------------------------------------------
+        // REAPERTURA
+        // ----------------------------------------------------
+
+        logInfo('Registrando un precio para reabrir la vigencia...');
+
+        const tercero = await precioRepository.registrarPrecio(
+            productoId,
+            '1300.00'
+        );
+
+        const vigenteTercero =
+            await precioRepository.findVigente(productoId);
+
+        if (!vigenteTercero || vigenteTercero.id !== tercero.id) {
+
+            throw new Error(
+                'La reapertura no quedó vigente.'
+            );
+        }
+
+        if (tercero.precioMayorista !== null) {
+
+            throw new Error(
+                'El precio mayorista debía quedar en null.'
+            );
+        }
+
+        logOk(
+            `Reabierto: id=${tercero.id}, ` +
+            `mayorista=${tercero.precioMayorista}`
+        );
+
+
+        // ----------------------------------------------------
+        // BAJA LÓGICA
+        // ----------------------------------------------------
+
+        logInfo('Realizando baja lógica del precio...');
+
+        const baja = await precioRepository.deleteById(tercero.id);
+
+        if (!baja || baja.activo !== false) {
+
+            throw new Error(
+                'No se pudo registrar la baja lógica del precio.'
+            );
+        }
+
+        const consultarBaja =
+            await precioRepository.findById(tercero.id);
+
+        if (!consultarBaja || consultarBaja.activo !== false) {
+
+            throw new Error(
+                'El precio no quedó dado de baja.'
+            );
+        }
+
+        logOk(
+            `Baja lógica: activo=${consultarBaja.activo}, ` +
+            `fechaBaja=${consultarBaja.fechaBaja}`
+        );
+
+
+        // ----------------------------------------------------
+        // RESTAURACIÓN
+        // ----------------------------------------------------
+
+        logInfo('Restaurando el precio...');
+
+        await precioRepository.updateById(tercero.id, {
+            activo: true,
+            fechaBaja: null
+        });
+
+        const restaurado =
+            await precioRepository.findById(tercero.id);
+
+        if (!restaurado || restaurado.activo !== true) {
+
+            throw new Error(
+                'No se pudo restaurar el precio.'
+            );
+        }
+
+        logOk('Precio restaurado.');
+
+
+        // ----------------------------------------------------
+        // LIMPIEZA
+        //
+        // A diferencia de las pruebas anteriores, acá se borra
+        // físicamente: el índice precios_unico_abierto impide
+        // dejar un precio abierto colgado de una corrida anterior.
+        // ----------------------------------------------------
+
+        logInfo('Limpiando los precios de la prueba...');
+
+        await Precio.destroy({
+            where: { productoId }
+        });
+
+        logOk('Precios de prueba eliminados.');
+
+
+        pruebaExitosa();
+
+    } catch (error) {
+
+        pruebaFallida(error);
+    }
+}
+
+
+// ============================================================
+// PRUEBA 8
+//
+// OFERTA
+//
+// Alta → consulta → vigencia → ajuste de fechas → baja
+// → restauración
+// ============================================================
+
+async function test8() {
+
+    iniciarPrueba(
+        8,
+        'Oferta: alta, vigencia y baja lógica'
+    );
+
+    const nombre = 'Oferta de prueba repositorio';
+
+    try {
+
+        // ----------------------------------------------------
+        // ALTA
+        // ----------------------------------------------------
+
+        logInfo('Creando la oferta...');
+
+        const inicio = new Date('2026-01-01T00:00:00.000Z');
+        const fin = new Date('2026-02-01T00:00:00.000Z');
+
+        const oferta = await ofertaRepository.create({
+            nombre,
+            descripcion: 'Oferta temporal de verificación',
+            fechaInicio: inicio,
+            fechaFin: fin
+        });
+
+        logOk(`Oferta creada: id=${oferta.id}`);
+
+        if (oferta.activo !== true) {
+
+            throw new Error(
+                'La oferta no debería haber nacido dada de baja.'
+            );
+        }
+
+
+        // ----------------------------------------------------
+        // CONSULTA
+        // ----------------------------------------------------
+
+        logInfo('Consultando la oferta por nombre...');
+
+        const porNombre =
+            await ofertaRepository.findByName(nombre);
+
+        if (!porNombre || porNombre.id !== oferta.id) {
+
+            throw new Error(
+                'No se encontró la oferta por nombre.'
+            );
+        }
+
+        logOk('findByName devolvió la oferta.');
+
+        const porId =
+            await ofertaRepository.findByIdActivo(oferta.id);
+
+        if (!porId || porId.id !== oferta.id) {
+
+            throw new Error(
+                'findByIdActivo no devolvió la oferta.'
+            );
+        }
+
+        logOk('findByIdActivo devolvió la oferta.');
+
+
+        // ----------------------------------------------------
+        // VIGENCIA
+        // ----------------------------------------------------
+
+        logInfo('Consultando ofertas vigentes...');
+
+        const dentroDeRango = new Date('2026-01-15T00:00:00.000Z');
+        const fueraDeRango = new Date('2026-03-01T00:00:00.000Z');
+
+        const vigentesDentro =
+            await ofertaRepository.findTodasVigentes(dentroDeRango);
+
+        if (!vigentesDentro.some(o => o.id === oferta.id)) {
+
+            throw new Error(
+                'La oferta debía estar vigente dentro de su rango.'
+            );
+        }
+
+        logOk('Está vigente dentro de su rango.');
+
+        const vigentesFuera =
+            await ofertaRepository.findTodasVigentes(fueraDeRango);
+
+        if (vigentesFuera.some(o => o.id === oferta.id)) {
+
+            throw new Error(
+                'La oferta no debía estar vigente fuera de su rango.'
+            );
+        }
+
+        logOk('No está vigente fuera de su rango.');
+
+
+        // ----------------------------------------------------
+        // AJUSTE DE FECHAS
+        // ----------------------------------------------------
+
+        logInfo('Ajustando la ventana de la oferta...');
+
+        const nuevoInicio = new Date('2026-01-10T00:00:00.000Z');
+        const nuevoFin = new Date('2026-01-20T00:00:00.000Z');
+
+        const ajustada = await ofertaRepository.updateVigencia(
+            oferta.id,
+            nuevoInicio,
+            nuevoFin
+        );
+
+        if (!ajustada) {
+
+            throw new Error(
+                'No se pudo ajustar la vigencia de la oferta.'
+            );
+        }
+
+        if (
+            ajustada.fechaInicio.getTime() !== nuevoInicio.getTime() ||
+            ajustada.fechaFin.getTime() !== nuevoFin.getTime()
+        ) {
+
+            throw new Error(
+                'Las fechas de la oferta no se actualizaron.'
+            );
+        }
+
+        logOk('Ventana de la oferta actualizada.');
+
+
+        // ----------------------------------------------------
+        // BAJA LÓGICA
+        // ----------------------------------------------------
+
+        logInfo('Realizando baja lógica de la oferta...');
+
+        const baja = await ofertaRepository.deleteById(oferta.id);
+
+        if (!baja || baja.activo !== false) {
+
+            throw new Error(
+                'No se pudo registrar la baja lógica de la oferta.'
+            );
+        }
+
+        const porIdInactivo =
+            await ofertaRepository.findByIdActivo(oferta.id);
+
+        if (porIdInactivo) {
+
+            throw new Error(
+                'findByIdActivo no debería devolver una oferta dada de baja.'
+            );
+        }
+
+        const activas = await ofertaRepository.findAllActivos();
+        const enActivos = activas.rows.some(o => o.id === oferta.id);
+
+        if (enActivos) {
+
+            throw new Error(
+                'La oferta dada de baja apareció en findAllActivos.'
+            );
+        }
+
+        logOk(
+            'Baja lógica registrada y excluida de las activas.'
+        );
+
+
+        // ----------------------------------------------------
+        // RESTAURACIÓN
+        // ----------------------------------------------------
+
+        logInfo('Restaurando la oferta...');
+
+        await ofertaRepository.updateById(oferta.id, {
+            activo: true,
+            fechaBaja: null
+        });
+
+        const restaurada =
+            await ofertaRepository.findByIdActivo(oferta.id);
+
+        if (!restaurada || restaurada.activo !== true) {
+
+            throw new Error(
+                'No se pudo restaurar la oferta.'
+            );
+        }
+
+        logOk('Oferta restaurada.');
+
+
+        // ----------------------------------------------------
+        // LIMPIEZA
+        // ----------------------------------------------------
+
+        logInfo('Limpiando la oferta de la prueba...');
+
+        await OfertaProducto.destroy({
+            where: { ofertaId: oferta.id }
+        });
+
+        await Oferta.destroy({
+            where: { id: oferta.id }
+        });
+
+        logOk('Oferta de prueba eliminada.');
+
+
+        pruebaExitosa();
+
+    } catch (error) {
+
+        pruebaFallida(error);
+    }
+}
+
+
+// ============================================================
+// PRUEBA 9
+//
+// OFERTA-PRODUCTO
+//
+// Alta relación → duplicado → consulta → modificación
+// → ofertas vigentes → baja → restauración
+// ============================================================
+
+async function test9() {
+
+    iniciarPrueba(
+        9,
+        'OfertaProducto: relación, duplicado y baja lógica'
+    );
+
+    const productoId = 1;
+
+    try {
+
+        // ----------------------------------------------------
+        // PREPARACIÓN
+        // ----------------------------------------------------
+
+        const producto =
+            await productoRepository.findById(productoId);
+
+        if (!producto) {
+
+            throw new Error(
+                'No se encontró el producto de la relación.'
+            );
+        }
+
+        const inicio = new Date('2026-01-01T00:00:00.000Z');
+        const fin = new Date('2026-12-31T00:00:00.000Z');
+
+        const oferta = await ofertaRepository.create({
+            nombre: 'Oferta de prueba relación',
+            descripcion: 'Relación temporal de verificación',
+            fechaInicio: inicio,
+            fechaFin: fin
+        });
+
+        logInfo(
+            `Oferta de apoyo creada: id=${oferta.id}`
+        );
+
+
+        // ----------------------------------------------------
+        // ALTA DE LA RELACIÓN
+        // ----------------------------------------------------
+
+        logInfo('Creando la relación oferta-producto...');
+
+        const relacion = await ofertaProductoRepository.create({
+            ofertaId: oferta.id,
+            productoId,
+            precioOferta: '850.00'
+        });
+
+        logOk(
+            `Relación creada: id=${relacion.id}, ` +
+            `precioOferta=${relacion.precioOferta}`
+        );
+
+        const existe =
+            await ofertaProductoRepository.existsOfertaProducto(
+                oferta.id,
+                productoId
+            );
+
+        if (!existe) {
+
+            throw new Error(
+                'La relación no se encontró.'
+            );
+        }
+
+        logOk('existsOfertaProducto devolvió true.');
+
+
+        // ----------------------------------------------------
+        // DUPLICADO
+        // ----------------------------------------------------
+
+        logInfo('Intentando crear un duplicado...');
+
+        let duplicadoRechazado = false;
+
+        try {
+
+            await ofertaProductoRepository.create({
+                ofertaId: oferta.id,
+                productoId,
+                precioOferta: '700.00'
+            });
+
+        } catch (error) {
+
+            duplicadoRechazado = true;
+
+            logInfo(
+                'El duplicado fue rechazado por el índice único.'
+            );
+        }
+
+        if (!duplicadoRechazado) {
+
+            throw new Error(
+                'Se permitió crear una relación duplicada.'
+            );
+        }
+
+        logOk('El índice único impidió el duplicado.');
+
+
+        // ----------------------------------------------------
+        // CONSULTA
+        // ----------------------------------------------------
+
+        logInfo('Consultando los productos de la oferta...');
+
+        const productos =
+            await ofertaProductoRepository.getProductos(oferta.id);
+
+        if (productos.length !== 1 || productos[0].id !== productoId) {
+
+            throw new Error(
+                `getProductos debía traer 1 producto y trajo ${productos.length}.`
+            );
+        }
+
+        logOk(`getProductos trajo ${productos.length} producto(s).`);
+
+        const porNombre =
+            await ofertaProductoRepository.findProductosName(oferta.id);
+
+        if (porNombre[0] !== producto.nombre) {
+
+            throw new Error(
+                'findProductosName no devolvió el nombre esperado.'
+            );
+        }
+
+        const total =
+            await ofertaProductoRepository.countProductos(oferta.id);
+
+        if (total !== 1) {
+
+            throw new Error(
+                `countProductos debía devolver 1 y devolvió ${total}.`
+            );
+        }
+
+        logOk('findProductosName y countProductos correctos.');
+
+
+        // ----------------------------------------------------
+        // MODIFICACIÓN
+        // ----------------------------------------------------
+
+        logInfo('Modificando el precio de la oferta...');
+
+        const modificada =
+            await ofertaProductoRepository.updatePrecioOferta(
+                oferta.id,
+                productoId,
+                '800.00'
+            );
+
+        if (!modificada || modificada.precioOferta !== '800.00') {
+
+            throw new Error(
+                'No se pudo modificar el precio de la oferta.'
+            );
+        }
+
+        logOk('precioOferta actualizado a 800.00.');
+
+
+        // ----------------------------------------------------
+        // OFERTAS VIGENTES DEL PRODUCTO
+        // ----------------------------------------------------
+
+        logInfo('Consultando las ofertas vigentes del producto...');
+
+        const dentroDeRango = new Date('2026-06-01T00:00:00.000Z');
+        const fueraDeRango = new Date('2027-06-01T00:00:00.000Z');
+
+        const vigentesDentro =
+            await ofertaProductoRepository.getOfertasVigentes(
+                productoId,
+                dentroDeRango
+            );
+
+        if (!vigentesDentro.some(o => o.id === oferta.id)) {
+
+            throw new Error(
+                'La oferta debía estar vigente dentro de su rango.'
+            );
+        }
+
+        const vigentesFuera =
+            await ofertaProductoRepository.getOfertasVigentes(
+                productoId,
+                fueraDeRango
+            );
+
+        if (vigentesFuera.some(o => o.id === oferta.id)) {
+
+            throw new Error(
+                'La oferta no debía estar vigente fuera de su rango.'
+            );
+        }
+
+        logOk('El filtro de vigencia funciona en ambos sentidos.');
+
+
+        // ----------------------------------------------------
+        // BAJA LÓGICA
+        // ----------------------------------------------------
+
+        logInfo('Realizando baja lógica de la relación...');
+
+        const baja =
+            await ofertaProductoRepository.deleteByOfertaProducto(
+                oferta.id,
+                productoId
+            );
+
+        if (!baja || baja.activo !== false) {
+
+            throw new Error(
+                'No se pudo registrar la baja lógica de la relación.'
+            );
+        }
+
+        const activos =
+            await ofertaProductoRepository.getProductosActivos(oferta.id);
+
+        if (activos.some(p => p.id === productoId)) {
+
+            throw new Error(
+                'La relación dada de baja apareció en getProductosActivos.'
+            );
+        }
+
+        logOk(
+            'Baja lógica registrada y excluida de las activas.'
+        );
+
+
+        // ----------------------------------------------------
+        // RESTAURACIÓN
+        // ----------------------------------------------------
+
+        logInfo('Restaurando la relación...');
+
+        await ofertaProductoRepository.activateOfertaProducto(
+            oferta.id,
+            productoId
+        );
+
+        const restaurada =
+            await ofertaProductoRepository.findByOfertaProducto(
+                oferta.id,
+                productoId
+            );
+
+        if (!restaurada || restaurada.activo !== true) {
+
+            throw new Error(
+                'No se pudo restaurar la relación.'
+            );
+        }
+
+        logOk('Relación restaurada.');
+
+
+        // ----------------------------------------------------
+        // LIMPIEZA
+        // ----------------------------------------------------
+
+        logInfo('Limpiando los datos de la prueba...');
+
+        await OfertaProducto.destroy({
+            where: { ofertaId: oferta.id }
+        });
+
+        await Oferta.destroy({
+            where: { id: oferta.id }
+        });
+
+        logOk('Datos de la prueba eliminados.');
+
+
+        pruebaExitosa();
+
+    } catch (error) {
+
+        pruebaFallida(error);
+    }
+}
+
+
+// ============================================================
 // EJECUCIÓN
 // ============================================================
 
@@ -1621,6 +2537,9 @@ async function ejecutarPruebas() {
         await test4();
         await test5();
         await test6();
+        await test7();
+        await test8();
+        await test9();
 
 
     } catch (error) {

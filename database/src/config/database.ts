@@ -2,7 +2,8 @@ import { Sequelize } from "sequelize";
 import { config } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 
-// Carga el .env de database aunque el consumidor se ejecute desde otra carpeta.
+// Carga el .env de la raíz del repo y permite sobreescribir con database/.env.
+config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 config({ path: fileURLToPath(new URL('../../.env', import.meta.url)) });
 
 
