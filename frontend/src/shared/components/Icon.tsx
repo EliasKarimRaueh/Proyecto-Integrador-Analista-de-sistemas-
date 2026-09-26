@@ -1,9 +1,9 @@
-export type IconName = 'home' | 'box' | 'bag' | 'users' | 'key' | 'search' | 'plus' | 'edit' | 'eye' | 'close' | 'archive' | 'check' | 'arrow' | 'image' | 'trash'
+export type IconName = 'home' | 'box' | 'bag' | 'users' | 'key' | 'search' | 'plus' | 'edit' | 'eye' | 'close' | 'archive' | 'check' | 'arrow' | 'tag' | 'percent' | 'calendar' | 'image' | 'trash'
 const paths: Record<IconName, string> = {
   home: 'm3 10 9-7 9 7v10H14v-7h-4v7H3Z',
   box: 'm3 7 9-4 9 4v10l-9 4-9-4Zm0 0 9 4 9-4M12 11v10M7 5l10 4',
   bag: 'M5 7h14l1 14H4ZM9 7V5a3 3 0 0 1 6 0v2',
-  users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M17 4a4 4 0 1 1 0 7M22 21v-2a4 4 0 0 0-3-4',
+  users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M17 4a4 4 0 0 1 0 7M22 21a4 4 0 0 0-3-4',
   key: 'M8 14a5 5 0 1 1 4-4L22 2M18 6l3 3M15 9l3 3',
   search: 'M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',
   plus: 'M12 5v14M5 12h14',
@@ -13,10 +13,12 @@ const paths: Record<IconName, string> = {
   archive: 'M4 8h16v13H4ZM3 3h18v5H3ZM9 12h6',
   check: 'm5 12 4 4L19 6',
   arrow: 'm9 5 7 7-7 7',
+  tag: 'M20.6 13.4 12 22l-9-9V3h10ZM7.5 7.5h.01',
+  percent: 'M18 6 6 18M7.5 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM16.5 13.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z',
+  calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
   image: 'M3 5h18v14H3Z M3 16l4.5-4.5 3.5 3.5L14 12l7 7 M8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6',
 }
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>
 }
-

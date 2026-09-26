@@ -61,6 +61,21 @@ export async function deactivateProduct(id: string): Promise<Product> {
 
 const apiUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
 
+/**
+ * Keeps the HTTP status next to the message, so callers can tell a 404
+ * ("this product has no price yet") apart from a 400 or a 409 without
+ * having to read the text.
+ */
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 /** Envía una solicitud a un endpoint que devuelve JSON. */
 export async function apiRequest<T>(
   path: string,
@@ -79,7 +94,10 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { message?: string } | null
-    throw new Error(payload?.message || `Error en la API: ${response.status} ${response.statusText}`)
+    throw new ApiError(
+      payload?.message || `Error en la API: ${response.status} ${response.statusText}`,
+      response.status
+    )
   }
 
   if (response.status === 204) {
