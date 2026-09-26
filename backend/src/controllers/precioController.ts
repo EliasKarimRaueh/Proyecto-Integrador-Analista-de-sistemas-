@@ -1,6 +1,6 @@
 // backend/src/controllers/precioController.ts
 import { type Request, type Response } from 'express';
-import PrecioRepository from 'polleria-database/repositories/precioRepository';
+import PrecioRepository, { ErrorVigenciaPrecio } from 'polleria-database/repositories/precioRepository';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import {
   parseFecha, parseId, parseMonto, parseMontoOpcional, parsePaginacion,
@@ -46,6 +46,42 @@ async function productoExiste(productoId: number) {
   const producto = await productoRepository.findById(productoId);
   return producto !== null && producto.activo;
 }
+
+// GET /api/precios
+// Precios de todos los productos en una sola consulta.
+//
+// Por defecto devuelve el precio vigente de cada producto, que es lo
+// que necesita la columna de precios del catálogo: el frontend indexa
+// la respuesta por productoId y no tiene que pedir un endpoint por
+// fila. Con ?vigente=false devuelve el histórico completo.
+export const getPrecios = async (req: Request, res: Response) => {
+
+    const paginacion = parsePaginacion(req.query as Record<string, unknown>);
+    if (!paginacion.ok) { res.status(400).json({ message: paginacion.error }); return; }
+
+    try {
+        const { page, limit } = paginacion.value;
+        const soloVigentes = req.query.vigente !== 'false';
+        const resultado = await precioRepository.findGlobales(soloVigentes, page, limit);
+
+        // El índice único garantiza un solo precio abierto por producto,
+        // pero si algún precio queda con fechaHasta futura puede haber
+        // más de un vigente. Se queda el más reciente para no romper la
+        // promesa de "una fila por producto".
+        const vistos = new Set<number>();
+        const precios = resultado.rows
+            .filter(precio => {
+                if (!soloVigentes) return true;
+                if (vistos.has(precio.productoId)) return false;
+                vistos.add(precio.productoId);
+                return true;
+            });
+
+        res.json(precios.map(presentPrecio));
+    } catch (error) {
+        sendDatabaseError(res, error, 'No se pudieron leer los precios.');
+    }
+};
 
 // GET /api/precios/productos/:productoId
 // Historial completo de precios del producto, del más nuevo al más viejo.
@@ -126,13 +162,20 @@ export const registrarPrecio = async (req: Request, res: Response) => {
 
     res.status(201).json(presentPrecio(precio));
   } catch (error) {
+    // No es una falla de base: es la regla de vigencia, y el mensaje
+    // dice cuál es la salida correcta.
+    if (error instanceof ErrorVigenciaPrecio) {
+      res.status(409).json({ message: error.message });
+      return;
+    }
     sendDatabaseError(res, error, 'No se pudo registrar el precio.');
   }
 };
 
 // PUT /api/precios/:id
 // Corrige los montos de un precio ya existente sin tocar su vigencia.
-// Para cambiar la vigencia hay que registrar un precio nuevo.
+// Para cambiar la vigencia hay que registrar un precio nuevo con una
+// fecha posterior a la del precio vigente.
 export const actualizarPrecio = async (req: Request, res: Response) => {
 
   const id = parseId(req.params.id, 'El identificador del precio');

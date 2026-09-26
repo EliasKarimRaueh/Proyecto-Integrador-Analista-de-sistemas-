@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 
 const modules = [
   { to: '/productos', title: 'Productos', description: 'Consultá, registrá, modificá y da de baja productos del catálogo.' },
+  { to: '/ofertas', title: 'Ofertas', description: 'Armá promociones con precios especiales por producto.' },
   { to: '/pedidos', title: 'Pedidos', description: 'Registro y seguimiento de pedidos.' },
   { to: '/stock', title: 'Stock', description: 'Control de productos y existencias.' },
   { to: '/clientes', title: 'Clientes', description: 'Administración de datos de clientes.' },
