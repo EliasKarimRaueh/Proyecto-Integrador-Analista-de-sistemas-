@@ -1,10 +1,82 @@
+import { Op } from 'sequelize';
+import type { WhereOptions } from 'sequelize';
 import BaseRepository from './BaseRepository.js';
 import Producto from '../models/Producto.js';
+
+/**
+ * Los bytes de la foto quedan fuera de toda lectura de productos. Sin esto, el
+ * catálogo baja la imagen de cada fila con solo abrirlo.
+ *
+ * Sequelize no tiene una opción de "excluir columna por defecto", así que el
+ * filtro va explícito en las cinco lecturas base. Con esas cinco alcanza:
+ * todos los métodos derivados de más abajo (findByNombre, findAllActivos,
+ * findByStockBajo, findByIdActivos...) pasan por alguna de ellas.
+ * Para leer los bytes hay que pedirlo a propósito con descargarImagen().
+ */
+const SIN_BYTES = { exclude: ['imagen'] };
 
 class ProductoRepository extends BaseRepository<Producto> {
 
     constructor() {
         super(Producto);
+    }
+
+    // =========================
+    // LECTURAS SIN LOS BYTES
+    // =========================
+
+    async findById(id: number): Promise<Producto | null> {
+        return await this.model.findByPk(id, { attributes: SIN_BYTES });
+    }
+
+    async findBy(keys: WhereOptions<Producto>): Promise<Producto | null> {
+        return await this.model.findOne({ where: keys, attributes: SIN_BYTES });
+    }
+
+    async findByIds(ids: number[]): Promise<Producto[]> {
+
+        if (ids.length === 0) {
+            return [];
+        }
+
+        return await this.model.findAll({
+            where: { id: { [Op.in]: ids } } as WhereOptions<Producto>,
+            attributes: SIN_BYTES
+        });
+    }
+
+    async findAllBy(
+        where: WhereOptions<Producto>,
+        page = 1,
+        limit = 10,
+        orderBy = 'id',
+        orderDirection: 'ASC' | 'DESC' = 'ASC'
+    ) {
+        const offset = (page - 1) * limit;
+
+        return await this.model.findAndCountAll({
+            where,
+            limit,
+            offset,
+            order: [[orderBy, orderDirection]],
+            attributes: SIN_BYTES
+        });
+    }
+
+    async findAll(
+        page = 1,
+        limit = 10,
+        orderBy = 'id',
+        orderDirection: 'ASC' | 'DESC' = 'ASC'
+    ) {
+        const offset = (page - 1) * limit;
+
+        return await this.model.findAndCountAll({
+            limit,
+            offset,
+            order: [[orderBy, orderDirection]],
+            attributes: SIN_BYTES
+        });
     }
 
     // =========================
@@ -230,6 +302,69 @@ class ProductoRepository extends BaseRepository<Producto> {
         });
 
         return await producto.reload();
+    }
+
+    // =========================
+    // FOTOS
+    // =========================
+
+    /**
+     * Metadatos de la foto sin los bytes. Es lo que necesitan el alta, la
+     * edición y el listado: alcanzan para armar la respuesta de la API sin
+     * descargar el archivo.
+     */
+    async obtenerMetadatosImagen(id: number) {
+        const producto = await this.model.findByPk(id, {
+            attributes: ['id', 'imagenNombre', 'imagenMime', 'imagenBytes']
+        });
+
+        if (!producto || producto.imagenBytes === null) {
+            return null;
+        }
+
+        return {
+            nombre: producto.imagenNombre,
+            mime: producto.imagenMime,
+            bytes: producto.imagenBytes
+        };
+    }
+
+    /**
+     * Única forma de leer los bytes. descargarImagen() es el único consumidor y
+     * lo pide a propósito, porque es el único lugar donde el archivo cruza la
+     * red. Ver defaultAttributes en el modelo.
+     */
+    async descargarImagen(id: number) {
+        return await this.model.findByPk(id, {
+            attributes: ['id', 'imagen', 'imagenNombre', 'imagenMime', 'imagenBytes']
+        });
+    }
+
+    /**
+     * Los cuatro campos se escriben juntos porque hay un CHECK en la base que
+     * rechaza la metadata sin bytes. Encapsularlo acá evita que un futuro
+     * guardado escriba solo `imagen` y reviente la restricción con un 500.
+     */
+    async guardarImagen(
+        id: number,
+        imagen: { bytes: Buffer; nombre: string; mime: string }
+    ): Promise<Producto | null> {
+
+        return await this.updateById(id, {
+            imagen: imagen.bytes,
+            imagenNombre: imagen.nombre,
+            imagenMime: imagen.mime,
+            imagenBytes: imagen.bytes.length
+        });
+    }
+
+    async quitarImagen(id: number): Promise<Producto | null> {
+        return await this.updateById(id, {
+            imagen: null,
+            imagenNombre: null,
+            imagenMime: null,
+            imagenBytes: null
+        });
     }
 
     // =========================

@@ -1,6 +1,34 @@
 export const categories = ['Fresco', 'Congelado', 'Seco Almacen'] as const
 export const units = ['kg', 'unidad'] as const
 
+/**
+ * La API nunca manda los bytes de la foto: solo esta referencia. El archivo se
+ * pide por separado a `url`, así que pintar el catálogo no descarga imágenes.
+ */
+export type ImagenProducto = {
+  url: string
+  nombre: string
+  bytes: number
+}
+
+/**
+ * Espejo de los límites del backend (fotoProducto.ts). Acá solo sirve para
+ * avisar al instante; el servidor sigue siendo quien manda.
+ */
+export const LIMITE_FOTO_BYTES = 2 * 1024 * 1024
+export const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp']
+
+export function formatearPeso(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+/** Mismo criterio de sanitizar que el backend, para no spoilear el nombre. */
+export function nombreFotoLimpio(archivo: File) {
+  return archivo.name.split(/[\\/]/).pop() || 'foto'
+}
+
 export type Product = {
   id: string
   code: string
@@ -9,9 +37,12 @@ export type Product = {
   unit: typeof units[number]
   description: string
   active: boolean
+  imagen: ImagenProducto | null
 }
 
-export type ProductDraft = Omit<Product, 'id' | 'active'>
+// El archivo seleccionado no viaja en el draft: es un File y solo tiene sentido
+// en el formulario, no en el modelo del producto.
+export type ProductDraft = Omit<Product, 'id' | 'active' | 'imagen'>
 
 export const emptyDraft: ProductDraft = {
   code: '',

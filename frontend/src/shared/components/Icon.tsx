@@ -1,4 +1,4 @@
-export type IconName = 'home' | 'box' | 'bag' | 'users' | 'key' | 'search' | 'plus' | 'edit' | 'eye' | 'close' | 'archive' | 'check' | 'arrow' | 'tag' | 'percent' | 'calendar'
+export type IconName = 'home' | 'box' | 'bag' | 'users' | 'key' | 'search' | 'plus' | 'edit' | 'eye' | 'close' | 'archive' | 'check' | 'arrow' | 'tag' | 'percent' | 'calendar' | 'image' | 'trash'
 const paths: Record<IconName, string> = {
   home: 'm3 10 9-7 9 7v10H14v-7h-4v7H3Z',
   box: 'm3 7 9-4 9 4v10l-9 4-9-4Zm0 0 9 4 9-4M12 11v10M7 5l10 4',
@@ -16,6 +16,8 @@ const paths: Record<IconName, string> = {
   tag: 'M20.6 13.4 12 22l-9-9V3h10ZM7.5 7.5h.01',
   percent: 'M18 6 6 18M7.5 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM16.5 13.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z',
   calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
+  image: 'M3 5h18v14H3Z M3 16l4.5-4.5 3.5 3.5L14 12l7 7 M8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3',
+  trash: 'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6',
 }
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>

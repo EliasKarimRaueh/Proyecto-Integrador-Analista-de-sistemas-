@@ -44,11 +44,25 @@ async function findOrCreateCategory(category: typeof categories[number]) {
 
 type StoredProduct = NonNullable<Awaited<ReturnType<typeof productoRepository.findById>>>;
 
-function presentProduct(product: StoredProduct, category: string) {
+type ResumenImagen = { url: string; nombre: string; bytes: number } | null;
+
+/**
+ * La API nunca manda los bytes: solo la URL para pedirlos por separado. Armar
+ * la respuesta con los metadatos alcanza para pintar el catálogo entero sin
+ * descargar un solo archivo.
+ */
+function resumenImagen(id: number, nombre: string | null, bytes: number | null): ResumenImagen {
+  if (!nombre || bytes === null) {
+    return null;
+  }
+  return { url: `/api/productos/${id}/imagen`, nombre, bytes };
+}
+
+function presentProduct(product: StoredProduct, category: string, imagen: ResumenImagen = null) {
   return {
     id: String(product.id), code: product.codigo, name: product.nombre, category,
     unit: product.unidadVenta === 'KILOS' ? 'kg' : 'unidad',
-    description: product.descripcion, active: product.activo,
+    description: product.descripcion, active: product.activo, imagen,
   };
 }
 
@@ -76,7 +90,11 @@ export const getProductos = async (_req: Request, res: Response) => {
     const [{ rows }, categoriesById] = await Promise.all([
       productoRepository.findAll(1, 1000, 'id', 'ASC'), getCategoryMap(),
     ]);
-    res.json(rows.map(product => presentProduct(product, categoriesById.get(product.tipoProductoId) ?? 'Fresco')));
+    res.json(rows.map(product => presentProduct(
+      product,
+      categoriesById.get(product.tipoProductoId) ?? 'Fresco',
+      resumenImagen(product.id, product.imagenNombre, product.imagenBytes)
+    )));
   } catch (error) { sendDatabaseError(res, error); }
 };
 
@@ -92,8 +110,18 @@ export const createProducto = async (req: Request, res: Response) => {
       unidadVenta: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
       factorConversion: 1, stockActual: 0, costoActual: '0', activo: true, fechaBaja: null,
       tipoReposicion: 'diario', stockMinimo: null,
+      // Los cuatro campos van juntos porque hay un CHECK en la base; ver
+      // ProductoRepository.guardarImagen.
+      ...(req.foto ? {
+        imagen: req.foto.bytes, imagenNombre: req.foto.nombre,
+        imagenMime: req.foto.mime, imagenBytes: req.foto.bytes.length,
+      } : {})
     });
-    res.status(201).json(presentProduct(product, input.category));
+    res.status(201).json(presentProduct(
+      product,
+      input.category,
+      req.foto ? resumenImagen(product.id, req.foto.nombre, req.foto.bytes.length) : null
+    ));
   } catch (error) { sendDatabaseError(res, error); }
 };
 
@@ -111,7 +139,47 @@ export const updateProducto = async (req: Request, res: Response) => {
       unidadVenta: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
     });
     if (!product) { res.status(404).json({ message: 'Producto no encontrado.' }); return; }
-    res.json(presentProduct(product, input.category));
+
+    // La foto se resuelve aparte del resto de los campos para que guardar el
+    // nombre no escriba los bytes de nuevo. Sin archivo y sin quitar, se deja
+    // como está; el producto que volvió trae la metadata que ya tenía.
+    const quiereQuitar = req.body?.quitarFoto === true
+      || req.body?.quitarFoto === '1'
+      || req.body?.quitarFoto === 'true';
+
+    let imagen = resumenImagen(id, product.imagenNombre, product.imagenBytes);
+
+    // Si viene archivo, gana sobre quitar: elegir una foto nueva es la acción
+    // más explícita de las dos.
+    if (req.foto) {
+      await productoRepository.guardarImagen(id, req.foto);
+      imagen = resumenImagen(id, req.foto.nombre, req.foto.bytes.length);
+    } else if (quiereQuitar) {
+      await productoRepository.quitarImagen(id);
+      imagen = null;
+    }
+
+    res.json(presentProduct(product, input.category, imagen));
+  } catch (error) { sendDatabaseError(res, error); }
+};
+
+export const obtenerImagenProducto = async (req: Request, res: Response) => {
+  const id = parseId(req, res);
+  if (id === null) return;
+  try {
+    const producto = await productoRepository.descargarImagen(id);
+    // El CHECK de la base garantiza que si hay bytes hay metadata, pero el
+    // mime se valida igual para no mandarle un Content-Type vacío al cliente.
+    if (!producto?.imagen || !producto.imagenMime) {
+      res.status(404).json({ message: 'Este producto no tiene foto.' });
+      return;
+    }
+    res.setHeader('Content-Type', producto.imagenMime);
+    res.setHeader('Content-Length', String(producto.imagen.length));
+    // La URL no cambia cuando se reemplaza la foto, así que sin esto el
+    // navegador seguiría mostrando la anterior desde su caché.
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(producto.imagen);
   } catch (error) { sendDatabaseError(res, error); }
 };
 
@@ -122,6 +190,10 @@ export const deactivateProducto = async (req: Request, res: Response) => {
     const product = await productoRepository.deleteById(id);
     if (!product) { res.status(404).json({ message: 'Producto no encontrado.' }); return; }
     const categoriesById = await getCategoryMap();
-    res.json(presentProduct(product, categoriesById.get(product.tipoProductoId) ?? 'Fresco'));
+    res.json(presentProduct(
+      product,
+      categoriesById.get(product.tipoProductoId) ?? 'Fresco',
+      resumenImagen(product.id, product.imagenNombre, product.imagenBytes)
+    ));
   } catch (error) { sendDatabaseError(res, error); }
 };

@@ -6,12 +6,53 @@ export async function fetchProducts(): Promise<Product[]> {
   return apiRequest<Product[]>('productos')
 }
 
-export async function createProduct(product: ProductDraft): Promise<Product> {
-  return apiRequest<Product>('productos', { method: 'POST', body: JSON.stringify(product) })
+/**
+ * Con foto la solicitud tiene que ser multipart; sin foto sigue yendo como
+ * JSON, que es lo que ya consumía la app. apiRequest solo assigns el
+ * Content-Type cuando el body es un string, así que el FormData pasa intacto y
+ * es el navegador quien pone el boundary.
+ */
+function productBody(
+  product: ProductDraft,
+  foto?: File | null,
+  quitarFoto?: boolean,
+): string | FormData {
+  const campos: Record<string, string> = {
+    code: product.code,
+    name: product.name,
+    category: product.category,
+    unit: product.unit,
+    description: product.description,
+  }
+
+  if (!foto && !quitarFoto) {
+    return JSON.stringify(campos)
+  }
+
+  const form = new FormData()
+  Object.entries(campos).forEach(([clave, valor]) => form.append(clave, valor))
+  if (foto) form.append('foto', foto)
+  if (quitarFoto) form.append('quitarFoto', '1')
+  return form
 }
 
-export async function updateProduct(id: string, product: ProductDraft): Promise<Product> {
-  return apiRequest<Product>(`productos/${id}`, { method: 'PUT', body: JSON.stringify(product) })
+export async function createProduct(
+  product: ProductDraft,
+  foto?: File | null,
+): Promise<Product> {
+  return apiRequest<Product>('productos', { method: 'POST', body: productBody(product, foto) })
+}
+
+export async function updateProduct(
+  id: string,
+  product: ProductDraft,
+  foto?: File | null,
+  quitarFoto?: boolean,
+): Promise<Product> {
+  return apiRequest<Product>(`productos/${id}`, {
+    method: 'PUT',
+    body: productBody(product, foto, quitarFoto),
+  })
 }
 
 export async function deactivateProduct(id: string): Promise<Product> {
