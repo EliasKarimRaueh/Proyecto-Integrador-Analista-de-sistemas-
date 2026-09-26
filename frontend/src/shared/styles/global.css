@@ -775,8 +775,178 @@
                                                                                                                                                                                                                                                                                                                                                                                           .modal-footer{
                                                                                                                                                                                                                                                                                                                                                                                             flex-wrap:wrap}
                                                                                                                                                                                                                                                                                                                                                                                             .modal-footer .button{
-                                                                                                                                                                                                                                                                                                                                                                                              flex:1}
-                                                                                                                                                                                                                                                                                                                                                                                              .topbar strong{
-                                                                                                                                                                                                                                                                                                                                                                                                font-size:13px}
-                                                                                                                                                                                                                                                                                                                                                                                              }
+                                                                                                                               flex:1}
+                                                                                                                               .topbar strong{
+                                                                                                                               font-size:13px}
+                                                                                                                               }
+
+/* ============================================================
+   Precios y ofertas
+   ============================================================ */
+
+.cargando{
+display:flex;
+flex-direction:column;
+align-items:center;
+gap:12px;
+padding:56px 20px;
+color:#8590a1;
+font-size:13px;
+text-align:center}
+
+.cargando p{
+margin:0}
+
+.precio-cell{
+display:flex;
+flex-direction:column;
+align-items:flex-end;
+gap:2px;
+white-space:nowrap}
+
+.precio-cell strong{
+font-size:14px;
+color:#17243b}
+
+.precio-cell small{
+color:#8590a1;
+font-size:11px}
+
+.precio-actual{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:16px;
+background:#f7f8fb;
+border:1px solid #e5e9f0;
+border-radius:9px;
+padding:18px;
+margin:18px 0 22px}
+
+.precio-actual > div{
+display:flex;
+flex-direction:column;
+gap:3px}
+
+.precio-actual.vacio{
+grid-template-columns:1fr}
+
+.precio-actual-label{
+color:#8590a1;
+font-size:10px;
+font-weight:600;
+letter-spacing:.05em;
+text-transform:uppercase}
+
+.precio-actual strong{
+font-size:24px;
+color:#17243b;
+line-height:1.15}
+
+.precio-actual small{
+color:#77859a;
+font-size:11px}
+
+.precio-actual.vacio p{
+color:#77859a;
+font-size:12px;
+margin:4px 0 0}
+
+.precio-input{
+width:130px;
+max-width:100%;
+border:1px solid #e0e5ed;
+border-radius:6px;
+padding:8px 10px;
+font:inherit;
+font-size:13px;
+color:#17243b;
+background:#fff}
+
+.precio-input:focus{
+outline:2px solid #ffcb32;
+outline-offset:1px}
+
+.precio-input[aria-invalid=true]{
+border-color:#c93535}
+
+.field-error{
+display:block;
+color:#c93535;
+font-size:11px;
+margin-top:4px}
+
+.modal-section{
+font-size:12px;
+font-weight:700;
+letter-spacing:.06em;
+text-transform:uppercase;
+color:#77859a;
+margin:22px 0 12px}
+
+.modal-empty,
+.modal-loading{
+color:#8590a1;
+font-size:13px;
+padding:18px 0}
+
+.date-range{
+display:inline-flex;
+align-items:center;
+gap:6px;
+color:#4b5a70;
+font-size:12px;
+white-space:nowrap}
+
+.product-picker{
+list-style:none;
+margin:12px 0 0;
+padding:0;
+border:1px solid #e5e9f0;
+border-radius:9px;
+overflow:hidden}
+
+.product-picker li{
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:12px;
+padding:11px 14px}
+
+.product-picker li + li{
+border-top:1px solid #eef1f6}
+
+.product-picker li > div{
+display:flex;
+flex-direction:column;
+gap:2px;
+min-width:0}
+
+.product-picker strong{
+font-size:13px;
+color:#17243b}
+
+.product-picker small{
+color:#8590a1;
+font-size:11px}
+
+.product-picker .button{
+flex-shrink:0}
+
+table td strong{
+display:block;
+font-size:13px;
+color:#17243b}
+
+table td .product-description{
+display:block;
+margin-top:2px}
+
+@media (max-width:640px){
+.precio-actual{
+grid-template-columns:1fr}
+.precio-cell{
+align-items:flex-start}
+.date-range{
+white-space:normal}
+}
 
