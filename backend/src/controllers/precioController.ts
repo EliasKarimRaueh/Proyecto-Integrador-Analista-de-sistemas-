@@ -47,6 +47,42 @@ async function productoExiste(productoId: number) {
   return producto !== null && producto.activo;
 }
 
+// GET /api/precios
+// Precios de todos los productos en una sola consulta.
+//
+// Por defecto devuelve el precio vigente de cada producto, que es lo
+// que necesita la columna de precios del catálogo: el frontend indexa
+// la respuesta por productoId y no tiene que pedir un endpoint por
+// fila. Con ?vigente=false devuelve el histórico completo.
+export const getPrecios = async (req: Request, res: Response) => {
+
+    const paginacion = parsePaginacion(req.query as Record<string, unknown>);
+    if (!paginacion.ok) { res.status(400).json({ message: paginacion.error }); return; }
+
+    try {
+        const { page, limit } = paginacion.value;
+        const soloVigentes = req.query.vigente !== 'false';
+        const resultado = await precioRepository.findGlobales(soloVigentes, page, limit);
+
+        // El índice único garantiza un solo precio abierto por producto,
+        // pero si algún precio queda con fechaHasta futura puede haber
+        // más de un vigente. Se queda el más reciente para no romper la
+        // promesa de "una fila por producto".
+        const vistos = new Set<number>();
+        const precios = resultado.rows
+            .filter(precio => {
+                if (!soloVigentes) return true;
+                if (vistos.has(precio.productoId)) return false;
+                vistos.add(precio.productoId);
+                return true;
+            });
+
+        res.json(precios.map(presentPrecio));
+    } catch (error) {
+        sendDatabaseError(res, error, 'No se pudieron leer los precios.');
+    }
+};
+
 // GET /api/precios/productos/:productoId
 // Historial completo de precios del producto, del más nuevo al más viejo.
 export const getHistorialPrecios = async (req: Request, res: Response) => {

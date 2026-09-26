@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import type { WhereOptions } from 'sequelize';
 
 import BaseRepository from './BaseRepository.js';
 import Precio from '../models/Precio.js';
@@ -62,6 +63,48 @@ class PrecioRepository extends BaseRepository<Precio> {
         );
 
         return resultado.rows;
+    }
+
+    /**
+     * Lista precios de todos los productos, no de uno.
+     *
+     * Con vigente=true devuelve como máximo una fila por producto (el
+     * precio que se aplica hoy), que es lo que necesita la columna de
+     * precios del catálogo sin caer en un request por fila. Sin el
+     * filtro devuelve el histórico completo de los productos que no
+     * están dados de baja.
+     */
+    async findGlobales(
+        vigente = false,
+        page = 1,
+        limit = 100
+    ) {
+
+        // Un precio vigente tiene que haber arrancado, no estar dado de
+        // baja y no tener fecha de cierre vencida.
+        const where = vigente
+            ? {
+                activo: true,
+                [Op.and]: [
+                    { fechaDesde: { [Op.lte]: new Date() } },
+                    {
+                        [Op.or]: [
+                            { fechaHasta: null },
+                            { fechaHasta: { [Op.gt]: new Date() } }
+                        ]
+                    }
+                ]
+            }
+            : { activo: true };
+
+        return await this.model.findAndCountAll({
+            where: where as WhereOptions<Precio>,
+            limit,
+            offset: (page - 1) * limit,
+            // Primero por producto y después del más nuevo al más
+            // viejo, para que el vigente de cada uno quede arriba.
+            order: [['productoId', 'ASC'], ['fechaDesde', 'DESC']]
+        });
     }
 
     async findByProducto(
