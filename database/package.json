@@ -9,7 +9,10 @@
     "./migrations/productCatalog": "./src/migrations/productCatalog.ts",
     "./migrations/preciosOfertas": "./src/migrations/preciosOfertas.ts",
     "./repositories/productoRepository": "./src/repositories/productoRepository.ts",
-    "./repositories/tipoProductoRepository": "./src/repositories/tipoProductoRepository.ts"
+    "./repositories/tipoProductoRepository": "./src/repositories/tipoProductoRepository.ts",
+    "./repositories/precioRepository": "./src/repositories/precioRepository.ts",
+    "./repositories/ofertaRepository": "./src/repositories/ofertaRepository.ts",
+    "./repositories/ofertaProductoRepository": "./src/repositories/ofertaProductoRepository.ts"
   },
   "scripts": {
     "build": "tsc",
