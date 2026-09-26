@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '../shared/components/AppLayout'
 import { HomePage } from '../features/home/HomePage'
 import { ProductsPage } from '../features/products/ProductsPage'
+import { OfertasPage } from '../features/ofertas/OfertasPage'
 import { OrdersPage } from '../features/orders/OrdersPage'
 import { StockPage } from '../features/stock/StockPage'
 import { CustomersPage } from '../features/customers/CustomersPage'
@@ -15,6 +16,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<HomePage />} />
           <Route path="productos" element={<ProductsPage />} />
+          <Route path="ofertas" element={<OfertasPage />} />
           <Route path="pedidos" element={<OrdersPage />} />
           <Route path="stock" element={<StockPage />} />
           <Route path="clientes" element={<CustomersPage />} />
