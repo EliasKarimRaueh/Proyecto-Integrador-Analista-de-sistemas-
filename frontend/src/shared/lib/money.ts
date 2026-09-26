@@ -143,3 +143,25 @@ export function esFechaValida(valor: string): boolean {
     && fecha.getUTCMonth() === mes - 1
     && fecha.getUTCDate() === dia
 }
+
+/**
+ * First date on which a new price can start when the product already has
+ * an open one: the day after that one started, or today if that day is
+ * already in the past.
+ *
+ * The backend rejects a price that does not start strictly after the open
+ * one, so the form cannot default to today in that case or the very first
+ * submit would come back as a conflict.
+ */
+export function fechaDesdeParaNuevoPrecio(
+  fechaDesdeVigente: string | null | undefined,
+): string {
+  const hoy = hoyComoFechaInput()
+  const base = aFechaInput(fechaDesdeVigente)
+  if (base === '') return hoy
+  const fecha = new Date(`${base}T00:00:00Z`)
+  if (Number.isNaN(fecha.getTime())) return hoy
+  fecha.setUTCDate(fecha.getUTCDate() + 1)
+  const siguiente = fecha.toISOString().slice(0, 10)
+  return siguiente > hoy ? siguiente : hoy
+}

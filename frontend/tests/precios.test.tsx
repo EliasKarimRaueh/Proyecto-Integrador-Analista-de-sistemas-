@@ -45,6 +45,8 @@ const anterior: Precio = {
 
 let precios: Precio[]
 let fetchMock: ReturnType<typeof vi.fn>
+/** Cuando está seteado, el POST responde 409 con ese mensaje. */
+let conflictoPost: string | null = null
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
@@ -52,6 +54,7 @@ function json(data: unknown, status = 200) {
 
 beforeEach(() => {
   precios = [vigente, anterior].map(precio => ({ ...precio }))
+  conflictoPost = null
   fetchMock = vi.fn(async (input: string | URL | Request, options?: RequestInit) => {
     const path = String(input)
     const method = options?.method ?? 'GET'
@@ -67,6 +70,9 @@ beforeEach(() => {
       return json(precios.filter(precio => precio.vigente))
     }
     if (path === '/api/precios' && method === 'POST') {
+      if (conflictoPost !== null) {
+        return json({ message: conflictoPost }, 409)
+      }
       const creado = {
         ...(JSON.parse(String(options?.body)) as Omit<Precio, 'id' | 'vigente' | 'activo' | 'fechaBaja' | 'fechaHasta'>),
         id: '11',
@@ -128,9 +134,9 @@ describe('Modal de precios del producto', () => {
   it('registra un precio nuevo con POST y avisa que cierra el anterior', async () => {
     const user = userEvent.setup()
     abrirModal()
-    await screen.findByRole('button', { name: 'Registrar nuevo precio' })
+    await screen.findByRole('button', { name: 'Programar cambio' })
 
-    await user.click(screen.getByRole('button', { name: 'Registrar nuevo precio' }))
+    await user.click(screen.getByRole('button', { name: 'Programar cambio' }))
     await user.type(screen.getByLabelText('Precio minorista *'), '4800')
     await user.type(screen.getByLabelText('Precio mayorista'), '4200,50')
     await user.click(screen.getByRole('button', { name: 'Registrar precio' }))
@@ -151,10 +157,10 @@ describe('Modal de precios del producto', () => {
   it('rechaza un precio mayorista más caro que el minorista sin llamar a la API', async () => {
     const user = userEvent.setup()
     abrirModal()
-    await screen.findByRole('button', { name: 'Registrar nuevo precio' })
+    await screen.findByRole('button', { name: 'Programar cambio' })
 
     const antes = fetchMock.mock.calls.length
-    await user.click(screen.getByRole('button', { name: 'Registrar nuevo precio' }))
+    await user.click(screen.getByRole('button', { name: 'Programar cambio' }))
     await user.type(screen.getByLabelText('Precio minorista *'), '4000')
     await user.type(screen.getByLabelText('Precio mayorista'), '4500')
     await user.click(screen.getByRole('button', { name: 'Registrar precio' }))
@@ -166,9 +172,9 @@ describe('Modal de precios del producto', () => {
   it('pide el precio minorista antes de enviar', async () => {
     const user = userEvent.setup()
     abrirModal()
-    await screen.findByRole('button', { name: 'Registrar nuevo precio' })
+    await screen.findByRole('button', { name: 'Programar cambio' })
 
-    await user.click(screen.getByRole('button', { name: 'Registrar nuevo precio' }))
+    await user.click(screen.getByRole('button', { name: 'Programar cambio' }))
     await user.click(screen.getByRole('button', { name: 'Registrar precio' }))
 
     expect(screen.getByText('Ingresá el precio minorista.')).toBeTruthy()
@@ -177,9 +183,9 @@ describe('Modal de precios del producto', () => {
   it('acepta la coma decimal que escribe un usuario argentino', async () => {
     const user = userEvent.setup()
     abrirModal()
-    await screen.findByRole('button', { name: 'Registrar nuevo precio' })
+    await screen.findByRole('button', { name: 'Programar cambio' })
 
-    await user.click(screen.getByRole('button', { name: 'Registrar nuevo precio' }))
+    await user.click(screen.getByRole('button', { name: 'Programar cambio' }))
     await user.type(screen.getByLabelText('Precio minorista *'), '1234,56')
     await user.click(screen.getByRole('button', { name: 'Registrar precio' }))
 
@@ -189,6 +195,72 @@ describe('Modal de precios del producto', () => {
     ))
     const cuerpo = JSON.parse(fetchMock.mock.calls.find(([path]) => path === '/api/precios')![1].body)
     expect(cuerpo.precioMinorista).toBe('1234.56')
+  })
+})
+
+describe('Conflicto de vigencia con el precio vigente', () => {
+  const mensajeConflicto = 'Este producto ya tiene un precio vigente desde el 2026-09-01. ' +
+    'Usá "Corregir" para cambiar el importe de hoy, o registrá el precio nuevo con una fecha posterior.'
+
+  it('muestra el 409 del servidor y conserva lo tipeado', async () => {
+    const user = userEvent.setup()
+    conflictoPost = mensajeConflicto
+    abrirModal()
+    await screen.findByRole('button', { name: 'Programar cambio' })
+
+    await user.click(screen.getByRole('button', { name: 'Programar cambio' }))
+    await user.type(screen.getByLabelText('Precio minorista *'), '4800')
+    await user.click(screen.getByRole('button', { name: 'Registrar precio' }))
+
+    expect(await screen.findByText(mensajeConflicto)).toBeTruthy()
+
+    // El error no debe borrar lo que la persona ya escribía.
+    const campo = screen.getByLabelText('Precio minorista *') as HTMLInputElement
+    expect(campo.value).toBe('4800')
+    // Sigue en el formulario, no volvió a la vista de solo lectura.
+    expect(screen.getByRole('button', { name: 'Registrar precio' })).toBeTruthy()
+  })
+
+  it('con precio vigente, Corregir es la acción principal', async () => {
+    abrirModal()
+
+    const corregir = await screen.findByRole('button', { name: 'Corregir' })
+    const programar = screen.getByRole('button', { name: 'Programar cambio' })
+
+    expect(corregir.className).toContain('primary')
+    expect(programar.className).not.toContain('primary')
+  })
+
+  it('sin precio vigente, el alta es la acción principal', async () => {
+    precios = []
+    abrirModal()
+
+    const registrar = await screen.findByRole('button', { name: 'Registrar nuevo precio' })
+    expect(registrar.className).toContain('primary')
+    expect(screen.queryByRole('button', { name: 'Corregir' })).toBeNull()
+  })
+
+  it('no ofrece en el selector una fecha anterior a la del vigente', async () => {
+    const user = userEvent.setup()
+    // El vigente arranca hoy, así que el primer día válido es mañana.
+    precios = [{ ...vigente, fechaDesde: new Date().toISOString() }]
+    abrirModal()
+    await screen.findByRole('button', { name: 'Programar cambio' })
+
+    await user.click(screen.getByRole('button', { name: 'Programar cambio' }))
+
+    // El label incluye el texto de ayuda, así que va por regex.
+    const campo = screen.getByLabelText(/Vigente desde/) as HTMLInputElement
+    const manana = new Date()
+    manana.setDate(manana.getDate() + 1)
+    const esperado = [
+      manana.getFullYear(),
+      String(manana.getMonth() + 1).padStart(2, '0'),
+      String(manana.getDate()).padStart(2, '0'),
+    ].join('-')
+
+    expect(campo.min).toBe(esperado)
+    expect(campo.value).toBe(esperado)
   })
 })
 
@@ -205,5 +277,17 @@ describe('Columna de precios del catálogo', () => {
       expect.stringContaining('/api/precios/productos/1'),
       expect.anything()
     )
+  })
+
+  it('la celda sin precio ofrece el alta en el lugar donde ya se mira', async () => {
+    const user = userEvent.setup()
+    precios = []
+    render(<ProductsPage />)
+
+    const celda = await screen.findByRole('button', { name: /Sin precio/ })
+    expect(celda.textContent).toContain('agregar')
+
+    await user.click(celda)
+    expect((await screen.findByRole('dialog')).textContent).toContain('Sin precio')
   })
 })

@@ -812,6 +812,26 @@ color:#17243b}
 color:#8590a1;
 font-size:11px}
 
+/* La celda sin precio es el acceso al alta: si no hay precio cargado,
+   el lugar donde ya se está mirando es el que tiene que abrir el
+   formulario. Mismo tono que .subtle, pero con señal de que se toca. */
+.precio-vacio{
+border:1px dashed #c3cbd8;
+background:none;
+border-radius:7px;
+padding:4px 9px;
+color:#8993a3;
+font-size:11px;
+cursor:pointer;
+white-space:nowrap}
+.precio-vacio:hover{
+border-color:#2f6fed;
+border-style:solid;
+color:#2f6fed}
+.precio-vacio:focus-visible{
+outline:2px solid #2f6fed;
+outline-offset:2px}
+
 .precio-actual{
 display:grid;
 grid-template-columns:1fr 1fr;

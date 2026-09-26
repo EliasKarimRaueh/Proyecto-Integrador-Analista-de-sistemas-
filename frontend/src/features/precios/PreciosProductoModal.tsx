@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
 import { useApiResource } from '../../shared/hooks/useApiResource'
-import { fechaInputDesdeHoy, formatearFecha, formatearMonto, hoyComoFechaInput } from '../../shared/lib/money'
+import { fechaInputDesdeHoy, fechaDesdeParaNuevoPrecio, formatearFecha, formatearMonto, hoyComoFechaInput } from '../../shared/lib/money'
 import { actualizarPrecio, fetchHistorialPrecios, registrarPrecio } from '../../shared/services/precios'
 import type { Product } from '../products/products'
 import {
@@ -91,6 +91,7 @@ function HistorialPrecios({ historial }: { historial: Precio[] }) {
 function FormularioPrecio({
   modo,
   producto,
+  vigente,
   draft,
   errors,
   formError,
@@ -101,6 +102,7 @@ function FormularioPrecio({
 }: {
   modo: Exclude<Modo, 'ver'>
   producto: Product
+  vigente: Precio | null
   draft: PrecioDraft
   errors: Partial<Record<keyof PrecioDraft, string>>
   formError: string
@@ -110,12 +112,18 @@ function FormularioPrecio({
   onVolver: () => void
 }) {
 
+  // El backend solo acepta un precio nuevo que empiece después del
+  // vigente, así que el selector no ofrece fechas que van a rebotar.
+  const minFecha = vigente !== null
+    ? fechaDesdeParaNuevoPrecio(vigente.fechaDesde)
+    : fechaInputDesdeHoy(-365)
+
   return (
     <form onSubmit={onEnviar} noValidate>
       <p className="form-intro">
         {modo === 'editar'
           ? 'Corregí los montos. La vigencia del precio no se modifica.'
-          : `El precio vigente de ${producto.name} se cerrará y este lo reemplaza.`}
+          : `Este precio reemplaza al vigente de ${producto.name} desde la fecha que elijas, que es cuando el vigente pasa al historial.`}
       </p>
 
       {formError !== '' && <div className="notice error" role="alert">{formError}</div>}
@@ -154,13 +162,17 @@ function FormularioPrecio({
             <input
               type="date"
               value={draft.fechaDesde}
-              min={fechaInputDesdeHoy(-365)}
+              min={minFecha}
               onChange={e => onCampo('fechaDesde', e.target.value)}
               aria-invalid={!!errors.fechaDesde}
               aria-describedby={errors.fechaDesde ? 'error-fecha-desde' : undefined}
             />
             {errors.fechaDesde && <small id="error-fecha-desde" className="field-error">{errors.fechaDesde}</small>}
-            <small>Por defecto, hoy.</small>
+            <small>
+              {vigente !== null
+                ? `El precio vigente sigue aplicado hasta acá. No puede empezar antes del ${formatearFecha(minFecha)}.`
+                : 'Por defecto, hoy.'}
+            </small>
           </label>
         )}
       </div>
@@ -205,7 +217,13 @@ export function PreciosProductoModal({ producto, onClose, onGuardado }: Props) {
         fechaDesde: '',
       })
     } else {
-      setDraft({ ...vacioPrecioDraft(productoId), fechaDesde: hoyComoFechaInput() })
+      // Con precio abierto, el alta solo se acepta con una fecha
+      // posterior a la del vigente, así que el default tiene que cumplir
+      // esa regla o el primer submit volvería con un conflicto.
+      const fechaPorDefecto = vigente !== null
+        ? fechaDesdeParaNuevoPrecio(vigente.fechaDesde)
+        : hoyComoFechaInput()
+      setDraft({ ...vacioPrecioDraft(productoId), fechaDesde: fechaPorDefecto })
     }
     setErrors({})
     setFormError('')
@@ -273,16 +291,27 @@ export function PreciosProductoModal({ producto, onClose, onGuardado }: Props) {
                 <PrecioActual precio={vigente} />
                 <h3 className="modal-section">Historial de precios</h3>
                 <HistorialPrecios historial={historial} />
-                <p className="form-note">Registrar un precio nuevo cierra el vigente y lo guarda en el historial.</p>
+                <p className="form-note">
+                  {vigente !== null
+                    ? 'Para cambiar el importe de hoy usá Corregir. Registrar un precio nuevo agenda el cambio para una fecha posterior y deja el vigente en el historial.'
+                    : 'Registrá el primer precio de este producto.'}
+                </p>
                 <div className="modal-footer">
                   <button className="button" onClick={onClose}>Cerrar</button>
                   {vigente !== null && (
-                    <button className="button" onClick={() => abrirFormulario('editar')}>
+                    <button
+                      className="button primary"
+                      onClick={() => abrirFormulario('editar')}
+                    >
                       <Icon name="edit" size={18} />Corregir
                     </button>
                   )}
-                  <button className="button primary" onClick={() => abrirFormulario('nuevo')}>
-                    <Icon name="plus" />Registrar nuevo precio
+                  <button
+                    className={vigente !== null ? 'button' : 'button primary'}
+                    onClick={() => abrirFormulario('nuevo')}
+                  >
+                    <Icon name="plus" />
+                    {vigente !== null ? 'Programar cambio' : 'Registrar nuevo precio'}
                   </button>
                 </div>
               </>
@@ -294,6 +323,7 @@ export function PreciosProductoModal({ producto, onClose, onGuardado }: Props) {
         <FormularioPrecio
           modo={modo}
           producto={producto}
+          vigente={vigente}
           draft={draft}
           errors={errors}
           formError={formError}
