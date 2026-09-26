@@ -1,5 +1,5 @@
-import { Model } from 'sequelize';
-import type { ModelStatic, WhereOptions } from 'sequelize';
+import { Model, Op } from 'sequelize';
+import type { CreateOptions, ModelStatic, WhereOptions } from 'sequelize';
 
 class BaseRepository<T extends Model> {
 
@@ -45,8 +45,28 @@ class BaseRepository<T extends Model> {
         });
     }
 
-    async create(data: Partial<T>): Promise<T> {
-        return await this.model.create(data as any);
+    /**
+     * options se reenvía a Sequelize para poder crear dentro de una
+     * transacción abierta por otro repositorio ({ transaction }).
+     */
+    async create(data: Partial<T>, options: CreateOptions<T> = {}): Promise<T> {
+        return await this.model.create(data as any, options);
+    }
+
+    /**
+     * Trae varios registros por id en una sola consulta. Se usa para
+     * armar respuestas anidadas sin caer en el N+1 de un findById por
+     * cada relación.
+     */
+    async findByIds(ids: number[]): Promise<T[]> {
+
+        if (ids.length === 0) {
+            return [];
+        }
+
+        return await this.model.findAll({
+            where: { id: { [Op.in]: ids } } as WhereOptions<T>
+        });
     }
 
     async updateById(id: number, data: Partial<T>): Promise<T | null> {

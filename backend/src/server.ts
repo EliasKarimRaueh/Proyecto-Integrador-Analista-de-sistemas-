@@ -2,12 +2,14 @@ import 'dotenv/config';
 import app from './app.js';
 import sequelize from 'polleria-database/config/database';
 import { migrateProductCatalog } from 'polleria-database/migrations/productCatalog';
+import { migratePreciosOfertas } from 'polleria-database/migrations/preciosOfertas';
 
 const PORT = process.env.PORT || 3000;
 
 try {
   await sequelize.authenticate();
   await migrateProductCatalog();
+  await migratePreciosOfertas();
   console.log('Conexión exitosa con la base de datos');
 
   app.listen(PORT, () => {
