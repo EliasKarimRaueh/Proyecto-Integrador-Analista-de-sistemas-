@@ -25,6 +25,10 @@ class Producto extends Model {
         | 'diario'
         | 'semanal';
     declare stockMinimo: number | null;
+    declare imagen: Buffer | null;
+    declare imagenNombre: string | null;
+    declare imagenMime: string | null;
+    declare imagenBytes: number | null;
 }
 
 Producto.init({
@@ -156,6 +160,32 @@ Producto.init({
                 }
             }
         }
+    },
+
+    // La foto vive en la misma tabla, pero las lecturas de catálogo la excluyen:
+    // ver ProductoRepository. Los cuatro campos se escriben juntos o ninguno.
+    imagen: {
+        type: DataTypes.BLOB,
+        allowNull: true,
+        defaultValue: null
+    },
+
+    imagenNombre: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        defaultValue: null
+    },
+
+    imagenMime: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        defaultValue: null
+    },
+
+    imagenBytes: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null
     }
 
 }, {
@@ -167,6 +197,12 @@ Producto.init({
     tableName: 'productos',
 
     timestamps: false,
+
+    /**
+     * Los bytes de la foto quedan fuera de las lecturas: ver ProductoRepository,
+     * que es donde se filtran. acá solo se guardan los metadatos que el
+     * catálogo necesita para mostrar nombre y peso sin descargar el archivo.
+     */
 
     validate: {
 
