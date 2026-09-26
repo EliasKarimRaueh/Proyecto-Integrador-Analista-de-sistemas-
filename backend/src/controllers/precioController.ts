@@ -1,6 +1,6 @@
 // backend/src/controllers/precioController.ts
 import { type Request, type Response } from 'express';
-import PrecioRepository from 'polleria-database/repositories/precioRepository';
+import PrecioRepository, { ErrorVigenciaPrecio } from 'polleria-database/repositories/precioRepository';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import {
   parseFecha, parseId, parseMonto, parseMontoOpcional, parsePaginacion,
@@ -162,13 +162,20 @@ export const registrarPrecio = async (req: Request, res: Response) => {
 
     res.status(201).json(presentPrecio(precio));
   } catch (error) {
+    // No es una falla de base: es la regla de vigencia, y el mensaje
+    // dice cuál es la salida correcta.
+    if (error instanceof ErrorVigenciaPrecio) {
+      res.status(409).json({ message: error.message });
+      return;
+    }
     sendDatabaseError(res, error, 'No se pudo registrar el precio.');
   }
 };
 
 // PUT /api/precios/:id
 // Corrige los montos de un precio ya existente sin tocar su vigencia.
-// Para cambiar la vigencia hay que registrar un precio nuevo.
+// Para cambiar la vigencia hay que registrar un precio nuevo con una
+// fecha posterior a la del precio vigente.
 export const actualizarPrecio = async (req: Request, res: Response) => {
 
   const id = parseId(req.params.id, 'El identificador del precio');
