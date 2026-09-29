@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
 import { useApiResource } from '../../shared/hooks/useApiResource'
-import { formatearFecha } from '../../shared/lib/money'
-import { desactivarOferta, fetchOfertas } from '../../shared/services/ofertas'
+import { formatearFecha, formatearMonto } from '../../shared/lib/money'
+import { desactivarOferta, fetchOferta, fetchOfertas } from '../../shared/services/ofertas'
 import { normalize } from '../products/products'
 import { DetalleOfertaModal } from './DetalleOfertaModal'
 import { FormularioOfertaModal } from './FormularioOfertaModal'
@@ -19,6 +19,30 @@ const FILTROS = [
   { valor: 'programada', etiqueta: 'Programadas' },
   { valor: 'vencida', etiqueta: 'Vencidas' },
 ]
+
+function PreciosOferta({ ofertaId, revision }: { ofertaId: string; revision: number }) {
+  const { data, loading, error, refetch } = useApiResource(
+    () => fetchOferta(ofertaId),
+    `${ofertaId}:${revision}`
+  )
+
+  if (loading) return <span className="subtle">Cargando precios...</span>
+  if (error) return <button className="precio-vacio" onClick={refetch}>Reintentar precios</button>
+
+  const productos = data?.productos.filter(producto => producto.activo) ?? []
+  if (productos.length === 0) return <span className="subtle">Sin productos</span>
+
+  return (
+    <div className="precio-cell">
+      {productos.map(producto => (
+        <div className="precio-cell" key={producto.productoId}>
+          <strong>{formatearMonto(producto.precioOferta)}</strong>
+          <small>{producto.nombre} · {producto.unidadVenta}</small>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function ModalBajaOferta({
   oferta,
@@ -58,6 +82,12 @@ export function OfertasPage() {
   const [bajaError, setBajaError] = useState('')
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState('')
+  const [revisionPrecios, setRevisionPrecios] = useState(0)
+
+  function recargarOfertas() {
+    refetch()
+    setRevisionPrecios(actual => actual + 1)
+  }
 
   // `data ?? []` crea un array nuevo en cada render, así que se memoriza
   // para que el filtro de abajo no se recalcule siempre.
@@ -172,6 +202,7 @@ export function OfertasPage() {
             <thead>
               <tr>
                 <th scope="col">Oferta</th>
+                <th scope="col">Precio de oferta</th>
                 <th scope="col">Vigencia</th>
                 <th scope="col">Estado</th>
                 <th scope="col" className="actions-heading">Acciones</th>
@@ -191,6 +222,7 @@ export function OfertasPage() {
                         </div>
                       </div>
                     </td>
+                    <td><PreciosOferta ofertaId={oferta.id} revision={revisionPrecios} /></td>
                     <td>
                       <span className="date-range">
                         <Icon name="calendar" size={16} />
@@ -234,7 +266,7 @@ export function OfertasPage() {
       {editor?.modo === 'crear' && (
         <FormularioOfertaModal
           onClose={() => setEditor(null)}
-          onGuardado={() => { refetch(); setEditor(null) }}
+          onGuardado={() => { recargarOfertas(); setEditor(null) }}
         />
       )}
 
@@ -242,7 +274,7 @@ export function OfertasPage() {
         <FormularioOfertaModal
           oferta={editor.oferta}
           onClose={() => setEditor(null)}
-          onGuardado={() => { refetch(); setEditor(null) }}
+          onGuardado={() => { recargarOfertas(); setEditor(null) }}
         />
       )}
 
@@ -250,7 +282,7 @@ export function OfertasPage() {
         <DetalleOfertaModal
           oferta={editor.oferta}
           onClose={() => setEditor(null)}
-          onCambio={() => refetch()}
+          onCambio={recargarOfertas}
         />
       )}
 
