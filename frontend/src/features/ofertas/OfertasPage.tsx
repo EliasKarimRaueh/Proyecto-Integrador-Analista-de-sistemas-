@@ -32,6 +32,11 @@ function PreciosOferta({ ofertaId, revision }: { ofertaId: string; revision: num
   const productos = data?.productos.filter(producto => producto.activo) ?? []
   if (productos.length === 0) return <span className="subtle">Sin productos</span>
 
+  const totalCentavos = productos.reduce(
+    (total, producto) => total + Math.round(Number(producto.precioOferta) * 100),
+    0
+  )
+
   return (
     <div className="precio-cell">
       {productos.map(producto => (
@@ -40,6 +45,10 @@ function PreciosOferta({ ofertaId, revision }: { ofertaId: string; revision: num
           <small>{producto.nombre} · {producto.unidadVenta}</small>
         </div>
       ))}
+      <div className="precio-cell precio-oferta-total">
+        <small>Precio total</small>
+        <strong>{formatearMonto(totalCentavos / 100)}</strong>
+      </div>
     </div>
   )
 }
