@@ -1,3 +1,5 @@
+import type { Transaction } from 'sequelize';
+
 import BaseRepository from './BaseRepository.js';
 import ProductoProveedor from '../models/ProductoProveedor.js';
 import Producto from '../models/Producto.js';
@@ -19,36 +21,52 @@ class ProductoProveedorRepository
         this.proveedorRepository = new ProveedorRepository();
     }
 
+    // =========================
+    // RELACIONES
+    // =========================
+
     async findByRelation(
         productoId: number,
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<ProductoProveedor | null> {
 
-        return await this.findBy({
-            productoId,
-            proveedorId
-        });
+        return await this.findBy(
+            {
+                productoId,
+                proveedorId
+            },
+            transaction
+        );
     }
 
     async existsRelation(
         productoId: number,
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<boolean> {
 
         const relacion = await this.findByRelation(
             productoId,
-            proveedorId
+            proveedorId,
+            transaction
         );
 
         return relacion !== null;
     }
 
+    // =========================
+    // PROVEEDORES
+    // =========================
+
     async getProveedores(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<Proveedor[]> {
 
         const relaciones = await this.model.findAll({
-            where: { productoId }
+            where: { productoId },
+            transaction
         });
 
         const proveedores: Proveedor[] = [];
@@ -57,7 +75,8 @@ class ProductoProveedorRepository
 
             const proveedor =
                 await this.proveedorRepository.findById(
-                    relacion.proveedorId
+                    relacion.proveedorId,
+                    transaction
                 );
 
             if (proveedor) {
@@ -69,14 +88,16 @@ class ProductoProveedorRepository
     }
 
     async getProveedoresActivos(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<Proveedor[]> {
 
         const relaciones = await this.model.findAll({
             where: {
                 productoId,
                 activo: true
-            }
+            },
+            transaction
         });
 
         const proveedores: Proveedor[] = [];
@@ -85,7 +106,8 @@ class ProductoProveedorRepository
 
             const proveedor =
                 await this.proveedorRepository.findById(
-                    relacion.proveedorId
+                    relacion.proveedorId,
+                    transaction
                 );
 
             if (proveedor && proveedor.activo) {
@@ -97,10 +119,15 @@ class ProductoProveedorRepository
     }
 
     async findProveedoresName(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<string[]> {
 
-        const proveedores = await this.getProveedores(productoId);
+        const proveedores =
+            await this.getProveedores(
+                productoId,
+                transaction
+            );
 
         return proveedores.map(
             proveedor => proveedor.nombre
@@ -108,11 +135,15 @@ class ProductoProveedorRepository
     }
 
     async findProveedoresNameActivos(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<string[]> {
 
         const proveedores =
-            await this.getProveedoresActivos(productoId);
+            await this.getProveedoresActivos(
+                productoId,
+                transaction
+            );
 
         return proveedores.map(
             proveedor => proveedor.nombre
@@ -120,31 +151,45 @@ class ProductoProveedorRepository
     }
 
     async countProveedores(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<number> {
 
         const proveedores =
-            await this.getProveedores(productoId);
+            await this.getProveedores(
+                productoId,
+                transaction
+            );
 
         return proveedores.length;
     }
 
     async countProveedoresActivos(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<number> {
 
         const proveedores =
-            await this.getProveedoresActivos(productoId);
+            await this.getProveedoresActivos(
+                productoId,
+                transaction
+            );
 
         return proveedores.length;
     }
 
+    // =========================
+    // PRODUCTOS
+    // =========================
+
     async getProductos(
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<Producto[]> {
 
         const relaciones = await this.model.findAll({
-            where: { proveedorId }
+            where: { proveedorId },
+            transaction
         });
 
         const productos: Producto[] = [];
@@ -153,7 +198,8 @@ class ProductoProveedorRepository
 
             const producto =
                 await this.productoRepository.findById(
-                    relacion.productoId
+                    relacion.productoId,
+                    transaction
                 );
 
             if (producto) {
@@ -165,14 +211,16 @@ class ProductoProveedorRepository
     }
 
     async getProductosActivos(
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<Producto[]> {
 
         const relaciones = await this.model.findAll({
             where: {
                 proveedorId,
                 activo: true
-            }
+            },
+            transaction
         });
 
         const productos: Producto[] = [];
@@ -181,7 +229,8 @@ class ProductoProveedorRepository
 
             const producto =
                 await this.productoRepository.findById(
-                    relacion.productoId
+                    relacion.productoId,
+                    transaction
                 );
 
             if (producto && producto.activo) {
@@ -193,11 +242,15 @@ class ProductoProveedorRepository
     }
 
     async findProductosName(
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<string[]> {
 
         const productos =
-            await this.getProductos(proveedorId);
+            await this.getProductos(
+                proveedorId,
+                transaction
+            );
 
         return productos.map(
             producto => producto.nombre
@@ -205,11 +258,15 @@ class ProductoProveedorRepository
     }
 
     async findProductosNameActivos(
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<string[]> {
 
         const productos =
-            await this.getProductosActivos(proveedorId);
+            await this.getProductosActivos(
+                proveedorId,
+                transaction
+            );
 
         return productos.map(
             producto => producto.nombre
@@ -217,29 +274,42 @@ class ProductoProveedorRepository
     }
 
     async countProductos(
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<number> {
 
         const productos =
-            await this.getProductos(proveedorId);
+            await this.getProductos(
+                proveedorId,
+                transaction
+            );
 
         return productos.length;
     }
 
     async countProductosActivos(
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<number> {
 
         const productos =
-            await this.getProductosActivos(proveedorId);
+            await this.getProductosActivos(
+                proveedorId,
+                transaction
+            );
 
         return productos.length;
     }
 
+    // =========================
+    // ACTUALIZACIONES
+    // =========================
+
     async updateRelation(
         productoId: number,
         proveedorId: number,
-        data: Partial<ProductoProveedor>
+        data: Partial<ProductoProveedor>,
+        transaction?: Transaction
     ): Promise<ProductoProveedor | null> {
 
         return await this.updateBy(
@@ -247,13 +317,15 @@ class ProductoProveedorRepository
                 productoId,
                 proveedorId
             },
-            data
+            data,
+            transaction
         );
     }
 
     async activateRelation(
         productoId: number,
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<ProductoProveedor | null> {
 
         return await this.updateBy(
@@ -264,19 +336,28 @@ class ProductoProveedorRepository
             {
                 activo: true,
                 fechaBaja: null
-            }
+            },
+            transaction
         );
     }
 
+    // =========================
+    // BAJA LÓGICA
+    // =========================
+
     async deleteRelation(
         productoId: number,
-        proveedorId: number
+        proveedorId: number,
+        transaction?: Transaction
     ): Promise<ProductoProveedor | null> {
 
-        return await this.deleteBy({
-            productoId,
-            proveedorId
-        });
+        return await this.deleteBy(
+            {
+                productoId,
+                proveedorId
+            },
+            transaction
+        );
     }
 }
 

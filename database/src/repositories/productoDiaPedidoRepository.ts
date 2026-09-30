@@ -1,3 +1,5 @@
+import type { Transaction } from 'sequelize';
+
 import BaseRepository from './BaseRepository.js';
 import ProductoDiaPedido from '../models/ProductoDiaPedido.js';
 import Producto from '../models/Producto.js';
@@ -19,36 +21,52 @@ class ProductoDiaPedidoRepository
         this.diaPedidoRepository = new DiaPedidoRepository();
     }
 
+    // =========================
+    // RELACIONES
+    // =========================
+
     async findByRelation(
         productoId: number,
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<ProductoDiaPedido | null> {
 
-        return await this.findBy({
-            productoId,
-            diaPedidoId
-        });
+        return await this.findBy(
+            {
+                productoId,
+                diaPedidoId
+            },
+            transaction
+        );
     }
 
     async existsRelation(
         productoId: number,
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<boolean> {
 
         const relacion = await this.findByRelation(
             productoId,
-            diaPedidoId
+            diaPedidoId,
+            transaction
         );
 
         return relacion !== null;
     }
 
+    // =========================
+    // DÍAS DE PEDIDO
+    // =========================
+
     async getDiasPedido(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<DiaPedido[]> {
 
         const relaciones = await this.model.findAll({
-            where: { productoId }
+            where: { productoId },
+            transaction
         });
 
         const diasPedido: DiaPedido[] = [];
@@ -57,7 +75,8 @@ class ProductoDiaPedidoRepository
 
             const diaPedido =
                 await this.diaPedidoRepository.findById(
-                    relacion.diaPedidoId
+                    relacion.diaPedidoId,
+                    transaction
                 );
 
             if (diaPedido) {
@@ -69,14 +88,16 @@ class ProductoDiaPedidoRepository
     }
 
     async getDiasPedidoActivos(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<DiaPedido[]> {
 
         const relaciones = await this.model.findAll({
             where: {
                 productoId,
                 activo: true
-            }
+            },
+            transaction
         });
 
         const diasPedido: DiaPedido[] = [];
@@ -85,7 +106,8 @@ class ProductoDiaPedidoRepository
 
             const diaPedido =
                 await this.diaPedidoRepository.findById(
-                    relacion.diaPedidoId
+                    relacion.diaPedidoId,
+                    transaction
                 );
 
             if (diaPedido && diaPedido.activo) {
@@ -97,11 +119,15 @@ class ProductoDiaPedidoRepository
     }
 
     async findDiasPedidoName(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<string[]> {
 
         const diasPedido =
-            await this.getDiasPedido(productoId);
+            await this.getDiasPedido(
+                productoId,
+                transaction
+            );
 
         return diasPedido.map(
             diaPedido => diaPedido.nombre
@@ -109,11 +135,15 @@ class ProductoDiaPedidoRepository
     }
 
     async findDiasPedidoNameActivos(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<string[]> {
 
         const diasPedido =
-            await this.getDiasPedidoActivos(productoId);
+            await this.getDiasPedidoActivos(
+                productoId,
+                transaction
+            );
 
         return diasPedido.map(
             diaPedido => diaPedido.nombre
@@ -121,31 +151,45 @@ class ProductoDiaPedidoRepository
     }
 
     async countDiasPedido(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<number> {
 
         const diasPedido =
-            await this.getDiasPedido(productoId);
+            await this.getDiasPedido(
+                productoId,
+                transaction
+            );
 
         return diasPedido.length;
     }
 
     async countDiasPedidoActivos(
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<number> {
 
         const diasPedido =
-            await this.getDiasPedidoActivos(productoId);
+            await this.getDiasPedidoActivos(
+                productoId,
+                transaction
+            );
 
         return diasPedido.length;
     }
 
+    // =========================
+    // PRODUCTOS
+    // =========================
+
     async getProductos(
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<Producto[]> {
 
         const relaciones = await this.model.findAll({
-            where: { diaPedidoId }
+            where: { diaPedidoId },
+            transaction
         });
 
         const productos: Producto[] = [];
@@ -154,7 +198,8 @@ class ProductoDiaPedidoRepository
 
             const producto =
                 await this.productoRepository.findById(
-                    relacion.productoId
+                    relacion.productoId,
+                    transaction
                 );
 
             if (producto) {
@@ -166,14 +211,16 @@ class ProductoDiaPedidoRepository
     }
 
     async getProductosActivos(
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<Producto[]> {
 
         const relaciones = await this.model.findAll({
             where: {
                 diaPedidoId,
                 activo: true
-            }
+            },
+            transaction
         });
 
         const productos: Producto[] = [];
@@ -182,7 +229,8 @@ class ProductoDiaPedidoRepository
 
             const producto =
                 await this.productoRepository.findById(
-                    relacion.productoId
+                    relacion.productoId,
+                    transaction
                 );
 
             if (producto && producto.activo) {
@@ -194,11 +242,15 @@ class ProductoDiaPedidoRepository
     }
 
     async findProductosName(
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<string[]> {
 
         const productos =
-            await this.getProductos(diaPedidoId);
+            await this.getProductos(
+                diaPedidoId,
+                transaction
+            );
 
         return productos.map(
             producto => producto.nombre
@@ -206,11 +258,15 @@ class ProductoDiaPedidoRepository
     }
 
     async findProductosNameActivos(
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<string[]> {
 
         const productos =
-            await this.getProductosActivos(diaPedidoId);
+            await this.getProductosActivos(
+                diaPedidoId,
+                transaction
+            );
 
         return productos.map(
             producto => producto.nombre
@@ -218,29 +274,42 @@ class ProductoDiaPedidoRepository
     }
 
     async countProductos(
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<number> {
 
         const productos =
-            await this.getProductos(diaPedidoId);
+            await this.getProductos(
+                diaPedidoId,
+                transaction
+            );
 
         return productos.length;
     }
 
     async countProductosActivos(
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<number> {
 
         const productos =
-            await this.getProductosActivos(diaPedidoId);
+            await this.getProductosActivos(
+                diaPedidoId,
+                transaction
+            );
 
         return productos.length;
     }
 
+    // =========================
+    // ACTUALIZACIONES
+    // =========================
+
     async updateRelation(
         productoId: number,
         diaPedidoId: number,
-        data: Partial<ProductoDiaPedido>
+        data: Partial<ProductoDiaPedido>,
+        transaction?: Transaction
     ): Promise<ProductoDiaPedido | null> {
 
         return await this.updateBy(
@@ -248,13 +317,15 @@ class ProductoDiaPedidoRepository
                 productoId,
                 diaPedidoId
             },
-            data
+            data,
+            transaction
         );
     }
 
     async activateRelation(
         productoId: number,
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<ProductoDiaPedido | null> {
 
         return await this.updateBy(
@@ -265,19 +336,28 @@ class ProductoDiaPedidoRepository
             {
                 activo: true,
                 fechaBaja: null
-            }
+            },
+            transaction
         );
     }
 
+    // =========================
+    // BAJA LÓGICA
+    // =========================
+
     async deleteRelation(
         productoId: number,
-        diaPedidoId: number
+        diaPedidoId: number,
+        transaction?: Transaction
     ): Promise<ProductoDiaPedido | null> {
 
-        return await this.deleteBy({
-            productoId,
-            diaPedidoId
-        });
+        return await this.deleteBy(
+            {
+                productoId,
+                diaPedidoId
+            },
+            transaction
+        );
     }
 }
 

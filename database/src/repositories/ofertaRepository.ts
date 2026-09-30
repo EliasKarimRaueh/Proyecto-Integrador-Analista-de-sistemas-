@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import type { Transaction } from 'sequelize';
 
 import BaseRepository from './BaseRepository.js';
 import Oferta from '../models/Oferta.js';
@@ -18,13 +19,25 @@ class OfertaRepository extends BaseRepository<Oferta> {
      * tiene índice único, así que si hay dos con el mismo nombre
      * devuelve la más antigua.
      */
-    async findByName(nombre: string): Promise<Oferta | null> {
-        return await this.findBy({ nombre });
+    async findByName(
+        nombre: string,
+        transaction?: Transaction
+    ): Promise<Oferta | null> {
+        return await this.findBy(
+            { nombre },
+            transaction
+        );
     }
 
-    async findByIdActivo(id: number): Promise<Oferta | null> {
+    async findByIdActivo(
+        id: number,
+        transaction?: Transaction
+    ): Promise<Oferta | null> {
 
-        const oferta = await this.findById(id);
+        const oferta = await this.findById(
+            id,
+            transaction
+        );
 
         if (!oferta || !oferta.activo) {
             return null;
@@ -37,14 +50,16 @@ class OfertaRepository extends BaseRepository<Oferta> {
         page = 1,
         limit = 10,
         orderBy = 'id',
-        orderDirection: 'ASC' | 'DESC' = 'ASC'
+        orderDirection: 'ASC' | 'DESC' = 'ASC',
+        transaction?: Transaction
     ) {
         return await this.findAllBy(
             { activo: true },
             page,
             limit,
             orderBy,
-            orderDirection
+            orderDirection,
+            transaction
         );
     }
 
@@ -61,7 +76,8 @@ class OfertaRepository extends BaseRepository<Oferta> {
         page = 1,
         limit = 10,
         orderBy = 'fechaInicio',
-        orderDirection: 'ASC' | 'DESC' = 'DESC'
+        orderDirection: 'ASC' | 'DESC' = 'DESC',
+        transaction?: Transaction
     ) {
         const where = {
             activo: true,
@@ -76,12 +92,14 @@ class OfertaRepository extends BaseRepository<Oferta> {
             page,
             limit,
             orderBy,
-            orderDirection
+            orderDirection,
+            transaction
         );
     }
 
     async findTodasVigentes(
-        fecha: Date = new Date()
+        fecha: Date = new Date(),
+        transaction?: Transaction
     ): Promise<Oferta[]> {
 
         return await this.model.findAll({
@@ -92,7 +110,8 @@ class OfertaRepository extends BaseRepository<Oferta> {
                     { fechaFin: { [Op.gte]: fecha } }
                 ]
             },
-            order: [['fechaInicio', 'DESC']]
+            order: [['fechaInicio', 'DESC']],
+            transaction
         });
     }
 
@@ -102,39 +121,63 @@ class OfertaRepository extends BaseRepository<Oferta> {
 
     async updateNombre(
         id: number,
-        nombre: string
+        nombre: string,
+        transaction?: Transaction
     ): Promise<Oferta | null> {
-        return await this.updateById(id, { nombre });
+        return await this.updateById(
+            id,
+            { nombre },
+            transaction
+        );
     }
 
     async updateDescripcion(
         id: number,
-        descripcion: string | null
+        descripcion: string | null,
+        transaction?: Transaction
     ): Promise<Oferta | null> {
-        return await this.updateById(id, { descripcion });
+        return await this.updateById(
+            id,
+            { descripcion },
+            transaction
+        );
     }
 
     async updateVigencia(
         id: number,
         fechaInicio: Date,
-        fechaFin: Date
+        fechaFin: Date,
+        transaction?: Transaction
     ): Promise<Oferta | null> {
-        return await this.updateById(id, { fechaInicio, fechaFin });
+        return await this.updateById(
+            id,
+            { fechaInicio, fechaFin },
+            transaction
+        );
     }
 
     // =========================
     // BAJA LÓGICA
     // =========================
 
-    async deleteByName(nombre: string): Promise<Oferta | null> {
+    async deleteByName(
+        nombre: string,
+        transaction?: Transaction
+    ): Promise<Oferta | null> {
 
-        const oferta = await this.findByName(nombre);
+        const oferta = await this.findByName(
+            nombre,
+            transaction
+        );
 
         if (!oferta) {
             return null;
         }
 
-        return await this.deleteById(oferta.id);
+        return await this.deleteById(
+            oferta.id,
+            transaction
+        );
     }
 }
 

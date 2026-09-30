@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import type { WhereOptions } from 'sequelize';
+import type { Transaction, WhereOptions } from 'sequelize';
 
 import BaseRepository from './BaseRepository.js';
 import Precio from '../models/Precio.js';
@@ -32,17 +32,24 @@ class PrecioRepository extends BaseRepository<Precio> {
     // VIGENCIA
     // =========================
 
-    async findAbierto(productoId: number): Promise<Precio | null> {
-        return await this.findBy({
-            productoId,
-            fechaHasta: null,
-            fechaBaja: null
-        });
+    async findAbierto(
+        productoId: number,
+        transaction?: Transaction
+    ): Promise<Precio | null> {
+        return await this.findBy(
+            {
+                productoId,
+                fechaHasta: null,
+                fechaBaja: null
+            },
+            transaction
+        );
     }
 
     async findVigente(
         productoId: number,
-        fecha: Date = new Date()
+        fecha: Date = new Date(),
+        transaction?: Transaction
     ): Promise<Precio | null> {
 
         const precios = await this.model.findAll({
@@ -59,7 +66,8 @@ class PrecioRepository extends BaseRepository<Precio> {
                     }
                 ]
             },
-            order: [['fechaDesde', 'DESC']]
+            order: [['fechaDesde', 'DESC']],
+            transaction
         });
 
         return precios[0] ?? null;
@@ -68,7 +76,8 @@ class PrecioRepository extends BaseRepository<Precio> {
     async findHistorial(
         productoId: number,
         page = 1,
-        limit = 10
+        limit = 10,
+        transaction?: Transaction
     ): Promise<Precio[]> {
 
         const resultado = await this.findAllBy(
@@ -76,7 +85,8 @@ class PrecioRepository extends BaseRepository<Precio> {
             page,
             limit,
             'fechaDesde',
-            'DESC'
+            'DESC',
+            transaction
         );
 
         return resultado.rows;
@@ -94,7 +104,8 @@ class PrecioRepository extends BaseRepository<Precio> {
     async findGlobales(
         vigente = false,
         page = 1,
-        limit = 100
+        limit = 100,
+        transaction?: Transaction
     ) {
 
         // Un precio vigente tiene que haber arrancado, no estar dado de
@@ -120,7 +131,8 @@ class PrecioRepository extends BaseRepository<Precio> {
             offset: (page - 1) * limit,
             // Primero por producto y después del más nuevo al más
             // viejo, para que el vigente de cada uno quede arriba.
-            order: [['productoId', 'ASC'], ['fechaDesde', 'DESC']]
+            order: [['productoId', 'ASC'], ['fechaDesde', 'DESC']],
+            transaction
         });
     }
 
@@ -129,20 +141,23 @@ class PrecioRepository extends BaseRepository<Precio> {
         page = 1,
         limit = 10,
         orderBy = 'fechaDesde',
-        orderDirection: 'ASC' | 'DESC' = 'DESC'
+        orderDirection: 'ASC' | 'DESC' = 'DESC',
+        transaction?: Transaction
     ) {
         return await this.findAllBy(
             { productoId },
             page,
             limit,
             orderBy,
-            orderDirection
+            orderDirection,
+            transaction
         );
     }
 
     async findAllVigentes(
         productoIds: number[],
-        fecha: Date = new Date()
+        fecha: Date = new Date(),
+        transaction?: Transaction
     ): Promise<Precio[]> {
 
         if (productoIds.length === 0) {
@@ -163,7 +178,8 @@ class PrecioRepository extends BaseRepository<Precio> {
                     }
                 ]
             },
-            order: [['productoId', 'ASC']]
+            order: [['productoId', 'ASC']],
+            transaction
         });
     }
 
@@ -172,12 +188,16 @@ class PrecioRepository extends BaseRepository<Precio> {
     // =========================
 
     /**
-     * Registra un precio nuevo para el producto. Cierra en la misma
-     * transacción cualquier precio que estuviera abierto y deja el
-     * nuevo como el único vigente.
+     * Registra un precio nuevo para el producto.
      *
-     * El nuevo tiene que empezar después de que empezó el abierto. El
-     * bloqueo evita que dos altas simultáneas pasen las dos la
+     * Si recibe una transacción externa, todas las operaciones se ejecutan
+     * dentro de ella y no se crea una transacción nueva.
+     *
+     * Si no recibe una transacción, mantiene el comportamiento original:
+     * crea y administra su propia transacción.
+     *
+     * El nuevo precio tiene que empezar después de que empezó el abierto.
+     * El bloqueo evita que dos altas simultáneas pasen las dos la
      * comprobación; el índice parcial de un solo precio abierto por
      * producto sigue siendo la última red de seguridad.
      */
@@ -185,8 +205,72 @@ class PrecioRepository extends BaseRepository<Precio> {
         productoId: number,
         precioMinorista: string,
         precioMayorista: string | null = null,
-        fechaDesde: Date = new Date()
+        fechaDesde: Date = new Date(),
+        transaction?: Transaction
     ): Promise<Precio> {
+
+        // =========================
+        // TRANSACCIÓN EXTERNA
+        // =========================
+
+        if (transaction) {
+
+            const abierto = await this.model.findOne({
+                where: {
+                    productoId,
+                    fechaHasta: null,
+                    fechaBaja: null
+                },
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+
+            if (
+                abierto !== null &&
+                fechaDesde.getTime() <= abierto.fechaDesde.getTime()
+            ) {
+                throw new ErrorVigenciaPrecio(
+                    `Este producto ya tiene un precio vigente desde el ${abierto.fechaDesde.toISOString().slice(0, 10)}. ` +
+                    'Usá "Corregir" para cambiar el importe de hoy, o registrá el precio nuevo con una fecha posterior.'
+                );
+            }
+
+            await this.model.update(
+                { fechaHasta: fechaDesde },
+                {
+                    where: {
+                        productoId,
+                        fechaHasta: null,
+                        fechaBaja: null
+                    },
+                    // validate: false es obligatorio acá, no una comodidad.
+                    // Model.update arma una instancia sintética con solo
+                    // fechaHasta y le aplica el defaultValue de fechaDesde,
+                    // o sea NOW, así que el validador de vigencia del modelo
+                    // compara contra el momento de la escritura y no contra
+                    // la fecha desde real de la fila: rechaza cualquier
+                    // cierre, incluso el primer precio de un producto.
+                    // El validador del modelo no puede juzgar esta
+                    // sentencia; la regla real es la comprobación de arriba.
+                    validate: false,
+                    transaction
+                }
+            );
+
+            return await this.model.create(
+                {
+                    productoId,
+                    precioMinorista,
+                    precioMayorista,
+                    fechaDesde
+                },
+                { transaction }
+            );
+        }
+
+        // =========================
+        // SIN TRANSACCIÓN EXTERNA
+        // =========================
 
         return await sequelize.transaction(async transaction => {
 
@@ -200,7 +284,10 @@ class PrecioRepository extends BaseRepository<Precio> {
                 lock: transaction.LOCK.UPDATE
             });
 
-            if (abierto !== null && fechaDesde.getTime() <= abierto.fechaDesde.getTime()) {
+            if (
+                abierto !== null &&
+                fechaDesde.getTime() <= abierto.fechaDesde.getTime()
+            ) {
                 throw new ErrorVigenciaPrecio(
                     `Este producto ya tiene un precio vigente desde el ${abierto.fechaDesde.toISOString().slice(0, 10)}. ` +
                     'Usá "Corregir" para cambiar el importe de hoy, o registrá el precio nuevo con una fecha posterior.'
@@ -243,9 +330,14 @@ class PrecioRepository extends BaseRepository<Precio> {
 
     async cerrarVigencia(
         id: number,
-        fechaHasta: Date = new Date()
+        fechaHasta: Date = new Date(),
+        transaction?: Transaction
     ): Promise<Precio | null> {
-        return await this.updateById(id, { fechaHasta });
+        return await this.updateById(
+            id,
+            { fechaHasta },
+            transaction
+        );
     }
 
     // =========================
@@ -255,12 +347,17 @@ class PrecioRepository extends BaseRepository<Precio> {
     async updatePrecios(
         id: number,
         precioMinorista: string,
-        precioMayorista: string | null = null
+        precioMayorista: string | null = null,
+        transaction?: Transaction
     ): Promise<Precio | null> {
-        return await this.updateById(id, {
-            precioMinorista,
-            precioMayorista
-        });
+        return await this.updateById(
+            id,
+            {
+                precioMinorista,
+                precioMayorista
+            },
+            transaction
+        );
     }
 }
 

@@ -1,5 +1,6 @@
 import BaseRepository from './BaseRepository.js';
 import Producto from '../models/Producto.js';
+import type { Transaction } from 'sequelize';
 
 class ProductoRepository extends BaseRepository<Producto> {
 
@@ -11,19 +12,40 @@ class ProductoRepository extends BaseRepository<Producto> {
     // BÚSQUEDAS
     // =========================
 
-    async findByName(nombre: string): Promise<Producto | null> {
-        return await this.findBy({ nombre });
+    async findByName(
+        nombre: string,
+        transaction?: Transaction
+    ): Promise<Producto | null> {
+
+        return await this.findBy(
+            { nombre },
+            transaction
+        );
     }
 
-    async findByNameActivos(nombre: string): Promise<Producto | null> {
-        return await this.findBy({
-            nombre,
-            activo: true
-        });
+    async findByNameActivos(
+        nombre: string,
+        transaction?: Transaction
+    ): Promise<Producto | null> {
+
+        return await this.findBy(
+            {
+                nombre,
+                activo: true
+            },
+            transaction
+        );
     }
 
-    async findByIdActivos(id: number): Promise<Producto | null> {
-        const producto = await this.findById(id);
+    async findByIdActivos(
+        id: number,
+        transaction?: Transaction
+    ): Promise<Producto | null> {
+
+        const producto = await this.findById(
+            id,
+            transaction
+        );
 
         if (!producto || !producto.activo) {
             return null;
@@ -33,67 +55,116 @@ class ProductoRepository extends BaseRepository<Producto> {
     }
 
     async findByTipoProducto(
-        tipoProductoId: number
+        tipoProductoId: number,
+        transaction?: Transaction
     ): Promise<Producto[]> {
 
-        const resultado = await this.findAllBy({
-            tipoProductoId
-        });
+        const resultado = await this.findAllBy(
+            {
+                tipoProductoId
+            },
+            1,
+            10,
+            'id',
+            'ASC',
+            transaction
+        );
 
         return resultado.rows;
     }
 
     async findByTipoProductoActivos(
-        tipoProductoId: number
+        tipoProductoId: number,
+        transaction?: Transaction
     ): Promise<Producto[]> {
 
-        const resultado = await this.findAllBy({
-            tipoProductoId,
-            activo: true
-        });
+        const resultado = await this.findAllBy(
+            {
+                tipoProductoId,
+                activo: true
+            },
+            1,
+            10,
+            'id',
+            'ASC',
+            transaction
+        );
 
         return resultado.rows;
     }
 
     async findByUnidadCompra(
-        unidadCompra: Producto['unidadCompra']
+        unidadCompra: Producto['unidadCompra'],
+        transaction?: Transaction
     ): Promise<Producto[]> {
 
-        const resultado = await this.findAllBy({
-            unidadCompra
-        });
+        const resultado = await this.findAllBy(
+            {
+                unidadCompra
+            },
+            1,
+            10,
+            'id',
+            'ASC',
+            transaction
+        );
 
         return resultado.rows;
     }
 
     async findByUnidadVenta(
-        unidadVenta: Producto['unidadVenta']
+        unidadVenta: Producto['unidadVenta'],
+        transaction?: Transaction
     ): Promise<Producto[]> {
 
-        const resultado = await this.findAllBy({
-            unidadVenta
-        });
+        const resultado = await this.findAllBy(
+            {
+                unidadVenta
+            },
+            1,
+            10,
+            'id',
+            'ASC',
+            transaction
+        );
 
         return resultado.rows;
     }
 
     async findByTipoReposicion(
-        tipoReposicion: Producto['tipoReposicion']
+        tipoReposicion: Producto['tipoReposicion'],
+        transaction?: Transaction
     ): Promise<Producto[]> {
 
-        const resultado = await this.findAllBy({
-            tipoReposicion
-        });
+        const resultado = await this.findAllBy(
+            {
+                tipoReposicion
+            },
+            1,
+            10,
+            'id',
+            'ASC',
+            transaction
+        );
 
         return resultado.rows;
     }
 
-    async findByStockBajo(): Promise<Producto[]> {
+    async findByStockBajo(
+        transaction?: Transaction
+    ): Promise<Producto[]> {
 
-        const resultado = await this.findAllBy({
-            tipoReposicion: 'stockMinimo',
-            activo: true
-        });
+        const resultado = await this.findAllBy(
+            {
+                tipoReposicion: 'stockMinimo',
+                activo: true
+            },
+            1,
+            10,
+            'id',
+            'ASC',
+            transaction
+        );
 
         return resultado.rows.filter(
             producto =>
@@ -102,14 +173,24 @@ class ProductoRepository extends BaseRepository<Producto> {
         );
     }
 
-    async findByStockNegativo(): Promise<Producto[]> {
+    async findByStockNegativo(
+        transaction?: Transaction
+    ): Promise<Producto[]> {
 
-        const resultado = await this.findAllBy({
-            activo: true
-        });
+        const resultado = await this.findAllBy(
+            {
+                activo: true
+            },
+            1,
+            10,
+            'id',
+            'ASC',
+            transaction
+        );
 
         return resultado.rows.filter(
-            producto => producto.stockActual < 0
+            producto =>
+                producto.stockActual < 0
         );
     }
 
@@ -117,14 +198,19 @@ class ProductoRepository extends BaseRepository<Producto> {
         page = 1,
         limit = 10,
         orderBy = 'id',
-        orderDirection: 'ASC' | 'DESC' = 'ASC'
+        orderDirection: 'ASC' | 'DESC' = 'ASC',
+        transaction?: Transaction
     ) {
+
         return await this.findAllBy(
-            { activo: true },
+            {
+                activo: true
+            },
             page,
             limit,
             orderBy,
-            orderDirection
+            orderDirection,
+            transaction
         );
     }
 
@@ -134,62 +220,110 @@ class ProductoRepository extends BaseRepository<Producto> {
 
     async updateNombre(
         id: number,
-        nombre: string
+        nombre: string,
+        transaction?: Transaction
     ): Promise<Producto | null> {
-        return await this.updateById(id, { nombre });
+
+        return await this.updateById(
+            id,
+            { nombre },
+            transaction
+        );
     }
 
     async updateTipoProducto(
         id: number,
-        tipoProductoId: number
+        tipoProductoId: number,
+        transaction?: Transaction
     ): Promise<Producto | null> {
-        return await this.updateById(id, { tipoProductoId });
+
+        return await this.updateById(
+            id,
+            { tipoProductoId },
+            transaction
+        );
     }
 
     async updateUnidadCompra(
         id: number,
-        unidadCompra: Producto['unidadCompra']
+        unidadCompra: Producto['unidadCompra'],
+        transaction?: Transaction
     ): Promise<Producto | null> {
-        return await this.updateById(id, { unidadCompra });
+
+        return await this.updateById(
+            id,
+            { unidadCompra },
+            transaction
+        );
     }
 
     async updateUnidadVenta(
         id: number,
-        unidadVenta: Producto['unidadVenta']
+        unidadVenta: Producto['unidadVenta'],
+        transaction?: Transaction
     ): Promise<Producto | null> {
-        return await this.updateById(id, { unidadVenta });
+
+        return await this.updateById(
+            id,
+            { unidadVenta },
+            transaction
+        );
     }
 
     async updateFactorConversion(
         id: number,
-        factorConversion: number
+        factorConversion: number,
+        transaction?: Transaction
     ): Promise<Producto | null> {
-        return await this.updateById(id, { factorConversion });
+
+        return await this.updateById(
+            id,
+            { factorConversion },
+            transaction
+        );
     }
 
     async updateStock(
         id: number,
-        stockActual: number
+        stockActual: number,
+        transaction?: Transaction
     ): Promise<Producto | null> {
-        return await this.updateById(id, { stockActual });
+
+        return await this.updateById(
+            id,
+            { stockActual },
+            transaction
+        );
     }
 
     async updateCosto(
         id: number,
-        costoActual: string
+        costoActual: string,
+        transaction?: Transaction
     ): Promise<Producto | null> {
-        return await this.updateById(id, { costoActual });
+
+        return await this.updateById(
+            id,
+            { costoActual },
+            transaction
+        );
     }
 
     async updateReposicion(
         id: number,
         tipoReposicion: Producto['tipoReposicion'],
-        stockMinimo: number | null
+        stockMinimo: number | null,
+        transaction?: Transaction
     ): Promise<Producto | null> {
-        return await this.updateById(id, {
-            tipoReposicion,
-            stockMinimo
-        });
+
+        return await this.updateById(
+            id,
+            {
+                tipoReposicion,
+                stockMinimo
+            },
+            transaction
+        );
     }
 
     // =========================
@@ -198,53 +332,82 @@ class ProductoRepository extends BaseRepository<Producto> {
 
     async incrementStock(
         id: number,
-        cantidad: number
+        cantidad: number,
+        transaction?: Transaction
     ): Promise<Producto | null> {
 
-        const producto = await this.findById(id);
+        const producto = await this.findById(
+            id,
+            transaction
+        );
 
         if (!producto) {
             return null;
         }
 
-        await producto.increment('stockActual', {
-            by: cantidad
-        });
+        await producto.increment(
+            'stockActual',
+            {
+                by: cantidad,
+                transaction
+            }
+        );
 
-        return await producto.reload();
+        return await producto.reload({
+            transaction
+        });
     }
 
     async decrementStock(
         id: number,
-        cantidad: number
+        cantidad: number,
+        transaction?: Transaction
     ): Promise<Producto | null> {
 
-        const producto = await this.findById(id);
+        const producto = await this.findById(
+            id,
+            transaction
+        );
 
         if (!producto) {
             return null;
         }
 
-        await producto.decrement('stockActual', {
-            by: cantidad
-        });
+        await producto.decrement(
+            'stockActual',
+            {
+                by: cantidad,
+                transaction
+            }
+        );
 
-        return await producto.reload();
+        return await producto.reload({
+            transaction
+        });
     }
 
     // =========================
     // BAJA LÓGICA
     // =========================
 
-    async deleteByName(nombre: string): Promise<Producto | null> {
+    async deleteByName(
+        nombre: string,
+        transaction?: Transaction
+    ): Promise<Producto | null> {
 
-        const producto = await this.findByName(nombre);
+        const producto = await this.findByName(
+            nombre,
+            transaction
+        );
 
         if (!producto) {
             return null;
         }
 
-        return await this.deleteById(producto.id);
+        return await this.deleteById(
+            producto.id,
+            transaction
+        );
     }
 }
 

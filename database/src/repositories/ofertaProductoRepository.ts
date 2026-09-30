@@ -1,3 +1,5 @@
+import type { Transaction } from 'sequelize';
+
 import BaseRepository from './BaseRepository.js';
 import OfertaProducto from '../models/OfertaProducto.js';
 import Producto from '../models/Producto.js';
@@ -26,19 +28,25 @@ class OfertaProductoRepository
 
     async findByOfertaProducto(
         ofertaId: number,
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<OfertaProducto | null> {
-        return await this.findBy({ ofertaId, productoId });
+        return await this.findBy(
+            { ofertaId, productoId },
+            transaction
+        );
     }
 
     async existsOfertaProducto(
         ofertaId: number,
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<boolean> {
 
         const relacion = await this.findByOfertaProducto(
             ofertaId,
-            productoId
+            productoId,
+            transaction
         );
 
         return relacion !== null;
@@ -48,10 +56,14 @@ class OfertaProductoRepository
     // PRODUCTOS DE UNA OFERTA
     // =========================
 
-    async getProductos(ofertaId: number): Promise<Producto[]> {
+    async getProductos(
+        ofertaId: number,
+        transaction?: Transaction
+    ): Promise<Producto[]> {
 
         const relaciones = await this.model.findAll({
-            where: { ofertaId }
+            where: { ofertaId },
+            transaction
         });
 
         const productos: Producto[] = [];
@@ -60,7 +72,8 @@ class OfertaProductoRepository
 
             const producto =
                 await this.productoRepository.findById(
-                    relacion.productoId
+                    relacion.productoId,
+                    transaction
                 );
 
             if (producto) {
@@ -71,13 +84,17 @@ class OfertaProductoRepository
         return productos;
     }
 
-    async getProductosActivos(ofertaId: number): Promise<Producto[]> {
+    async getProductosActivos(
+        ofertaId: number,
+        transaction?: Transaction
+    ): Promise<Producto[]> {
 
         const relaciones = await this.model.findAll({
             where: {
                 ofertaId,
                 activo: true
-            }
+            },
+            transaction
         });
 
         const productos: Producto[] = [];
@@ -86,7 +103,8 @@ class OfertaProductoRepository
 
             const producto =
                 await this.productoRepository.findById(
-                    relacion.productoId
+                    relacion.productoId,
+                    transaction
                 );
 
             if (producto && producto.activo) {
@@ -97,16 +115,28 @@ class OfertaProductoRepository
         return productos;
     }
 
-    async findProductosName(ofertaId: number): Promise<string[]> {
+    async findProductosName(
+        ofertaId: number,
+        transaction?: Transaction
+    ): Promise<string[]> {
 
-        const productos = await this.getProductos(ofertaId);
+        const productos = await this.getProductos(
+            ofertaId,
+            transaction
+        );
 
         return productos.map(producto => producto.nombre);
     }
 
-    async countProductos(ofertaId: number): Promise<number> {
+    async countProductos(
+        ofertaId: number,
+        transaction?: Transaction
+    ): Promise<number> {
 
-        const productos = await this.getProductos(ofertaId);
+        const productos = await this.getProductos(
+            ofertaId,
+            transaction
+        );
 
         return productos.length;
     }
@@ -117,8 +147,16 @@ class OfertaProductoRepository
 
     /**
      * Crea una oferta y todas sus filas de ofertas_productos en una
-     * sola transacción. Si un producto falla, no queda ni la oferta
-     * ni las relaciones que ya se hubieran insertado.
+     * sola transacción.
+     *
+     * Si recibe una transacción externa, utiliza esa transacción y no
+     * crea una nueva.
+     *
+     * Si no recibe una transacción, conserva el comportamiento original:
+     * crea su propia transacción.
+     *
+     * De esta forma puede utilizarse como operación independiente o
+     * formar parte de una operación transaccional mayor.
      */
     async crearOfertaConProductos(
         datos: {
@@ -127,8 +165,48 @@ class OfertaProductoRepository
             fechaInicio: Date;
             fechaFin: Date;
         },
-        items: { productoId: number; precioOferta: string }[]
+        items: { productoId: number; precioOferta: string }[],
+        transaction?: Transaction
     ): Promise<{ oferta: Oferta; relaciones: OfertaProducto[] }> {
+
+        // =========================
+        // TRANSACCIÓN EXTERNA
+        // =========================
+
+        if (transaction) {
+
+            const oferta = await this.ofertaRepository.create(
+                {
+                    nombre: datos.nombre,
+                    descripcion: datos.descripcion,
+                    fechaInicio: datos.fechaInicio,
+                    fechaFin: datos.fechaFin
+                },
+                { transaction }
+            );
+
+            const relaciones: OfertaProducto[] = [];
+
+            for (const item of items) {
+
+                relaciones.push(
+                    await this.model.create(
+                        {
+                            ofertaId: oferta.id,
+                            productoId: item.productoId,
+                            precioOferta: item.precioOferta
+                        },
+                        { transaction }
+                    )
+                );
+            }
+
+            return { oferta, relaciones };
+        }
+
+        // =========================
+        // SIN TRANSACCIÓN EXTERNA
+        // =========================
 
         return await sequelize.transaction(async transaction => {
 
@@ -168,14 +246,16 @@ class OfertaProductoRepository
      */
     async listarDetalleProductos(
         ofertaId: number,
-        soloActivos = false
+        soloActivos = false,
+        transaction?: Transaction
     ): Promise<{ producto: Producto; relacion: OfertaProducto }[]> {
 
         const relaciones = await this.model.findAll({
             where: soloActivos
                 ? { ofertaId, activo: true }
                 : { ofertaId },
-            order: [['id', 'ASC']]
+            order: [['id', 'ASC']],
+            transaction
         });
 
         if (relaciones.length === 0) {
@@ -183,7 +263,8 @@ class OfertaProductoRepository
         }
 
         const productos = await this.productoRepository.findByIds(
-            relaciones.map(relacion => relacion.productoId)
+            relaciones.map(relacion => relacion.productoId),
+            transaction
         );
 
         const porId = new Map(
@@ -211,10 +292,14 @@ class OfertaProductoRepository
     // OFERTAS DE UN PRODUCTO
     // =========================
 
-    async getOfertas(productoId: number): Promise<Oferta[]> {
+    async getOfertas(
+        productoId: number,
+        transaction?: Transaction
+    ): Promise<Oferta[]> {
 
         const relaciones = await this.model.findAll({
-            where: { productoId }
+            where: { productoId },
+            transaction
         });
 
         const ofertas: Oferta[] = [];
@@ -223,7 +308,8 @@ class OfertaProductoRepository
 
             const oferta =
                 await this.ofertaRepository.findById(
-                    relacion.ofertaId
+                    relacion.ofertaId,
+                    transaction
                 );
 
             if (oferta) {
@@ -234,13 +320,17 @@ class OfertaProductoRepository
         return ofertas;
     }
 
-    async getOfertasActivas(productoId: number): Promise<Oferta[]> {
+    async getOfertasActivas(
+        productoId: number,
+        transaction?: Transaction
+    ): Promise<Oferta[]> {
 
         const relaciones = await this.model.findAll({
             where: {
                 productoId,
                 activo: true
-            }
+            },
+            transaction
         });
 
         const ofertas: Oferta[] = [];
@@ -249,7 +339,8 @@ class OfertaProductoRepository
 
             const oferta =
                 await this.ofertaRepository.findByIdActivo(
-                    relacion.ofertaId
+                    relacion.ofertaId,
+                    transaction
                 );
 
             if (oferta) {
@@ -267,14 +358,16 @@ class OfertaProductoRepository
      */
     async getOfertasVigentes(
         productoId: number,
-        fecha: Date = new Date()
+        fecha: Date = new Date(),
+        transaction?: Transaction
     ): Promise<Oferta[]> {
 
         const relaciones = await this.model.findAll({
             where: {
                 productoId,
                 activo: true
-            }
+            },
+            transaction
         });
 
         if (relaciones.length === 0) {
@@ -282,7 +375,10 @@ class OfertaProductoRepository
         }
 
         const ofertasVigentes =
-            await this.ofertaRepository.findTodasVigentes(fecha);
+            await this.ofertaRepository.findTodasVigentes(
+                fecha,
+                transaction
+            );
 
         const idsVigentes = new Set(
             ofertasVigentes.map(oferta => oferta.id)
@@ -296,7 +392,8 @@ class OfertaProductoRepository
 
                 const oferta =
                     await this.ofertaRepository.findById(
-                        relacion.ofertaId
+                        relacion.ofertaId,
+                        transaction
                     );
 
                 if (oferta) {
@@ -319,12 +416,14 @@ class OfertaProductoRepository
     async listarDetalleOfertas(
         productoId: number,
         soloVigentes = true,
-        fecha: Date = new Date()
+        fecha: Date = new Date(),
+        transaction?: Transaction
     ): Promise<{ oferta: Oferta; relacion: OfertaProducto }[]> {
 
         const relaciones = await this.model.findAll({
             where: { productoId, activo: true },
-            order: [['ofertaId', 'ASC']]
+            order: [['ofertaId', 'ASC']],
+            transaction
         });
 
         if (relaciones.length === 0) {
@@ -332,9 +431,16 @@ class OfertaProductoRepository
         }
 
         const vigentes = soloVigentes
-            ? await this.ofertaRepository.findTodasVigentes(fecha)
+            ? await this.ofertaRepository.findTodasVigentes(
+                fecha,
+                transaction
+            )
             : await this.ofertaRepository.findAll(
-                1, 1000, 'id', 'ASC'
+                1,
+                1000,
+                'id',
+                'ASC',
+                transaction
             ).then(r => r.rows);
 
         const porId = new Map(
@@ -361,24 +467,28 @@ class OfertaProductoRepository
     async updatePrecioOferta(
         ofertaId: number,
         productoId: number,
-        precioOferta: string
+        precioOferta: string,
+        transaction?: Transaction
     ): Promise<OfertaProducto | null> {
         return await this.updateBy(
             { ofertaId, productoId },
-            { precioOferta }
+            { precioOferta },
+            transaction
         );
     }
 
     async activateOfertaProducto(
         ofertaId: number,
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<OfertaProducto | null> {
         return await this.updateBy(
             { ofertaId, productoId },
             {
                 activo: true,
                 fechaBaja: null
-            }
+            },
+            transaction
         );
     }
 
@@ -388,9 +498,13 @@ class OfertaProductoRepository
 
     async deleteByOfertaProducto(
         ofertaId: number,
-        productoId: number
+        productoId: number,
+        transaction?: Transaction
     ): Promise<OfertaProducto | null> {
-        return await this.deleteBy({ ofertaId, productoId });
+        return await this.deleteBy(
+            { ofertaId, productoId },
+            transaction
+        );
     }
 }
 
