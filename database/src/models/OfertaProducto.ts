@@ -5,6 +5,7 @@ class OfertaProducto extends Model {
     declare id: number;
     declare ofertaId: number;
     declare productoId: number;
+    declare cantidad: number;
     declare precioOferta: string;
     declare activo: boolean;
     declare fechaBaja: Date | null;
@@ -34,6 +35,11 @@ OfertaProducto.init({
             model: 'productos',
             key: 'id'
         }
+    },
+
+    cantidad: {
+        type: DataTypes.FLOAT,
+        allowNull: false
     },
 
     precioOferta: {

@@ -131,6 +131,7 @@ MovimientoStock.init({
     usuarioId: {
         type: DataTypes.INTEGER,
         allowNull: false,
+        defaultValue:1, //(hardcodeado hasta implementar usuarios)
         /*references: {
             model: 'usuarios',
             key: 'id'

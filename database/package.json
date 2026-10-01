@@ -17,19 +17,25 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx --watch src/index.ts",
+    "test": "jest",
     "test:connection": "tsx src/test/test-connection.ts",
     "test:repositories": "tsx src/test/test-repositories.ts",
-    "seed:productos": "tsx src/seeders/seederProductos.ts"
+    "seed:productos": "tsx src/seeders/seederProductos.ts",
+    "seed:ventas": "tsx src/seeders/seederVentas.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.1",
     "@supabase/supabase-js": "^2.110.3",
     "dotenv": "^17.4.2",
-    "sequelize": "^6.37.8",
-    "pg": "^8.x"
+    "pg": "^8.x",
+    "sequelize": "^6.37.8"
   },
   "devDependencies": {
+    "@swc/core": "^1.16.13",
+    "@swc/jest": "^0.2.39",
+    "@types/jest": "^30.0.0",
     "@types/node": "^26.5.0",
+    "jest": "^30.5.2",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   }

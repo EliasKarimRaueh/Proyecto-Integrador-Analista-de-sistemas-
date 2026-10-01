@@ -8,6 +8,8 @@ import MovimientoStock from '../models/MovimientoStock.js';
 import Precio from '../models/Precio.js';
 import Oferta from '../models/Oferta.js';
 import OfertaProducto from '../models/OfertaProducto.js';
+import Venta from '../models/Venta.js';
+import DetalleVenta from '../models/DetalleVenta.js';
 
 // TipoProducto 1 ─── N Producto ────────────────────────────────────
 
@@ -121,4 +123,79 @@ Producto.hasMany(OfertaProducto, {
 OfertaProducto.belongsTo(Producto, {
     foreignKey: 'productoId',
     as: 'producto'
+});
+
+// Venta 1 ─── N DetalleVenta
+
+Venta.hasMany(DetalleVenta, {
+
+    foreignKey: 'ventaId',
+
+    as: 'detalles'
+
+});
+
+DetalleVenta.belongsTo(Venta, {
+
+    foreignKey: 'ventaId',
+
+    as: 'venta'
+
+});
+
+
+// Producto 1 ─── N DetalleVenta
+
+Producto.hasMany(DetalleVenta, {
+
+    foreignKey: 'productoId',
+
+    as: 'detallesVenta'
+
+});
+
+DetalleVenta.belongsTo(Producto, {
+
+    foreignKey: 'productoId',
+
+    as: 'producto'
+
+});
+
+
+// Oferta 1 ─── N DetalleVenta
+
+Oferta.hasMany(DetalleVenta, {
+
+    foreignKey: 'ofertaId',
+
+    as: 'detallesVenta'
+
+});
+
+DetalleVenta.belongsTo(Oferta, {
+
+    foreignKey: 'ofertaId',
+
+    as: 'oferta'
+
+});
+
+
+// Venta 1 ─── N MovimientoStock
+
+Venta.hasMany(MovimientoStock, {
+
+    foreignKey: 'ventaId',
+
+    as: 'movimientosStock'
+
+});
+
+MovimientoStock.belongsTo(Venta, {
+
+    foreignKey: 'ventaId',
+
+    as: 'venta'
+
 });

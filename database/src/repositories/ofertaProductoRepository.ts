@@ -21,7 +21,31 @@ class OfertaProductoRepository
         this.productoRepository = new ProductoRepository();
         this.ofertaRepository = new OfertaRepository();
     }
+    // =========================
+    // PRECIO TOTAL
+    // =========================
 
+    /**
+    * Obtiene el precio total de una oferta sumando los precioOferta
+    * de todos los productos que la componen.
+    */
+    async getPrecioOferta(
+        ofertaId: number,
+        transaction?: Transaction
+    ): Promise<number> {
+
+        const relaciones = await this.model.findAll({
+            where: { ofertaId },
+            transaction
+        });
+
+        return relaciones.reduce(
+            (total, relacion) => total + Number(relacion.precioOferta),
+            0
+        );
+    }
+
+    
     // =========================
     // RELACIÓN
     // =========================
