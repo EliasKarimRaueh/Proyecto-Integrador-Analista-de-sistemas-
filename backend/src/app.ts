@@ -3,6 +3,7 @@ import cors from 'cors';
 import productoRoutes from './routes/productoRoutes.js';
 import precioRoutes from './routes/precioRoutes.js';
 import ofertaRoutes from './routes/ofertaRoutes.js';
+import stockRoutes from './routes/stockRoutes.js';
 
 const app: Application = express();
 
@@ -25,5 +26,6 @@ app.get('/api/health', (req, res) => {
 app.use('/api/productos', productoRoutes); // <-- Conectamos la ruta
 app.use('/api/precios', precioRoutes);
 app.use('/api/ofertas', ofertaRoutes);
+app.use('/api/stock', stockRoutes);
 
 export default app;
