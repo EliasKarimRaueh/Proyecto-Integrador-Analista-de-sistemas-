@@ -301,7 +301,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
         transaction: Transaction
     ): Promise<MovimientoStock> {
 
-        if (cantidad <= 0) {
+        if (!Number.isFinite(cantidad) || cantidad <= 0) {
             throw new Error(
                 'La cantidad del movimiento debe ser mayor que cero.'
             );
@@ -427,6 +427,9 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
         transaction: Transaction
     ): Promise<MovimientoStock | null> {
 
+        if (!Number.isFinite(stockObjetivo)) {
+            throw new Error('El stock objetivo debe ser finito.');
+        }
         const producto = await Producto.findByPk(
             productoId,
             {

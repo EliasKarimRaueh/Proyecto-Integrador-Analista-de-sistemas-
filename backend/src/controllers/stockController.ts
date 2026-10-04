@@ -1,157 +1,38 @@
 import { type Request, type Response } from 'express';
-// 1. Importamos la CLASE (con mayúscula)
-import ProductoRepository from '../../../database/src/repositories/productoRepository.js'; 
-
-// 2. CREAMOS LA INSTANCIA (con minúscula) fuera de la función para que se reutilice
-const productoRepository = new ProductoRepository();
-
-export const getEstadoStock = async (req: Request, res: Response) => {
-  try {
-    // 3. Llamamos a findAll sobre la INSTANCIA (minúscula)
-    const resultado = await productoRepository.findAll(1, 1000); 
-    
-    // Extraemos el array real de productos de la propiedad 'rows' de Sequelize
-    const productos = resultado.rows;
-    
-    // Mapeamos los datos para el frontend
-    const stockActual = productos.map((p: any) => {
-      const estadoAlerta = (p.stockMinimo !== null && p.stockActual <= p.stockMinimo) ? 'Crítico' : 'Normal';
-
-      return { 
-        id: p.id, 
-        codigo: p.codigo, 
-        nombre: p.nombre, 
-        stockActual: p.stockActual, 
-        stockMinimo: p.stockMinimo, 
-        unidadVenta: p.unidadVenta, 
-        estado: estadoAlerta 
-      };
-    });
-    
-    res.status(200).json(stockActual);
-  } catch (error) {
-    console.error("Error al consultar la base de datos:", error);
-    res.status(500).json({ message: "Error interno al consultar el stock", error });
+import Producto from 'polleria-database/models/Producto';
+import MovimientoStock from 'polleria-database/models/MovimientoStock';
+import { Op } from 'sequelize';
+import { registrarMovimiento as guardarMovimiento, fraccionar, estadoStock, id, numero, objeto, ErrorOperacion } from '../services/operaciones.js';
+import { ejecutar, paginacion, rangoFechas } from './operacionesController.js';
+export const getEstadoStock = (req: Request, res: Response) => ejecutar(res, async () => {
+  const { page, limit } = paginacion(req);
+  const resultado = await Producto.findAndCountAll({ where: { activo: true }, attributes: { exclude: ['imagen'] }, order: [['id', 'ASC']], limit, offset: (page - 1) * limit });
+  res.setHeader('X-Total-Count', resultado.count);
+  return resultado.rows.map(p => ({ id: p.id, codigo: p.codigo, nombre: p.nombre, stockActual: p.stockActual, stockMinimo: p.stockMinimo, margenStock: p.margenStock, unidadVenta: p.unidadVenta, estado: estadoStock(p.stockActual, p.stockMinimo) }));
+});
+export const registrarMovimiento = (req: Request, res: Response) => ejecutar(res, () => guardarMovimiento(req.body), 201);
+export const registrarFraccionamiento = (req: Request, res: Response) => ejecutar(res, () => fraccionar(req.body), 201);
+export const getMovimientos = (req: Request, res: Response) => ejecutar(res, async () => {
+  const { page, limit } = paginacion(req);
+  const where: Record<string, unknown> = {};
+  const { desde, hasta } = rangoFechas(req);
+  if (desde || hasta) where.fechaHora = { ...(desde ? { [Op.gte]: desde } : {}), ...(hasta ? { [Op.lte]: hasta } : {}) };
+  const producto = req.params.productoId ?? req.query.productoId;
+  if (producto !== undefined) where.productoId = id(producto);
+  if (req.query.ventaId !== undefined) where.ventaId = id(req.query.ventaId);
+  if (req.query.operacionId !== undefined) {
+    if (typeof req.query.operacionId !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(req.query.operacionId)) throw new ErrorOperacion('operacionId inválido.');
+    where.motivo = { [Op.like]: `DESP:${req.query.operacionId}:%` };
   }
-};
-
-// ... (resto de tus funciones)
-// 2. Registrar cualquier tipo de movimiento (POST /api/stock/movimientos)
-export const registrarMovimiento = async (req: Request, res: Response) => {
-  try {
-    // 'cantMovimiento' es la cantidad que entra o sale
-    const { productoId, tipo, cantMovimiento, motivo, usuarioId = 1 } = req.body;
-
-    if (!productoId || !tipo || !cantMovimiento) {
-      return res.status(400).json({ message: "Faltan datos obligatorios" });
-    }
-
-    // Tipos según tu enum o lógica de negocio
-    const tiposSuma = ['INGRESO', 'AJUSTE_POSITIVO'];
-    const tiposResta = ['EGRESO', 'AJUSTE_NEGATIVO', 'MERMA', 'PERDIDA', 'FRACCIONAMIENTO'];
-
-    /* 
-      LÓGICA TRANSACCIONAL PARA SUPABASE (A implementar con tu ORM/Query Builder):
-      
-      1. INICIAR TRANSACCIÓN (BEGIN)
-      
-      2. LEER STOCK ACTUAL:
-         const producto = await DB.query('SELECT "stockActual" FROM productos WHERE id = $1 FOR UPDATE', [productoId]);
-         const cantInicial = producto.stockActual;
-
-      3. CALCULAR STOCK FINAL:
-         let cantFinal = cantInicial;
-         if (tiposSuma.includes(tipo)) cantFinal += cantMovimiento;
-         else if (tiposResta.includes(tipo)) cantFinal -= cantMovimiento;
-         else throw new Error('Tipo no válido');
-
-      4. INSERTAR EN movimientos_stock:
-         await DB.query(`
-           INSERT INTO movimientos_stock 
-           ("productoId", "fechaHora", tipo, "cantInicial", "cantMovimiento", "cantFinal", "usuarioId", motivo, "numeroMovimiento")
-           VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8)
-         `, [productoId, tipo, cantInicial, cantMovimiento, cantFinal, usuarioId, motivo, numeroGenerado]);
-
-      5. ACTUALIZAR EN productos:
-         await DB.query('UPDATE productos SET "stockActual" = $1 WHERE id = $2', [cantFinal, productoId]);
-
-      6. CONFIRMAR TRANSACCIÓN (COMMIT)
-    */
-
-    res.status(201).json({ 
-      message: `Movimiento de ${tipo} registrado correctamente`,
-      detalle: { productoId, cantMovimiento, motivo }
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Error al registrar el movimiento", error });
+  if (req.query.tipo !== undefined) {
+    if (req.query.tipo !== 'INGRESO' && req.query.tipo !== 'EGRESO') throw new ErrorOperacion('Tipo inválido.');
+    where.tipo = req.query.tipo;
   }
-};
-
-// 3. Historial (GET /api/stock/movimientos/:productoId)
-export const getMovimientos = async (req: Request, res: Response) => {
-  try {
-    const { productoId } = req.params;
-    // Acá buscarán en la tabla movimientos_stock ordenado por fechaHora DESC
-    res.status(200).json({ message: `Historial del producto ${productoId} listo para conectar a DB` });
-  } catch (error) {
-    res.status(500).json({ message: "Error al obtener historial", error });
-  }
-};
-
-// 4. Registrar Fraccionamiento y Merma (POST /api/stock/fraccionamientos)
-export const registrarFraccionamiento = async (req: Request, res: Response) => {
-  try {
-    const { productoOrigenId, cantidadOrigen, derivados, merma, motivo, usuarioId = 1 } = req.body;
-
-    // Validación básica de estructura
-    if (!productoOrigenId || !cantidadOrigen || !derivados || !Array.isArray(derivados)) {
-      return res.status(400).json({ message: "Datos incompletos para el fraccionamiento" });
-    }
-
-    // Validación matemática: Lo que sale (origen) debe ser igual a lo que entra (derivados + merma)
-    const totalDerivados = derivados.reduce((acc, curr) => acc + curr.cantidad, 0);
-    const totalCalculado = totalDerivados + (merma || 0);
-
-    if (cantidadOrigen !== totalCalculado) {
-      return res.status(400).json({ 
-        message: "Error de consistencia: La cantidad de origen no coincide con la suma de los derivados y la merma." 
-      });
-    }
-
-    /*
-      LÓGICA TRANSACCIONAL CRÍTICA (A implementar con Supabase):
-      
-      1. INICIAR TRANSACCIÓN (BEGIN)
-      
-      2. PROCESAR ORIGEN (EGRESO):
-         - Leer "stockActual" del productoOrigenId.
-         - Calcular: cantFinal = stockActual - cantidadOrigen.
-         - Insertar en movimientos_stock (tipo: 'FRACCIONAMIENTO', cantMovimiento: cantidadOrigen).
-         - Actualizar tabla productos[cite: 28].
-
-      3. PROCESAR DERIVADOS (INGRESOS):
-         - Bucle for...of sobre "derivados".
-         - Para cada uno: Leer "stockActual" del derivado.productoId.
-         - Calcular: cantFinal = stockActual + derivado.cantidad.
-         - Insertar en movimientos_stock (tipo: 'FRACCIONAMIENTO_INGRESO', cantMovimiento: derivado.cantidad)[cite: 28].
-         - Actualizar tabla productos[cite: 28].
-
-      4. PROCESAR MERMA (Si existe):
-         - Insertar un registro en movimientos_stock para reflejar la pérdida (tipo: 'MERMA', cantMovimiento: merma) asociado al producto de origen o a un ID de desperdicio[cite: 28].
-
-      5. CONFIRMAR TRANSACCIÓN (COMMIT)
-    */
-
-    res.status(201).json({
-      message: "Fraccionamiento y merma registrados correctamente",
-      detalle: {
-        origen: { productoId: productoOrigenId, cantidad: cantidadOrigen },
-        derivadosGenerados: derivados.length,
-        mermaRegistrada: merma || 0
-      }
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: "Error al procesar el fraccionamiento", error });
-  }
-};
+  return MovimientoStock.findAndCountAll({ where, order: [['fechaHora', 'DESC'], ['id', 'DESC']], limit, offset: (page - 1) * limit });
+});
+export const configurarReposicion = (req: Request, res: Response) => ejecutar(res, async () => {
+  const producto = await Producto.findByPk(id(req.params.productoId));
+  if (!producto) throw new ErrorOperacion('Producto no encontrado.', 404);
+  const b = objeto(req.body);
+  return producto.update({ stockMinimo: numero(b.stockMinimo, 'stockMinimo', true), tipoReposicion: 'stockMinimo' });
+});
