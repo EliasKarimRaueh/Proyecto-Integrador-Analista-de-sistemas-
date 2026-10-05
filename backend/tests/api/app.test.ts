@@ -495,9 +495,10 @@ describe('orden de las rutas', () => {
 describe('comportamiento transversal de la API', () => {
 
   it('devuelve 404 en una ruta que no existe', async () => {
-    // No hay handler 404 custom, así que responde el default de Express.
+    // app.ts monta un catch-all que responde JSON, no el HTML por defecto de Express.
     const res = await request(app).get('/api/no-existe');
     expect(res.status).toBe(404);
+    expect(res.body).toEqual({ message: 'Ruta no encontrada.' });
   });
 
   it('devuelve 404 con un método no montado', async () => {
@@ -511,12 +512,25 @@ describe('comportamiento transversal de la API', () => {
   });
 
   it('responde 400 ante un cuerpo JSON malformado', async () => {
-    // express.json() no puede parsear el cuerpo y corta antes del controlador.
+    // express.json() no puede parsear el cuerpo y corta antes del controlador;
+    // manejarError (app.ts:36) traduce entity.parse.failed a 400.
     const res = await request(app)
       .post('/api/productos')
       .set('Content-Type', 'application/json')
       .send('{"code":');
     expect(res.status).toBe(400);
+    expect(res.body).toEqual({ message: 'El cuerpo debe ser JSON válido.' });
+  });
+
+  it('responde 413 ante un cuerpo mayor que el límite', async () => {
+    // El límite por defecto de express.json() es de 100kb: hay que superarlo para
+    // que body-parser lance entity.too.large y manejarError (app.ts:40) lo traduzca.
+    const res = await request(app)
+      .post('/api/productos')
+      .set('Content-Type', 'application/json')
+      .send({ code: 'P-001', category: 'Fresco', name: 'x'.repeat(200_000) });
+    expect(res.status).toBe(413);
+    expect(res.body).toEqual({ message: 'El cuerpo de la solicitud es demasiado grande.' });
   });
 
   it('acepta un cuerpo vacío en los DELETE sin pedir body', async () => {
@@ -525,12 +539,16 @@ describe('comportamiento transversal de la API', () => {
   });
 
   it('no filtra datos de negocio a través del 404', async () => {
-    // Un 404 de ruta no debe parecerse a un 404 de recurso no encontrado:
-    // el primero es HTML de Express, el segundo viene del controlador.
+    // Un 404 de ruta y uno de recurso no encontrado se distinguen por el mensaje:
+    // el primero lo genera el catch-all de app.ts, el segundo el controlador.
+    // Que el catch-all responda JSON no lo vuelve confuso con un 404 de negocio.
     ofertaRepo.findById.mockResolvedValue(null);
     const rutaInexistente = await request(app).get('/api/no-existe');
     const recursoInexistente = await request(app).get('/api/ofertas/999');
-    expect(rutaInexistente.body).toEqual({});
+    expect(rutaInexistente.status).toBe(404);
+    expect(recursoInexistente.status).toBe(404);
+    expect(rutaInexistente.body).toEqual({ message: 'Ruta no encontrada.' });
     expect(recursoInexistente.body).toEqual({ message: 'Oferta no encontrada.' });
+    expect(rutaInexistente.body).not.toEqual(recursoInexistente.body);
   });
 });

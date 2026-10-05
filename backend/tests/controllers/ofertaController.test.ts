@@ -43,7 +43,9 @@ function producto(overrides: Record<string, unknown> = {}) {
 }
 
 function relacion(overrides: Record<string, unknown> = {}) {
-  return { productoId: 10, precioOferta: '1200.00', activo: true, fechaBaja: null, ...overrides };
+  // cantidad viene desde la base en OfertaProducto; el controller la expone en el
+  // detalle de la oferta y en getProductosDeOferta (ofertaController.ts:66, :386).
+  return { productoId: 10, precioOferta: '1200.00', cantidad: 1, activo: true, fechaBaja: null, ...overrides };
 }
 
 const BODY_VALIDO = {
@@ -185,6 +187,7 @@ describe('getOferta', () => {
             unidadVenta: 'KILOS',
             stockActual: 5,
             precioOferta: '1200.00',
+            cantidad: 1,
             activo: true,
           },
         ],
@@ -221,7 +224,7 @@ describe('createOferta', () => {
         fechaInicio: INICIO,
         fechaFin: FIN,
       },
-      [{ productoId: 10, precioOferta: '1200.00' }],
+      [{ productoId: 10, precioOferta: '1200.00', cantidad: 1 }],
     );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
@@ -354,6 +357,63 @@ describe('createOferta', () => {
         message: 'El producto 10 está repetido en la lista.',
       });
       expect(ofertaProductoRepo.crearOfertaConProductos).not.toHaveBeenCalled();
+    });
+
+    it('rechaza una cantidad que no es positiva', async () => {
+      // validarProductos normaliza la cantidad con Number() y exige > 0
+      // (ofertaController.ts:113). Cubre los tres tipos de falla: no numérico,
+      // no finito y negativo.
+      for (const cantidad of [0, -3, 'muchos', null, true]) {
+        const res = crearRes();
+        await createOferta(
+          crearReq({ body: { ...BODY_VALIDO, productos: [{ productoId: 10, precioOferta: '1200', cantidad }] } }),
+          res,
+        );
+        expect(res.json).toHaveBeenCalledWith({
+          message: 'La cantidad de cada producto debe ser positiva.',
+        });
+      }
+      expect(ofertaProductoRepo.crearOfertaConProductos).not.toHaveBeenCalled();
+    });
+
+    it('acepta la cantidad explícita y la propaga al repositorio', async () => {
+      const res = crearRes();
+      await createOferta(
+        crearReq({ body: { ...BODY_VALIDO, productos: [{ productoId: 10, precioOferta: '1200', cantidad: '2.5' }] } }),
+        res,
+      );
+      expect(ofertaProductoRepo.crearOfertaConProductos).toHaveBeenCalledWith(
+        expect.objectContaining({ nombre: 'Promo pollo' }),
+        [{ productoId: 10, precioOferta: '1200.00', cantidad: 2.5 }],
+      );
+    });
+
+    it('exige cantidad entera para productos vendidos por unidad', async () => {
+      // La validación de UNIDADES corre después de la de cantidad positiva
+      // (ofertaController.ts:255), así que 1.5 pasa la primera y falla la segunda.
+      productoRepo.findByIds.mockResolvedValue([producto({ id: 10, unidadVenta: 'UNIDADES' })]);
+      const res = crearRes();
+      await createOferta(
+        crearReq({ body: { ...BODY_VALIDO, productos: [{ productoId: 10, precioOferta: '1200', cantidad: 1.5 }] } }),
+        res,
+      );
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Los componentes vendidos por unidad requieren cantidades enteras.',
+      });
+      expect(ofertaProductoRepo.crearOfertaConProductos).not.toHaveBeenCalled();
+    });
+
+    it('acepta cantidad entera en productos por unidad', async () => {
+      productoRepo.findByIds.mockResolvedValue([producto({ id: 10, unidadVenta: 'UNIDADES' })]);
+      const res = crearRes();
+      await createOferta(
+        crearReq({ body: { ...BODY_VALIDO, productos: [{ productoId: 10, precioOferta: '1200', cantidad: 3 }] } }),
+        res,
+      );
+      expect(res.json).not.toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Los componentes vendidos por unidad requieren cantidades enteras.' }),
+      );
     });
   });
 
@@ -497,6 +557,7 @@ describe('getProductosDeOferta', () => {
         unidadVenta: 'KILOS',
         stockActual: 5,
         precioOferta: '1200.00',
+        cantidad: 1,
         activo: true,
       },
     ]);
@@ -525,12 +586,15 @@ describe('actualizarPrecioEnOferta', () => {
       crearReq({ params: { id: '1', productoId: '10' }, body: { precioOferta: '1350' } }), res,
     );
 
-    expect(ofertaProductoRepo.updatePrecioOferta).toHaveBeenCalledWith(1, 10, '1350.00');
+    // La firma real es (ofertaId, productoId, precioOferta, transaction, cantidad);
+    // sin `cantidad` en el cuerpo el controlador pasa undefined en los dos últimos.
+    expect(ofertaProductoRepo.updatePrecioOferta).toHaveBeenCalledWith(1, 10, '1350.00', undefined, undefined);
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith({
       ofertaId: '1',
       productoId: 10,
       precioOferta: '1350.00',
+      cantidad: 1,
       activo: true,
     });
   });
@@ -584,6 +648,46 @@ describe('actualizarPrecioEnOferta', () => {
     expect(res.json).toHaveBeenCalledWith({
       message: 'El producto no pertenece a la oferta.',
     });
+  });
+
+  it('actualiza también la cantidad cuando viene en el cuerpo', async () => {
+    // Con cantidad presente el controlador consulta el producto para validar
+    // contra su unidad de venta (ofertaController.ts:412).
+    const res = crearRes();
+    await actualizarPrecioEnOferta(
+      crearReq({ params: { id: '1', productoId: '10' }, body: { precioOferta: '1350', cantidad: 2 } }),
+      res,
+    );
+
+    expect(productoRepo.findById).toHaveBeenCalledWith(10);
+    expect(ofertaProductoRepo.updatePrecioOferta).toHaveBeenCalledWith(1, 10, '1350.00', undefined, 2);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('rechaza una cantidad inválida para la unidad de venta del producto', async () => {
+    // Cubre las cuatro condiciones del guard de ofertaController.ts:414: tipo no
+    // numérico, no finito, no positivo y entero inválido en productos UNIDADES.
+    const casos: Array<[unknown, Record<string, unknown> | undefined]> = [
+      [true, undefined],
+      ['muchos', undefined],
+      [0, undefined],
+      [-2, undefined],
+      [1.5, { unidadVenta: 'UNIDADES' }],
+    ];
+
+    for (const [cantidad, overrides] of casos) {
+      productoRepo.findById.mockResolvedValue(producto({ id: 10, ...overrides }));
+      const res = crearRes();
+      await actualizarPrecioEnOferta(
+        crearReq({ params: { id: '1', productoId: '10' }, body: { precioOferta: '1350', cantidad } }),
+        res,
+      );
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'La cantidad del componente no es válida para su unidad de venta.',
+      });
+    }
+    expect(ofertaProductoRepo.updatePrecioOferta).not.toHaveBeenCalled();
   });
 });
 
