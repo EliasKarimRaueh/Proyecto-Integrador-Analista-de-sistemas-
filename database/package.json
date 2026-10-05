@@ -5,6 +5,10 @@
   "description": "Modelos y repositorios del sistema de gestión para la pollería",
   "type": "module",
   "exports": {
+    "./models/*": "./src/models/*.ts",
+    "./repositories/ventaRepository": "./src/repositories/ventaRepository.ts",
+    "./repositories/detalleVentaRepository": "./src/repositories/detalleVentaRepository.ts",
+    "./repositories/movimientoStockRepository": "./src/repositories/movimientoStockRepository.ts",
     "./config/database": "./src/config/database.ts",
     "./migrations/productCatalog": "./src/migrations/productCatalog.ts",
     "./migrations/preciosOfertas": "./src/migrations/preciosOfertas.ts",

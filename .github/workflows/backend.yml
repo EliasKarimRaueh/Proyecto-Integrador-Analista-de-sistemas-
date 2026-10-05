@@ -1,0 +1,41 @@
+name: Backend Sprint 2
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: avixsoft
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: avixsoft_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U avixsoft -d avixsoft_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgres://avixsoft:test@localhost:5432/avixsoft_test
+      DATABASE_SSL: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+        working-directory: database
+      - run: npm ci
+        working-directory: backend
+      - run: npx tsc --noEmit
+        working-directory: database
+      - run: npm run typecheck
+        working-directory: backend
+      - run: npm test
+        working-directory: backend
+      - run: npm run test:integration
+        working-directory: backend
+        env:
+          TEST_DATABASE_SYNC: 'true'

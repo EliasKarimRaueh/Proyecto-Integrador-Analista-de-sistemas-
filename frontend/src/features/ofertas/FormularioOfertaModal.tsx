@@ -75,6 +75,7 @@ export function FormularioOfertaModal({ oferta, onClose, onGuardado }: Props) {
         productoCodigo: producto.codigo,
         unidadVenta: producto.unidadVenta,
         precioOferta: producto.precioOferta.replace('.', ','),
+        cantidad: String(producto.cantidad ?? 1),
       })),
     }))
   }, [detalle, editando])
@@ -106,6 +107,7 @@ export function FormularioOfertaModal({ oferta, onClose, onGuardado }: Props) {
       productoCodigo: producto.code,
       unidadVenta: producto.unit,
       precioOferta: precioActual === undefined ? '' : precioActual.replace('.', ','),
+      cantidad: '1',
     }
     setDraft(current => ({ ...current, productos: [...current.productos, nuevo] }))
     setErrors(current => ({ ...current, productos: undefined, productosDetalle: undefined }))
@@ -164,6 +166,7 @@ export function FormularioOfertaModal({ oferta, onClose, onGuardado }: Props) {
       eyebrow="CATÁLOGO DE OFERTAS"
       title={editando ? `Editar ${oferta.nombre}` : 'Nueva oferta'}
       onClose={onClose}
+      busy={saving}
     >
       <form onSubmit={enviar} noValidate>
         <p className="form-intro">
@@ -276,6 +279,7 @@ export function FormularioOfertaModal({ oferta, onClose, onGuardado }: Props) {
                     <thead>
                       <tr>
                         <th scope="col">Producto</th>
+                        <th scope="col">Cantidad por combo *</th>
                         <th scope="col">Precio de oferta *</th>
                         <th scope="col" className="actions-heading">Acciones</th>
                       </tr>
@@ -289,6 +293,7 @@ export function FormularioOfertaModal({ oferta, onClose, onGuardado }: Props) {
                               <small className="product-description"><code>{producto.productoCodigo}</code> · {unidadLegible(producto.unidadVenta)}</small>
                             </div>
                           </td>
+                          <td><input className="precio-input" inputMode="decimal" aria-label={`Cantidad en oferta de ${producto.productoNombre}`} value={producto.cantidad ?? '1'} onChange={e => setDraft(current => ({ ...current, productos: current.productos.map(p => p.productoId === producto.productoId ? { ...p, cantidad: e.target.value } : p) }))}/></td>
                           <td>
                             <input
                               className="precio-input"
@@ -297,7 +302,7 @@ export function FormularioOfertaModal({ oferta, onClose, onGuardado }: Props) {
                               value={producto.precioOferta}
                               onChange={e => cambiarPrecio(producto.productoId, e.target.value)}
                               aria-invalid={!!errors.productosDetalle?.[producto.productoId]}
-                              placeholder="Ej. 3900,00"
+                              placeholder="Precio total de este componente"
                             />
                             {errors.productosDetalle?.[producto.productoId] && (
                               <small className="field-error">{errors.productosDetalle[producto.productoId]}</small>

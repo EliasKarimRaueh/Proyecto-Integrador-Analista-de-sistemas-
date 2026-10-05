@@ -8,6 +8,10 @@ import { StockPage } from '../features/stock/StockPage'
 import { CustomersPage } from '../features/customers/CustomersPage'
 import { LoginPage } from '../features/auth/LoginPage'
 import { ModulePage } from '../shared/components/ModulePage'
+import { SalesPage } from '../features/sales/SalesPage'
+import { SalesHistoryPage } from '../features/sales/SalesHistoryPage'
+import { DespostePage } from '../features/stock/DespostePage'
+import { MovementsPage } from '../features/stock/MovementsPage'
 
 export default function App() {
   return (
@@ -19,6 +23,10 @@ export default function App() {
           <Route path="ofertas" element={<OfertasPage />} />
           <Route path="pedidos" element={<OrdersPage />} />
           <Route path="stock" element={<StockPage />} />
+          <Route path="caja" element={<SalesPage />} />
+          <Route path="ventas" element={<SalesHistoryPage />} />
+          <Route path="desposte" element={<DespostePage />} />
+          <Route path="movimientos" element={<MovementsPage />} />
           <Route path="clientes" element={<CustomersPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="*" element={<ModulePage title="Página no encontrada" description="Usá el menú para volver a una sección del sistema." />} />

@@ -3,6 +3,7 @@ import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
 import { useApiResource } from '../../shared/hooks/useApiResource'
 import { formatearFecha, parseMontoInput } from '../../shared/lib/money'
+import { cantidadInput } from '../../shared/lib/operaciones'
 import { actualizarPrecioEnOferta, fetchOferta, quitarProductoDeOferta } from '../../shared/services/ofertas'
 import { ETIQUETA_ESTADO, estadoOferta, type Oferta, type OfertaProducto } from './ofertas'
 
@@ -18,16 +19,17 @@ function FilaProducto({
   onQuitar,
 }: {
   producto: OfertaProducto
-  onGuardarPrecio: (precio: string) => void
+  onGuardarPrecio: (precio: string, cantidad: number) => void
   onQuitar: () => void
 }) {
   const [precio, setPrecio] = useState(producto.precioOferta.replace('.', ','))
+  const [cantidad, setCantidad] = useState(String(producto.cantidad ?? 1))
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
 
   const original = producto.precioOferta.replace('.', ',')
-  const cambio = precio !== original
+  const cambio = precio !== original || cantidad !== String(producto.cantidad ?? 1)
 
   async function guardar() {
     const resultado = parseMontoInput(precio, 'precio de oferta')
@@ -39,7 +41,8 @@ function FilaProducto({
     setSaving(true)
     setError('')
     try {
-      await onGuardarPrecio(resultado.value)
+      const valorCantidad = cantidadInput(cantidad, producto.unidadVenta === 'UNIDADES' || producto.unidadVenta === 'unidad' ? 'UNIDADES' : 'KILOS')
+      await onGuardarPrecio(resultado.value, valorCantidad)
       setPrecio(resultado.value.replace('.', ','))
     } catch (fallo) {
       setError(fallo instanceof Error ? fallo.message : 'No se pudo actualizar el precio.')
@@ -57,6 +60,7 @@ function FilaProducto({
         </div>
       </td>
       <td>{producto.stockActual}</td>
+      <td>{producto.activo ? <input className="precio-input" inputMode="decimal" aria-label={`Cantidad en oferta de ${producto.nombre}`} value={cantidad} disabled={saving} onChange={e => setCantidad(e.target.value)}/> : producto.cantidad ?? 1}</td>
       <td>
         {producto.activo
           ? <input
@@ -123,9 +127,9 @@ export function DetalleOfertaModal({ oferta, onClose, onCambio }: Props) {
   const estado = detalle ? estadoOferta(detalle) : 'vigente'
   const productos = detalle?.productos ?? []
 
-  async function guardarPrecio(productoId: number, precioOferta: string) {
+  async function guardarPrecio(productoId: number, precioOferta: string, cantidad: number) {
     setActionError('')
-    await actualizarPrecioEnOferta(oferta.id, productoId, precioOferta)
+    await actualizarPrecioEnOferta(oferta.id, productoId, precioOferta, cantidad)
     setNotice('Precio de oferta actualizado.')
     refetch()
     onCambio()
@@ -181,6 +185,7 @@ export function DetalleOfertaModal({ oferta, onClose, onCambio }: Props) {
                       <tr>
                         <th scope="col">Producto</th>
                         <th scope="col">Stock</th>
+                        <th scope="col">Cantidad por combo</th>
                         <th scope="col">Precio de oferta</th>
                         <th scope="col" className="actions-heading">Acciones</th>
                       </tr>
@@ -190,7 +195,7 @@ export function DetalleOfertaModal({ oferta, onClose, onCambio }: Props) {
                         <FilaProducto
                           key={producto.productoId}
                           producto={producto}
-                          onGuardarPrecio={precio => guardarPrecio(producto.productoId, precio)}
+                          onGuardarPrecio={(precio, cantidad) => guardarPrecio(producto.productoId, precio, cantidad)}
                           onQuitar={() => quitar(producto.productoId)}
                         />
                       ))}
@@ -200,8 +205,8 @@ export function DetalleOfertaModal({ oferta, onClose, onCambio }: Props) {
               )}
 
             <p className="form-note">
-              Guardar un precio manda <code>PUT</code> y solo cambia ese producto. Quitarlo lo da de baja dentro
-              de la oferta sin borrar el historial.
+              El precio de oferta corresponde al total de la cantidad indicada para cada componente del combo.
+              Quitar un producto conserva el historial de la oferta.
             </p>
 
             <div className="modal-footer">
