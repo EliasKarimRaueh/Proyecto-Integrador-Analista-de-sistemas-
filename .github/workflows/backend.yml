@@ -33,8 +33,18 @@ jobs:
         working-directory: database
       - run: npm run typecheck
         working-directory: backend
+      # tsconfig.json excluye tests/, así que el typecheck de arriba no los ve:
+      # hace falta el segundo para que un error en los tests no llegue a main.
+      - run: npm run typecheck:tests
+        working-directory: backend
+      # Suite de node:test que trae upstream (test/operaciones.test.ts).
       - run: npm test
         working-directory: backend
+      # Suite de Jest (tests/**/*.test.ts): unitarios de controladores,
+      # servicios y API, con la capa de datos aislada.
+      - run: npm run test:jest:coverage
+        working-directory: backend
+      # Integración contra el Postgres del service de arriba.
       - run: npm run test:integration
         working-directory: backend
         env:
