@@ -7,13 +7,17 @@ import type { Request, Response } from 'express';
  * siempre contestan `res.status(n).json(...)`. Encadenar ambos mocks permite
  * escribir la aserción como `expect(res.status).toHaveBeenCalledWith(400)`
  * sin tener que cubrir el valor de retorno del status.
+ *
+ * setHeader está porque getEstadoStock publica el total paginado en
+ * X-Total-Count antes de escribir el cuerpo.
  */
-export type ResFalsa = Response & { status: jest.Mock; json: jest.Mock };
+export type ResFalsa = Response & { status: jest.Mock; json: jest.Mock; setHeader: jest.Mock };
 
 export function crearRes(): ResFalsa {
-  const res = { status: jest.fn(), json: jest.fn() };
+  const res = { status: jest.fn(), json: jest.fn(), setHeader: jest.fn() };
   res.status.mockReturnValue(res);
   res.json.mockReturnValue(res);
+  res.setHeader.mockReturnValue(res);
   return res as unknown as ResFalsa;
 }
 
