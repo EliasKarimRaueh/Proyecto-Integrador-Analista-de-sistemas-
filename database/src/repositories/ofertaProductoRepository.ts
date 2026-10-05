@@ -189,7 +189,7 @@ class OfertaProductoRepository
             fechaInicio: Date;
             fechaFin: Date;
         },
-        items: { productoId: number; precioOferta: string }[],
+        items: { productoId: number; precioOferta: string; cantidad?: number }[],
         transaction?: Transaction
     ): Promise<{ oferta: Oferta; relaciones: OfertaProducto[] }> {
 
@@ -218,7 +218,7 @@ class OfertaProductoRepository
                         {
                             ofertaId: oferta.id,
                             productoId: item.productoId,
-                            precioOferta: item.precioOferta
+                            precioOferta: item.precioOferta, cantidad: item.cantidad ?? 1
                         },
                         { transaction }
                     )
@@ -253,7 +253,7 @@ class OfertaProductoRepository
                         {
                             ofertaId: oferta.id,
                             productoId: item.productoId,
-                            precioOferta: item.precioOferta
+                            precioOferta: item.precioOferta, cantidad: item.cantidad ?? 1
                         },
                         { transaction }
                     )
@@ -492,11 +492,12 @@ class OfertaProductoRepository
         ofertaId: number,
         productoId: number,
         precioOferta: string,
-        transaction?: Transaction
+        transaction?: Transaction,
+        cantidad?: number
     ): Promise<OfertaProducto | null> {
         return await this.updateBy(
             { ofertaId, productoId },
-            { precioOferta },
+            { precioOferta, ...(cantidad === undefined ? {} : { cantidad }) },
             transaction
         );
     }

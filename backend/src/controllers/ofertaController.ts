@@ -27,7 +27,7 @@ type OfertaUpdateInput = {
   fechaFin?: unknown;
 };
 
-type ItemProducto = { productoId: number; precioOferta: string };
+type ItemProducto = { productoId: number; precioOferta: string; cantidad: number };
 
 type StoredOferta = NonNullable<Awaited<ReturnType<typeof ofertaRepository.findById>>>;
 
@@ -52,7 +52,7 @@ function presentOferta(oferta: StoredOferta) {
 
 function presentDetalle(
   oferta: StoredOferta,
-  productos: { producto: { id: number; codigo: string; nombre: string; unidadVenta: string; stockActual: number }; relacion: { precioOferta: string; activo: boolean } }[]
+  productos: { producto: { id: number; codigo: string; nombre: string; unidadVenta: string; stockActual: number }; relacion: { precioOferta: string; activo: boolean; cantidad: number } }[]
 ) {
   return {
     ...presentOferta(oferta),
@@ -63,6 +63,7 @@ function presentDetalle(
       unidadVenta: producto.unidadVenta,
       stockActual: producto.stockActual,
       precioOferta: relacion.precioOferta,
+      cantidad: relacion.cantidad,
       activo: relacion.activo,
     })),
   };
@@ -109,7 +110,9 @@ function validarProductos(valor: unknown): Resultado<ItemProducto[]> {
     }
 
     vistos.add(productoId.value);
-    items.push({ productoId: productoId.value, precioOferta: precioOferta.value });
+    const cantidad = crudo.cantidad === undefined ? 1 : Number(crudo.cantidad);
+    if ((crudo.cantidad !== undefined && typeof crudo.cantidad !== 'number' && typeof crudo.cantidad !== 'string') || !Number.isFinite(cantidad) || cantidad <= 0) return fail('La cantidad de cada producto debe ser positiva.');
+    items.push({ productoId: productoId.value, precioOferta: precioOferta.value, cantidad });
   }
 
   return ok(items);
@@ -249,6 +252,10 @@ export const createOferta = async (req: Request, res: Response) => {
       return;
     }
 
+    if (productos.value.some(item => existentes.find(p => p.id === item.productoId)?.unidadVenta === 'UNIDADES' && !Number.isSafeInteger(item.cantidad))) {
+      res.status(400).json({ message: 'Los componentes vendidos por unidad requieren cantidades enteras.' }); return;
+    }
+
     const { oferta } = await ofertaProductoRepository.crearOfertaConProductos(
       {
         nombre,
@@ -376,6 +383,7 @@ export const getProductosDeOferta = async (req: Request, res: Response) => {
       unidadVenta: producto.unidadVenta,
       stockActual: producto.stockActual,
       precioOferta: relacion.precioOferta,
+      cantidad: relacion.cantidad,
       activo: relacion.activo,
     })));
   } catch (error) {
@@ -400,10 +408,22 @@ export const actualizarPrecioEnOferta = async (req: Request, res: Response) => {
     const oferta = await ofertaRepository.findByIdActivo(ofertaId.value);
     if (!oferta) { res.status(404).json({ message: 'Oferta no encontrada o dada de baja.' }); return; }
 
+    const cruda = (req.body as { cantidad?: unknown }).cantidad;
+    let cantidad: number | undefined;
+    if (cruda !== undefined) {
+      cantidad = Number(cruda);
+      const producto = await productoRepository.findById(productoId.value);
+      if ((typeof cruda !== 'string' && typeof cruda !== 'number') || !Number.isFinite(cantidad) || cantidad <= 0 || (producto?.unidadVenta === 'UNIDADES' && !Number.isSafeInteger(cantidad))) {
+        res.status(400).json({ message: 'La cantidad del componente no es válida para su unidad de venta.' }); return;
+      }
+    }
+
     const relacion = await ofertaProductoRepository.updatePrecioOferta(
       ofertaId.value,
       productoId.value,
-      precio.value
+      precio.value,
+      undefined,
+      cantidad
     );
 
     if (!relacion) { res.status(404).json({ message: 'El producto no pertenece a la oferta.' }); return; }
@@ -412,6 +432,7 @@ export const actualizarPrecioEnOferta = async (req: Request, res: Response) => {
       ofertaId: String(ofertaId.value),
       productoId: productoId.value,
       precioOferta: relacion.precioOferta,
+      cantidad: relacion.cantidad,
       activo: relacion.activo,
     });
   } catch (error) {

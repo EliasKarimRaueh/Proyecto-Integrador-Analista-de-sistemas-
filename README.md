@@ -80,4 +80,4 @@ npm install
 npm run dev
 ```
 
-El backend utiliza el puerto `3000` por defecto. El Sprint 2 implementa ventas, cotización, inventario, movimientos, desposte y sus historiales. Consultá [la documentación del backend](backend/README.md) para configurar la conexión, utilizar la API y ejecutar las pruebas. Las pantallas del frontend son una base inicial; su integración y los módulos de pedidos, clientes y autenticación quedan pendientes.
+El backend utiliza el puerto `3000` por defecto. El Sprint 2 integra ventas, cotización, inventario, movimientos, desposte y sus historiales con el frontend. Consultá [la documentación del backend](backend/README.md) para configurar la conexión y utilizar la API, y [la documentación del frontend](frontend/README.md) para conocer las pantallas y ejecutar las pruebas. Pedidos, clientes y autenticación quedan fuera de este Sprint.

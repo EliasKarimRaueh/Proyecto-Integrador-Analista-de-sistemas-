@@ -194,7 +194,7 @@ describe('Alta de oferta', () => {
     expect(cuerpo.nombre).toBe('Finde largo')
     expect(cuerpo.descripcion).toBe('Tres dias de promo')
     expect(cuerpo.fechaInicio).toBe(hoyComoFechaInput())
-    expect(cuerpo.productos).toEqual([{ productoId: 1, precioOferta: '3800.50' }])
+    expect(cuerpo.productos).toEqual([{ productoId: 1, precioOferta: '3800.50', cantidad: 1 }])
   })
 
   it('no deja guardar sin productos ni con precio inválido', async () => {
@@ -268,7 +268,7 @@ describe('Edición y detalle', () => {
       expect.objectContaining({ method: 'PUT' })
     ))
     const cuerpoPrecio = JSON.parse(fetchMock.mock.calls.filter(([p, o]) => String(p) === '/api/ofertas/1/productos/1' && (o as RequestInit).method === 'PUT').at(-1)![1].body)
-    expect(cuerpoPrecio).toEqual({ precioOferta: '3800.00' })
+    expect(cuerpoPrecio).toEqual({ precioOferta: '3800.00', cantidad: 1 })
     expect(await screen.findByText('Precio de oferta actualizado.')).toBeTruthy()
   })
 

@@ -146,6 +146,20 @@ test('Sprint 2 sobre PostgreSQL: ventas, ofertas, rollback, ajustes y desposte',
         assert.equal(await stock(pollo), 8);
       } finally { reemplazo.mock.restore(); }
     });
+    await t.test('Alta de ofertas persiste cantidad explícita y valor predeterminado', async () => {
+      const { default: OfertaProductoRepository } = await import('polleria-database/repositories/ofertaProductoRepository');
+      const repository = new OfertaProductoRepository();
+      const datos = { nombre: 'TEST oferta creada', descripcion: '', fechaInicio: new Date(Date.now() - 60000), fechaFin: new Date(Date.now() + 60000) };
+      const creada = await repository.crearOfertaConProductos(datos, [{ productoId: pollo.id, precioOferta: '5.00', cantidad: 2.5 }], transaction);
+      assert.equal(creada.relaciones[0]!.cantidad, 2.5);
+      const cotizacion = await vender({ detalles: [{ ofertaId: creada.oferta.id, cantidad: 2 }] }, true);
+      assert.equal(cotizacion.total, '10.00');
+      const anterior = await stock(pollo);
+      await vender({ detalles: [{ ofertaId: creada.oferta.id, cantidad: 2 }] });
+      assert.equal(await stock(pollo), anterior - 5);
+      const predeterminada = await repository.crearOfertaConProductos(datos, [{ productoId: suprema.id, precioOferta: '7.00' }], transaction);
+      assert.equal(predeterminada.relaciones[0]!.cantidad, 1);
+    });
   } finally {
     t.mock.restoreAll();
     await transaction.rollback();

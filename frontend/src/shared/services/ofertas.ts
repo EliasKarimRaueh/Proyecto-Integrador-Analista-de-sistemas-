@@ -23,7 +23,7 @@ type PayloadOferta = {
   descripcion: string
   fechaInicio: string
   fechaFin: string
-  productos: { productoId: number; precioOferta: string }[]
+  productos: { productoId: number; precioOferta: string; cantidad?: number }[]
 }
 
 type PayloadActualizacion = Omit<PayloadOferta, 'productos'>
@@ -61,11 +61,12 @@ export async function fetchProductosDeOferta(id: string): Promise<OfertaProducto
 export async function actualizarPrecioEnOferta(
   ofertaId: string,
   productoId: number,
-  precioOferta: string
+  precioOferta: string,
+  cantidad?: number
 ): Promise<{ ofertaId: string; productoId: number; precioOferta: string; activo: boolean }> {
   return await apiRequest(`ofertas/${ofertaId}/productos/${productoId}`, {
     method: 'PUT',
-    body: JSON.stringify({ precioOferta }),
+    body: JSON.stringify({ precioOferta, cantidad }),
   })
 }
 

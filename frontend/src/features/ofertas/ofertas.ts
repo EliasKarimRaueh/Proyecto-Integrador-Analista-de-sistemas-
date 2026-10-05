@@ -1,4 +1,5 @@
 import { aFechaInput, esFechaValida, fechaInputDesdeHoy, hoyComoFechaInput, parseMontoInput } from '../../shared/lib/money'
+import { cantidadInput } from '../../shared/lib/operaciones'
 
 /**
  * The offer endpoints send productoId as a string in the detail responses
@@ -13,6 +14,7 @@ export type OfertaProductoApi = {
   unidadVenta: string
   stockActual: number
   precioOferta: string
+  cantidad?: number
   activo: boolean
 }
 
@@ -38,6 +40,7 @@ export type ProductoOfertaDraft = {
   productoCodigo: string
   unidadVenta: string
   precioOferta: string
+  cantidad?: string
 }
 
 export type OfertaDraft = {
@@ -135,6 +138,8 @@ export function validarOferta(draft: OfertaDraft): ErroresOferta {
     for (const producto of draft.productos) {
       const precio = parseMontoInput(producto.precioOferta, 'precio de oferta')
       if (!precio.ok) detalle[producto.productoId] = precio.error
+      try { cantidadInput(producto.cantidad ?? '1', producto.unidadVenta === 'unidad' || producto.unidadVenta === 'UNIDADES' ? 'UNIDADES' : 'KILOS') }
+      catch (error) { detalle[producto.productoId] = error instanceof Error ? error.message : 'Cantidad inválida.' }
     }
     if (Object.keys(detalle).length > 0) errors.productosDetalle = detalle
   }
@@ -146,7 +151,11 @@ export function validarOferta(draft: OfertaDraft): ErroresOferta {
 export function armarPayloadOferta(draft: OfertaDraft) {
   const productos = draft.productos.flatMap(producto => {
     const precio = parseMontoInput(producto.precioOferta, 'precio de oferta')
-    return precio.ok ? [{ productoId: producto.productoId, precioOferta: precio.value }] : []
+    if (!precio.ok) return []
+    try {
+      const cantidad = cantidadInput(producto.cantidad ?? '1', producto.unidadVenta === 'unidad' || producto.unidadVenta === 'UNIDADES' ? 'UNIDADES' : 'KILOS')
+      return [{ productoId: producto.productoId, precioOferta: precio.value, ...(producto.cantidad === undefined ? {} : { cantidad }) }]
+    } catch { return [] }
   })
 
   if (productos.length !== draft.productos.length) return null

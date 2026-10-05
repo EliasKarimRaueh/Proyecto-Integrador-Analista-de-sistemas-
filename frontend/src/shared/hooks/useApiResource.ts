@@ -39,20 +39,23 @@ export function useApiResource<T>(
     refCargador.current = cargador
   })
 
-  const refTieneDatos = useRef(false)
+  const [resolvedKey, setResolvedKey] = useState<string | number | null>(null)
 
   useEffect(() => {
     let vigente = true
 
-    refCargador.current()
+    Promise.resolve().then(() => refCargador.current())
       .then(resultado => {
         if (!vigente) return
-        refTieneDatos.current = true
+        setResolvedKey(clave)
+        setError('')
         setData(resultado)
         setLoading(false)
       })
       .catch((fallo: unknown) => {
         if (!vigente) return
+        setResolvedKey(clave)
+        setData(null)
         setError(fallo instanceof Error && fallo.message ? fallo.message : ERROR_POR_DEFECTO)
         setLoading(false)
       })
@@ -75,5 +78,5 @@ export function useApiResource<T>(
       : valor)
   }, [])
 
-  return { data, loading, error, refetch, setData: actualizar }
+  return { data: resolvedKey === clave ? data : null, loading: loading || resolvedKey !== clave, error, refetch, setData: actualizar }
 }

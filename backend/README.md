@@ -30,6 +30,8 @@ Cotización y venta reciben el mismo cuerpo:
 
 Cada detalle debe indicar exactamente un producto u oferta. Las cantidades de productos por unidad y de ofertas deben ser enteras. Los kilos admiten fracciones. Los importes se calculan en el servidor con precios vigentes y redondeo decimal a centavos; el cliente no determina precios ni totales. Las ofertas consumen y cobran únicamente sus componentes activos, y deben estar vigentes. Se conserva el nombre y el precio en el detalle para la auditoría posterior.
 
+Los componentes de una oferta admiten `cantidad` al crearla y al actualizar su precio mediante `PUT /api/ofertas/:id/productos/:productoId`; el valor predeterminado al crear es 1. `precioOferta` representa el importe total de ese componente por combo, y `cantidad` determina el descuento de stock. Los productos por unidad requieren cantidades enteras. Las respuestas de detalle incluyen la cantidad.
+
 La respuesta de cotización es `{ "total": "...", "detalles": [...] }`; la confirmación devuelve `{ "venta": {...}, "detalles": [...] }`. El subtotal y el total no pueden superar 99999999.99. Una cotización no reserva mercadería: al confirmar se valida nuevamente el carrito.
 
 ## Inventario
