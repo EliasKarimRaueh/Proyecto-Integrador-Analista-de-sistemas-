@@ -23,6 +23,13 @@ module.exports = {
   moduleNameMapper: {
     // El código fuente usa extensión .js en imports relativos (module: nodenext).
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    // Debe declararse ANTES que la regla general de abajo: moduleNameMapper toma
+    // la primera clave que coincide y Object.keys respeta el orden de inserción.
+    // El doble evita que database/src/config/database.ts corra `new Sequelize(...)`
+    // (carga pg y abre un pool) al importar services/operaciones.ts. No hace falta
+    // para evitar que entren credenciales reales: dotenv.config() no sobreescribe
+    // variables ya definidas, asi que el DATABASE_URL de tests/setup.ts gana igual.
+    '^polleria-database/config/database$': '<rootDir>/tests/mocks/configDatabase.ts',
     // polleria-database declara un exports map que apunta a .ts crudos. Se traduce
     // el specifier a la ruta real en ../database/src para no depender del exports map.
     '^polleria-database/(.*)$': '<rootDir>/../database/src/$1.ts',

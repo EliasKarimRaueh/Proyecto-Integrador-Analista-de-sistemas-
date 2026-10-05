@@ -7,12 +7,40 @@ jest.mock('polleria-database/repositories/precioRepository', () => require('../m
 jest.mock('polleria-database/repositories/ofertaRepository', () => require('../mocks/ofertaRepository.js'));
 jest.mock('polleria-database/repositories/ofertaProductoRepository', () => require('../mocks/ofertaProductoRepository.js'));
 
+// Capa de datos que Sprint 2 conectó por debajo de los routers nuevos.
+jest.mock('polleria-database/repositories/movimientoStockRepository', () => require('../mocks/movimientoStockRepository.js'));
+jest.mock('polleria-database/repositories/ventaRepository', () => require('../mocks/ventaRepository.js'));
+jest.mock('polleria-database/repositories/detalleVentaRepository', () => require('../mocks/detalleVentaRepository.js'));
+
+// stockController consulta los modelos directo (no pasa por repositorio), y
+// operaciones.ts los usa para bloquear productos y crear la venta.
+jest.mock('polleria-database/models/Producto', () => require('../mocks/modelos.js').ProductoModel);
+jest.mock('polleria-database/models/Oferta', () => require('../mocks/modelos.js').OfertaModel);
+jest.mock('polleria-database/models/Venta', () => require('../mocks/modelos.js').VentaModel);
+jest.mock('polleria-database/models/MovimientoStock', () => require('../mocks/modelos.js').MovimientoStockModel);
+
+// Mock parcial del servicio: las operaciones que abren transacción se sustituyen
+// para que los tests de API midan ruteo y contrato HTTP, no la lógica de stock.
+// Las funciones puras (estadoStock, id, numero, objeto) y la clase ErrorOperacion
+// se conservan reales, porque los tests de /api/stock dependen de estadoStock y
+// ejecutar() decide el status con `error instanceof ErrorOperacion`.
+jest.mock('../../src/services/operaciones.js', () => ({
+  ...jest.requireActual('../../src/services/operaciones.js'),
+  registrarMovimiento: jest.fn(),
+  fraccionar: jest.fn(),
+  vender: jest.fn(),
+  buscarProductos: jest.fn(),
+}));
+
 import app from '../../src/app.js';
 import { instancia as productoRepo } from '../mocks/productoRepository.js';
 import { instancia as tipoProductoRepo } from '../mocks/tipoProductoRepository.js';
 import { instancia as precioRepo, ErrorVigenciaPrecio } from '../mocks/precioRepository.js';
 import { instancia as ofertaRepo } from '../mocks/ofertaRepository.js';
 import { instancia as ofertaProductoRepo } from '../mocks/ofertaProductoRepository.js';
+import { sequelize } from '../mocks/configDatabase.js';
+import { ProductoModel, MovimientoStockModel } from '../mocks/modelos.js';
+import * as operaciones from '../../src/services/operaciones.js';
 
 // Pruebas de API: la petición entra por el stack real de Express (ruteo, CORS,
 // express.json(), middlewares) y sale por los controladores. Los repositorios
@@ -489,6 +517,20 @@ describe('orden de las rutas', () => {
     const res = await request(app).get('/api/precios/productos/10');
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
+  });
+});
+
+describe('aislamiento de la capa de datos', () => {
+
+  it('mantiene reales las funciones puras del servicio de operaciones', () => {
+    // El mock de services/operaciones es parcial a propósito. Si alguien lo
+    // volviera total, estadoStock y ErrorOperacion desaparecerían: el primero
+    // decide el campo `estado` de GET /api/stock y el segundo es la clase que
+    // ejecutar() usa con instanceof para elegir el status. Este test falla si
+    // alguien deja de ostensibly el requireActual.
+    expect(jest.isMockFunction(operaciones.estadoStock)).toBe(false);
+    expect(jest.isMockFunction(operaciones.vender)).toBe(true);
+    expect(new operaciones.ErrorOperacion('x').status).toBe(400);
   });
 });
 
