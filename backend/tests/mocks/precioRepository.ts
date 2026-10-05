@@ -17,6 +17,10 @@ export const instancia = {
   findGlobales: jest.fn(),
   findHistorial: jest.fn(),
   findVigente: jest.fn(),
+  // La usa services/operaciones.ts al cotizar y vender: recibe los productoIds,
+  // una fecha y la transacción, y debe devolver exactamente un precio vigente
+  // por producto.
+  findAllVigentes: jest.fn(),
   registrarPrecio: jest.fn(),
   updatePrecios: jest.fn(),
   findById: jest.fn(),

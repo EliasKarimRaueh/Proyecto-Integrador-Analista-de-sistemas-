@@ -15,6 +15,12 @@ module.exports = {
       // y obligaría a jest.unstable_mockModule() + import() dinámico en cada
       // test. @swc/jest además no ata su versión a typescript, así que funciona
       // con el typescript@7 del proyecto (ts-jest exige <7).
+    //
+    // trampa: importar `jest` desde '@jest/globals' DESACTIVA el hoisting de
+    // jest.mock() con este transform. Los imports estáticos corren antes de los
+    // jest.mock(), se carga el módulo real y la suite falla con errores muy
+    // confusos de Sequelize ("Cannot read properties of undefined"). Usar el
+    // global `jest`, como hace app.test.ts.
       module: { type: 'commonjs' },
       jsc: { parser: { syntax: 'typescript' }, target: 'es2022' },
     }],
