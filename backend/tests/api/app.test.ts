@@ -38,9 +38,19 @@ import { instancia as tipoProductoRepo } from '../mocks/tipoProductoRepository.j
 import { instancia as precioRepo, ErrorVigenciaPrecio } from '../mocks/precioRepository.js';
 import { instancia as ofertaRepo } from '../mocks/ofertaRepository.js';
 import { instancia as ofertaProductoRepo } from '../mocks/ofertaProductoRepository.js';
+import { instancia as ventaRepo } from '../mocks/ventaRepository.js';
 import { sequelize } from '../mocks/configDatabase.js';
 import { ProductoModel, MovimientoStockModel } from '../mocks/modelos.js';
 import * as operaciones from '../../src/services/operaciones.js';
+
+// El mock parcial de operaciones conserva los tipos reales de las funciones, así
+// que hace falta esta vista para poder fijar y leer sus implementaciones.
+const mockOperaciones = operaciones as unknown as {
+  registrarMovimiento: jest.Mock;
+  fraccionar: jest.Mock;
+  vender: jest.Mock;
+  buscarProductos: jest.Mock;
+};
 
 // Pruebas de API: la petición entra por el stack real de Express (ruteo, CORS,
 // express.json(), middlewares) y sale por los controladores. Los repositorios
@@ -144,6 +154,21 @@ beforeEach(() => {
     async (_o, _p, precioOferta) => relacion({ precioOferta: String(precioOferta) }),
   );
   ofertaProductoRepo.deleteByOfertaProducto.mockResolvedValue(relacion({ activo: false }));
+
+  // Sprint 2: los routers de stock y ventas llegan hasta los modelos, al
+  // servicio de operaciones y al repositorio de ventas.
+  ProductoModel.findAndCountAll.mockResolvedValue({ rows: [producto()], count: 1 } as never);
+  ProductoModel.findByPk.mockResolvedValue({ ...producto(), update: jest.fn() } as never);
+  MovimientoStockModel.findAndCountAll.mockResolvedValue({ rows: [], count: 0 } as never);
+  mockOperaciones.registrarMovimiento.mockResolvedValue({ id: 100 });
+  mockOperaciones.fraccionar.mockResolvedValue({ operacionId: '53fabc20-051f-4b13-9f51-01103abc1a35' });
+  mockOperaciones.buscarProductos.mockResolvedValue({ rows: [producto()], count: 1 });
+  mockOperaciones.vender.mockResolvedValue({ venta: { id: 55 }, detalles: [] });
+  ventaRepo.findAllVentas.mockResolvedValue({ rows: [{ id: 55, total: '30.00' }], count: 1 } as never);
+  ventaRepo.findVentaConDetalles.mockResolvedValue({
+    venta: { id: 55, total: '30.00' },
+    detalles: [{ productoId: 10, cantidad: 2 }],
+  } as never);
 });
 
 describe('GET /api/health', () => {
@@ -484,6 +509,280 @@ describe('API /api/ofertas', () => {
     const res = await request(app).delete('/api/ofertas/1/productos/10');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ message: 'El producto no pertenece a la oferta.' });
+  });
+});
+
+describe('API /api/stock', () => {
+
+  it('GET / lista el estado de stock con el total paginado', async () => {
+    const res = await request(app).get('/api/stock');
+
+    expect(res.status).toBe(200);
+    // El paginador del front lee el total de esta cabecera.
+    expect(res.headers['x-total-count']).toBe('1');
+    expect(res.body).toEqual([
+      expect.objectContaining({ id: 10, codigo: 'P-001', stockActual: 0, estado: 'Crítico' }),
+    ]);
+  });
+
+  it('GET / acepta page y limite', async () => {
+    const res = await request(app).get('/api/stock?page=2&limite=20');
+
+    expect(res.status).toBe(200);
+    expect(ProductoModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 20, offset: 20 }),
+    );
+  });
+
+  it('POST /movimientos registra un movimiento y responde 201', async () => {
+    const body = { productoId: 10, tipo: 'INGRESO', motivo: 'Compra a proveedor', cantMovimiento: 5 };
+    const res = await request(app).post('/api/stock/movimientos').send(body);
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ id: 100 });
+    expect(mockOperaciones.registrarMovimiento).toHaveBeenCalledWith(body);
+  });
+
+  it('POST /movimientos traduce el conflicto de stock a 409', async () => {
+    mockOperaciones.registrarMovimiento.mockRejectedValue(
+      new operaciones.ErrorOperacion('El movimiento supera el margen de stock permitido.', 409),
+    );
+    const res = await request(app).post('/api/stock/movimientos').send({ productoId: 10 });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ message: 'El movimiento supera el margen de stock permitido.' });
+  });
+
+  it('POST /movimientos rechaza un cuerpo inválido con 400', async () => {
+    mockOperaciones.registrarMovimiento.mockRejectedValue(
+      new operaciones.ErrorOperacion('Tipo de movimiento inválido.'),
+    );
+    const res = await request(app).post('/api/stock/movimientos').send({ productoId: 10, tipo: 'ROBO' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ message: 'Tipo de movimiento inválido.' });
+  });
+
+  it('POST /fraccionamientos registra un desposte y responde 201', async () => {
+    const body = {
+      productoOrigenId: 10,
+      cantidadOrigen: 10,
+      derivados: [{ productoId: 11, cantidad: 10 }],
+    };
+    const res = await request(app).post('/api/stock/fraccionamientos').send(body);
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ operacionId: '53fabc20-051f-4b13-9f51-01103abc1a35' });
+    expect(mockOperaciones.fraccionar).toHaveBeenCalledWith(body);
+  });
+
+  it('GET /movimientos lista el historial paginado', async () => {
+    const res = await request(app).get('/api/stock/movimientos');
+
+    expect(res.status).toBe(200);
+    // A diferencia de GET /api/stock, este handler devuelve el resultado crudo de
+    // Sequelize ({ count, rows }) en vez de un arreglo con X-Total-Count.
+    expect(res.body).toEqual({ count: 0, rows: [] });
+    expect(MovimientoStockModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({ order: [['fechaHora', 'DESC'], ['id', 'DESC']] }),
+    );
+  });
+
+  it('GET /movimientos filtra por tipo y por ventaId', async () => {
+    const res = await request(app).get('/api/stock/movimientos?tipo=EGRESO&ventaId=55');
+
+    expect(res.status).toBe(200);
+    expect(MovimientoStockModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { ventaId: 55, tipo: 'EGRESO' } }),
+    );
+  });
+
+  it('GET /movimientos filtra un desposte por operacionId', async () => {
+    const operacionId = '53fabc20-051f-4b13-9f51-01103abc1a35';
+    const res = await request(app).get(`/api/stock/movimientos?operacionId=${operacionId}`);
+
+    expect(res.status).toBe(200);
+    expect(MovimientoStockModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { motivo: { [Symbol.for('like')]: `DESP:${operacionId}:%` } } }),
+    );
+  });
+
+  it('GET /movimientos rechaza un operacionId mal formado con 400', async () => {
+    const res = await request(app).get('/api/stock/movimientos?operacionId=chirimbolo');
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ message: 'operacionId inválido.' });
+  });
+
+  it('GET /movimientos/:productoId acota al producto de la ruta', async () => {
+    const res = await request(app).get('/api/stock/movimientos/10');
+
+    expect(res.status).toBe(200);
+    expect(MovimientoStockModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { productoId: 10 } }),
+    );
+  });
+
+  it('PUT /:productoId/reposicion fija el stock mínimo', async () => {
+    const update = jest.fn().mockResolvedValue({ id: 10, stockMinimo: 12 });
+    ProductoModel.findByPk.mockResolvedValue({ ...producto(), update } as never);
+
+    const res = await request(app).put('/api/stock/10/reposicion').send({ stockMinimo: 12 });
+
+    expect(res.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({ stockMinimo: 12, tipoReposicion: 'stockMinimo' });
+  });
+
+  it('PUT /:productoId/reposicion responde 404 si el producto no existe', async () => {
+    ProductoModel.findByPk.mockResolvedValue(null as never);
+
+    const res = await request(app).put('/api/stock/99/reposicion').send({ stockMinimo: 5 });
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ message: 'Producto no encontrado.' });
+  });
+
+  it('PUT /:productoId/reposicion rechaza un stockMinimo negativo', async () => {
+    const res = await request(app).put('/api/stock/10/reposicion').send({ stockMinimo: -1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ message: 'stockMinimo no es válido.' });
+  });
+});
+
+describe('API /api/ventas', () => {
+
+  it('GET /productos busca para el mostrador', async () => {
+    const res = await request(app).get('/api/ventas/productos?q=pollo');
+
+    expect(res.status).toBe(200);
+    expect(mockOperaciones.buscarProductos).toHaveBeenCalledWith('pollo', 1, 50);
+  });
+
+  it('GET /productos no cae en /:id', async () => {
+    // ventaRoutes.ts declara /productos antes que /:id a propósito; si alguien
+    // reordena, "productos" entra a detalleVenta y responde 400.
+    ProductoModel.findByPk.mockResolvedValue(null as never);
+    const res = await request(app).get('/api/ventas/productos');
+
+    expect(res.status).toBe(200);
+    expect(ventaRepo.findVentaConDetalles).not.toHaveBeenCalled();
+  });
+
+  it('GET /productos rechaza un q repetido con 400', async () => {
+    // Express 5 usa el parser 'simple': `?q[]=x` no arma un arreglo, pero `?q=a&q=b`
+    // sí, y eso es lo que dispara el guard de "q debe ser texto".
+    const res = await request(app).get('/api/ventas/productos?q=a&q=b');
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ message: 'q debe ser texto.' });
+    expect(mockOperaciones.buscarProductos).not.toHaveBeenCalled();
+  });
+
+  it('POST /cotizacion devuelve el total sin crear la venta', async () => {
+    mockOperaciones.vender.mockResolvedValue({
+      total: '30.00',
+      detalles: [{ nombre: 'Pollo entero', importeUnitario: '15.00', subtotal: '30.00' }],
+    });
+
+    const res = await request(app)
+      .post('/api/ventas/cotizacion')
+      .send({ detalles: [{ productoId: 10, cantidad: 2 }] });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      total: '30.00',
+      detalles: [expect.objectContaining({ importeUnitario: '15.00', subtotal: '30.00' })],
+    });
+    // El segundo argumento true es lo que distingue cotizar de vender.
+    expect(mockOperaciones.vender).toHaveBeenCalledWith(
+      { detalles: [{ productoId: 10, cantidad: 2 }] },
+      true,
+    );
+  });
+
+  it('POST / registra la venta y responde 201', async () => {
+    const body = { detalles: [{ productoId: 10, cantidad: 2 }] };
+    const res = await request(app).post('/api/ventas').send(body);
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ venta: { id: 55 }, detalles: [] });
+    expect(mockOperaciones.vender).toHaveBeenCalledWith(body);
+  });
+
+  it('POST / traduce stock insuficiente a 409', async () => {
+    mockOperaciones.vender.mockRejectedValue(
+      new operaciones.ErrorOperacion('Stock insuficiente para Pollo entero.', 409),
+    );
+
+    const res = await request(app).post('/api/ventas').send({ detalles: [] });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ message: 'Stock insuficiente para Pollo entero.' });
+  });
+
+  it('POST / rechaza un carrito vacío con 400', async () => {
+    mockOperaciones.vender.mockRejectedValue(
+      new operaciones.ErrorOperacion('Debe indicar entre 1 y 100 detalles.'),
+    );
+
+    const res = await request(app).post('/api/ventas').send({ detalles: [] });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ message: 'Debe indicar entre 1 y 100 detalles.' });
+  });
+
+  it('GET / lista el historial de ventas', async () => {
+    const res = await request(app).get('/api/ventas');
+
+    expect(res.status).toBe(200);
+    // Mismo contrato que el historial de movimientos: { count, rows }.
+    expect(res.body).toEqual({ count: 1, rows: [expect.objectContaining({ id: 55 })] });
+    expect(ventaRepo.findAllVentas).toHaveBeenCalledWith(1, 50, undefined, undefined, true);
+  });
+
+  it('GET / acepta un rango de fechas', async () => {
+    const res = await request(app).get('/api/ventas?fechaDesde=2026-01-01&fechaHasta=2026-12-31');
+
+    expect(res.status).toBe(200);
+    expect(ventaRepo.findAllVentas).toHaveBeenCalledWith(
+      1, 50, expect.any(Date), expect.any(Date), true,
+    );
+  });
+
+  it('GET / rechaza un rango invertido con 400', async () => {
+    const res = await request(app).get('/api/ventas?fechaDesde=2026-12-31&fechaHasta=2026-01-01');
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ message: 'El rango de fechas es inválido.' });
+    expect(ventaRepo.findAllVentas).not.toHaveBeenCalled();
+  });
+
+  it('GET /:id devuelve la venta con sus detalles', async () => {
+    const res = await request(app).get('/api/ventas/55');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      venta: expect.objectContaining({ id: 55 }),
+      detalles: [expect.objectContaining({ productoId: 10, cantidad: 2 })],
+    });
+    expect(ventaRepo.findVentaConDetalles).toHaveBeenCalledWith(55);
+  });
+
+  it('GET /:id responde 404 si la venta no existe', async () => {
+    ventaRepo.findVentaConDetalles.mockResolvedValue({ venta: null, detalles: [] } as never);
+
+    const res = await request(app).get('/api/ventas/99');
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ message: 'Venta no encontrada.' });
+  });
+
+  it('GET /:id rechaza un id no numérico con 400', async () => {
+    const res = await request(app).get('/api/ventas/abc');
+
+    expect(res.status).toBe(400);
+    expect(ventaRepo.findVentaConDetalles).not.toHaveBeenCalled();
   });
 });
 
