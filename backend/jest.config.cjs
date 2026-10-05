@@ -1,0 +1,35 @@
+/** @type {import('jest').Config} */
+module.exports = {
+  testEnvironment: 'node',
+
+  // Acotado a tests/ a propósito: database/src/test/test-repositories.ts es un
+  // script con tsx que escribe filas en la base real y no debe ser recolectado.
+  roots: ['<rootDir>/tests'],
+  testMatch: ['<rootDir>/tests/**/*.test.ts'],
+
+  moduleFileExtensions: ['ts', 'js', 'json'],
+
+  transform: {
+    '^.+\\.ts$': ['@swc/jest', {
+      // CommonJS y no ESM: en ESM jest.mock() no hoistea con imports estáticos
+      // y obligaría a jest.unstable_mockModule() + import() dinámico en cada
+      // test. @swc/jest además no ata su versión a typescript, así que funciona
+      // con el typescript@7 del proyecto (ts-jest exige <7).
+      module: { type: 'commonjs' },
+      jsc: { parser: { syntax: 'typescript' }, target: 'es2022' },
+    }],
+  },
+
+  moduleNameMapper: {
+    // El código fuente usa extensión .js en imports relativos (module: nodenext).
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    // polleria-database declara un exports map que apunta a .ts crudos. Se traduce
+    // el specifier a la ruta real en ../database/src para no depender del exports map.
+    '^polleria-database/(.*)$': '<rootDir>/../database/src/$1.ts',
+  },
+
+  setupFiles: ['<rootDir>/tests/setup.ts'],
+
+  clearMocks: true,
+  collectCoverageFrom: ['src/**/*.ts'],
+};

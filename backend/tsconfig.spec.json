@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // El tsconfig principal usa "types": [] para que el programa de src no
+    // arrastre tipos ajenos. Los tests necesitan los de Node y los de Jest.
+    "types": ["node", "jest"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}
