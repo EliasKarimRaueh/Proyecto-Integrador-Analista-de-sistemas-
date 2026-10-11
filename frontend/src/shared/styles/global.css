@@ -976,3 +976,35 @@ align-items:flex-start}
 white-space:normal}
 }
 
+
+
+/* Colores de estado para productos y ofertas, incluidos sus detalles. */
+.badge.product-active,
+.badge.offer-vigente {
+  color: #ffffff;
+  background: #15803d;
+  border: 1px solid #166534;
+  font-weight: 700;
+}
+.badge.product-inactive,
+.badge.offer-vencida {
+  color: #ffffff;
+  background: #dc2626;
+  border: 1px solid #b91c1c;
+  font-weight: 700;
+}
+.badge.offer-programada {
+  color: #ffffff;
+  background: #2563eb;
+  border: 1px solid #1d4ed8;
+  font-weight: 700;
+}
+.badge.offer-baja {
+  color: #ffffff;
+  background: #be123c;
+  border: 1px solid #9f1239;
+  font-weight: 700;
+}
+.stat-icon.status-green { color: #ffffff; background: #15803d; }
+.stat-icon.status-red { color: #ffffff; background: #dc2626; }
+.stat-icon.status-blue { color: #ffffff; background: #2563eb; }
