@@ -1,5 +1,7 @@
 import BaseRepository from './BaseRepository.js';
 import Producto from '../models/Producto.js';
+import Proveedor from '../models/Proveedor.js';
+import ProductoProveedorRepository from './productoProveedorRepository.js';
 import type { Transaction } from 'sequelize';
 
 class ProductoRepository extends BaseRepository<Producto> {
@@ -210,6 +212,26 @@ class ProductoRepository extends BaseRepository<Producto> {
             limit,
             orderBy,
             orderDirection,
+            transaction
+        );
+    }
+
+    /**
+    * Busca los proveedores asociados a un producto,
+    * delegando la consulta a ProductoProveedorRepository.
+    *
+    * @param productoId - ID del producto.
+    * @param productoProveedorRepository - Repositorio de relaciones producto-proveedor.
+    * @param transaction - Transacción opcional de Sequelize.
+    * @returns Lista de proveedores asociados al producto.
+    */
+    async buscarProveedores(
+        productoId: number,
+        productoProveedorRepository: ProductoProveedorRepository,
+        transaction?: Transaction
+    ): Promise<Proveedor[]> {
+        return await productoProveedorRepository.getProveedores(
+            productoId,
             transaction
         );
     }

@@ -10,6 +10,10 @@ import Oferta from '../models/Oferta.js';
 import OfertaProducto from '../models/OfertaProducto.js';
 import Venta from '../models/Venta.js';
 import DetalleVenta from '../models/DetalleVenta.js';
+import Pago from '../models/Pago.js';
+import CuentaProveedor from '../models/CuentaProveedor.js';
+import Compra from '../models/Compra.js';
+import PagoPorCuenta from '../models/PagoPorCuenta.js';
 
 // TipoProducto 1 ─── N Producto ────────────────────────────────────
 
@@ -66,7 +70,7 @@ ProductoProveedor.belongsTo(Producto, {
 });
 
 
-// Proveedor 1 ─── N ProductoProveedor
+// Proveedor 1 ─── N ProductoProveedor 
 
 Proveedor.hasMany(ProductoProveedor, {
     foreignKey: 'proveedorId',
@@ -78,7 +82,7 @@ ProductoProveedor.belongsTo(Proveedor, {
     as: 'proveedor'
 });
 
-// Producto 1 ─── N MovimientoStock
+// Producto 1 ─── N MovimientoStock ────────────────────────────────────
 
 Producto.hasMany(MovimientoStock, {
     foreignKey: 'productoId',
@@ -90,7 +94,7 @@ MovimientoStock.belongsTo(Producto, {
     as: 'producto'
 });
 
-// Producto 1 ─── N Precio
+// Producto 1 ─── N Precio ────────────────────────────────────
 
 Producto.hasMany(Precio, {
     foreignKey: 'productoId',
@@ -102,7 +106,7 @@ Precio.belongsTo(Producto, {
     as: 'producto'
 });
 
-// Oferta N ─── M Producto
+// Oferta N ─── M Producto ────────────────────────────────────
 // Oferta 1 ─── M OfertaProducto
 
 Oferta.hasMany(OfertaProducto, {
@@ -114,7 +118,7 @@ OfertaProducto.belongsTo(Oferta, {
     foreignKey: 'ofertaId',
     as: 'oferta'
 });
-// Producto 1 ─── M OfertaProducto
+// Producto 1 ─── M OfertaProducto 
 Producto.hasMany(OfertaProducto, {
     foreignKey: 'productoId',
     as: 'ofertas'
@@ -125,7 +129,7 @@ OfertaProducto.belongsTo(Producto, {
     as: 'producto'
 });
 
-// Venta 1 ─── N DetalleVenta
+// Venta 1 ─── N DetalleVenta ────────────────────────────────────
 
 Venta.hasMany(DetalleVenta, {
 
@@ -144,7 +148,7 @@ DetalleVenta.belongsTo(Venta, {
 });
 
 
-// Producto 1 ─── N DetalleVenta
+// Producto 1 ─── N DetalleVenta ────────────────────────────────────
 
 Producto.hasMany(DetalleVenta, {
 
@@ -163,7 +167,7 @@ DetalleVenta.belongsTo(Producto, {
 });
 
 
-// Oferta 1 ─── N DetalleVenta
+// Oferta 1 ─── N DetalleVenta ────────────────────────────────────
 
 Oferta.hasMany(DetalleVenta, {
 
@@ -182,7 +186,7 @@ DetalleVenta.belongsTo(Oferta, {
 });
 
 
-// Venta 1 ─── N MovimientoStock
+// Venta 1 ─── N MovimientoStock ────────────────────────────────────
 
 Venta.hasMany(MovimientoStock, {
 
@@ -198,4 +202,71 @@ MovimientoStock.belongsTo(Venta, {
 
     as: 'venta'
 
+});
+
+// Proveedor 1 ─── N Pago ────────────────────────────────────
+Proveedor.hasMany(Pago, {
+    foreignKey: 'proveedorId',
+    as: 'pagos'
+});
+
+Pago.belongsTo(Proveedor, {
+    foreignKey: 'proveedorId',
+    as: 'proveedor'
+});
+
+// Proveedor 1 ─── N CuentaProveedor ────────────────────────────────────
+Proveedor.hasMany(CuentaProveedor, {
+    foreignKey: 'proveedorId',
+    as: 'cuentasProveedor'
+});
+
+CuentaProveedor.belongsTo(Proveedor, {
+    foreignKey: 'proveedorId',
+    as: 'proveedor'
+});
+
+// Proveedor 1 ─── N Compra ────────────────────────────────────
+Proveedor.hasMany(Compra, {
+    foreignKey: 'proveedorId',
+    as: 'compras'
+});
+
+Compra.belongsTo(Proveedor, {
+    foreignKey: 'proveedorId',
+    as: 'proveedor'
+});
+
+// Compra 1 ─── N CuentaProveedor ──────────────────────────────────── 
+Compra.hasOne(CuentaProveedor, {
+    foreignKey: 'compraId',
+    as: 'cuentaProveedor'
+});
+
+CuentaProveedor.belongsTo(Compra, {
+    foreignKey: 'compraId',
+    as: 'compra'
+});
+
+// Pago N ─── M CuentaProveedor ──────────────────────────────────── 
+// Pago 1 ─── N PagoPorCuenta
+Pago.hasMany(PagoPorCuenta, {
+    foreignKey: 'pagoId',
+    as: 'pagosPorCuenta'
+});
+
+PagoPorCuenta.belongsTo(Pago, {
+    foreignKey: 'pagoId',
+    as: 'pago'
+});
+
+// CuentaProveedor 1 ─── N PagoPorCuenta
+CuentaProveedor.hasMany(PagoPorCuenta, {
+    foreignKey: 'cuentaProveedorId',
+    as: 'pagosAplicados'
+});
+
+PagoPorCuenta.belongsTo(CuentaProveedor, {
+    foreignKey: 'cuentaProveedorId',
+    as: 'cuentaProveedor'
 });
