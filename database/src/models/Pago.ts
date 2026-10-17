@@ -5,8 +5,8 @@ class Pago extends Model {
     declare id: number;
     declare fechaHora: Date;
     declare proveedorId: number;
-    declare importe: string;
-    declare importePendiente: string;
+    declare importe: number;
+    declare importePendiente: number;
 }
 
 Pago.init({

@@ -1,9 +1,10 @@
+
 import { Op } from 'sequelize';
 import type { Transaction, WhereOptions } from 'sequelize';
 
 import BaseRepository from './BaseRepository.js';
 import CuentaProveedor from '../models/CuentaProveedor.js';
-import PagoPorCuentaRepository from './pagoPorCuentaRepository.js';
+import PagoPorCuenta from '../models/PagoPorCuenta.js';
 
 type EstadoCuentaProveedor =
     | 'PAGO PENDIENTE'
@@ -13,11 +14,8 @@ type EstadoCuentaProveedor =
 type FiltroEstadoCuenta = 'TODAS' | 'PAGADO' | 'NO_PAGADO';
 
 class CuentaProveedorRepository extends BaseRepository<CuentaProveedor> {
-    private pagoPorCuentaRepository: PagoPorCuentaRepository;
-
     constructor() {
         super(CuentaProveedor);
-        this.pagoPorCuentaRepository = new PagoPorCuentaRepository();
     }
 
     /**
@@ -267,9 +265,7 @@ class CuentaProveedorRepository extends BaseRepository<CuentaProveedor> {
         const saldoFinalCentavos =
             saldoActualCentavos - importeCentavos;
 
-        const importePendiente = (
-            saldoFinalCentavos / 100
-        ).toFixed(2);
+        const importePendiente = saldoFinalCentavos / 100;
 
         const estado: EstadoCuentaProveedor =
             saldoFinalCentavos === 0
@@ -288,16 +284,18 @@ class CuentaProveedorRepository extends BaseRepository<CuentaProveedor> {
 
     /**
      * Consultar los registros de pagos aplicados a una cuenta.
-     * La consulta se delega a PagoPorCuentaRepository.
+     * La consulta se realiza directamente sobre el modelo para
+     * evitar instanciar PagoPorCuentaRepository y crear un ciclo.
      */
     async buscarPagosAplicados(
         cuentaId: number,
         transaction?: Transaction
-    ) {
-        return await this.pagoPorCuentaRepository.buscarPorCuenta(
-            cuentaId,
+    ): Promise<PagoPorCuenta[]> {
+        return await PagoPorCuenta.findAll({
+            where: { cuentaId },
+            order: [['fechaHora', 'ASC']],
             transaction
-        );
+        });
     }
 }
 

@@ -262,11 +262,11 @@ PagoPorCuenta.belongsTo(Pago, {
 
 // CuentaProveedor 1 ─── N PagoPorCuenta
 CuentaProveedor.hasMany(PagoPorCuenta, {
-    foreignKey: 'cuentaProveedorId',
+    foreignKey: 'cuentaId',
     as: 'pagosAplicados'
 });
 
 PagoPorCuenta.belongsTo(CuentaProveedor, {
-    foreignKey: 'cuentaProveedorId',
+    foreignKey: 'cuentaId',
     as: 'cuentaProveedor'
 });

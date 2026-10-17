@@ -6,6 +6,7 @@ class Compra extends Model {
     declare id: number;
     declare fechaHora: Date;
     declare total: number;
+    declare proveedorId: number;
 }
 
 Compra.init({
@@ -15,6 +16,15 @@ Compra.init({
         primaryKey: true,
         autoIncrement: true,
         unique: true
+    },
+
+    proveedorId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'proveedores',
+            key: 'id'
+        }
     },
 
     fechaHora: {

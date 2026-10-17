@@ -6,7 +6,7 @@ class CuentaProveedor extends Model {
     declare id: number;
     declare proveedorId: number;
     declare compraId: number;
-    declare importePendiente: string;
+    declare importePendiente: number;
     declare estado: 'PAGO PENDIENTE' | 'PAGO PARCIAL' | 'PAGADO';
 }
 
@@ -52,14 +52,15 @@ CuentaProveedor.init({
         }
     },
 
-    ESTADO: {
+        estado: {
         type: DataTypes.ENUM(
             'PAGO PENDIENTE',
             'PAGO PARCIAL',
             'PAGADO'
         ),
         allowNull: false,
-        defaultValue: 'PAGO PENDIENTE'
+        defaultValue: 'PAGO PENDIENTE',
+        field: 'ESTADO'
     },
 
 
