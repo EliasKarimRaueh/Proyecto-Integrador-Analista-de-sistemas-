@@ -221,12 +221,15 @@ describe('getMovimientos', () => {
   it('pide los movimientos del más nuevo al más viejo', async () => {
     await getMovimientos(crearReq(), crearRes());
 
-    expect(MovimientoStockModel.findAndCountAll).toHaveBeenCalledWith({
-      where: {},
-      order: [['fechaHora', 'DESC'], ['id', 'DESC']],
-      limit: 50,
-      offset: 0,
-    });
+    expect(MovimientoStockModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {},
+        order: [['fechaHora', 'DESC'], ['id', 'DESC']],
+        limit: 50,
+        offset: 0,
+        include: [expect.objectContaining({ as: 'producto', attributes: ['nombre'] })],
+      }),
+    );
   });
 
   it('filtra por el productoId de la ruta', async () => {

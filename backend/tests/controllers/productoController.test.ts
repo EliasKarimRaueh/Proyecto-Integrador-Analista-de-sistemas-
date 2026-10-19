@@ -8,7 +8,7 @@ jest.mock('polleria-database/repositories/productoRepository', () => require('..
 jest.mock('polleria-database/repositories/tipoProductoRepository', () => require('../mocks/tipoProductoRepository.js'));
 
 import {
-  getProductos, createProducto, updateProducto, deactivateProducto,
+  getProductos, createProducto, updateProducto, deactivateProducto, reactivateProducto,
 } from '../../src/controllers/productoController.js';
 import { instancia as productoRepo } from '../mocks/productoRepository.js';
 import { instancia as tipoProductoRepo } from '../mocks/tipoProductoRepository.js';
@@ -146,6 +146,49 @@ describe('createProducto', () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  it('trata como vacíos los campos que no son texto', async () => {
+    // validateInput coacciona name/description a '' cuando no son strings
+    // (productoController.ts:23-24) y usa String(body.category ?? '') en el
+    // match de categoría (línea 25): el resultado es un 400 de nombre, no un throw.
+    const res = crearRes();
+    await createProducto(
+      crearReq({ body: { name: 123, description: 456, category: null, unit: 'kg' } }), res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El nombre debe tener entre 2 y 50 caracteres.',
+    });
+    expect(productoRepo.create).not.toHaveBeenCalled();
+  });
+
+  it('normaliza la unidad a UNIDADES cuando no es kg', async () => {
+    const res = crearRes();
+    await createProducto(
+      crearReq({ body: { ...BODY_VALIDO, code: 'P-002', unit: 'unidad' } }), res,
+    );
+
+    expect(productoRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ unidadCompra: 'UNIDADES', unidadVenta: 'UNIDADES' }),
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('responde 500 aunque la base rechace con un valor que no es Error', async () => {
+    // sendDatabaseError lee error.message solo si es Error; con un string cae a
+    // String(error) (productoController.ts:74), no lo clasifica y responde 500.
+    const consola = jest.spyOn(console, 'error').mockImplementation(() => {});
+    productoRepo.create.mockRejectedValue('boom');
+    const res = crearRes();
+    await createProducto(crearReq({ body: BODY_VALIDO }), res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'No se pudo guardar el producto en la base de datos.',
+    });
+    consola.mockRestore();
+  });
+
   it('acepta la categoría sin importar mayúsculas ni acentos', async () => {
     // categories = ['Fresco', 'Congelado', 'Seco Almacen'] y normalize() quita
     // acentos y pasa a minúsculas, así que "SECO ALMACEN" resuelve al mismo tipo.
@@ -181,12 +224,11 @@ describe('createProducto', () => {
   });
 
   it('rechaza un código fuera del formato A-Z0-9-', async () => {
-    for (const code of ['P', 'pollo!', 'A'.repeat(21), 'P 001']) {
-      const res = crearRes();
+    for (const code of ['P', 'pollo!', 'A'.repeat(21), 'P 001']) {      const res = crearRes();
       await createProducto(crearReq({ body: { ...BODY_VALIDO, code } }), res);
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
-        message: 'El código debe tener entre 2 y 20 letras, números o guiones.',
+        message: 'El código debe tener entre 2 y 20 caracteres.',
       });
     }
   });
@@ -240,6 +282,87 @@ describe('createProducto', () => {
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese código.' });
   });
+
+  it('autogenera un código cuando el cuerpo no lo trae', async () => {
+    // Math.random se mockea para que el sufijo del código autogenerado sea determinista.
+    const random = jest.spyOn(Math, 'random').mockReturnValue(0.4242);
+    const { code: _code, ...sinCode } = BODY_VALIDO;
+    const res = crearRes();
+    await createProducto(crearReq({ body: sinCode }), res);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(productoRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ codigo: 'PROD-POL-424' }),
+    );
+    random.mockRestore();
+  });
+
+  it('no autogenera código si el nombre es demasiado corto', async () => {
+    const { code: _code, ...sinCode } = BODY_VALIDO;
+    const res = crearRes();
+    await createProducto(crearReq({ body: { ...sinCode, name: 'P' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El nombre debe tener entre 2 y 50 caracteres.',
+    });
+    expect(productoRepo.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('reactivateProducto', () => {
+
+  it('reactiva el producto y responde 200', async () => {
+    const res = crearRes();
+    await reactivateProducto(crearReq({ params: { id: '10' } }), res);
+
+    expect(productoRepo.updateById).toHaveBeenCalledWith(10, { activo: true, fechaBaja: null });
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id: '10' }));
+  });
+
+  it('rechaza un identificador inválido sin tocar el repositorio', async () => {
+    const res = crearRes();
+    await reactivateProducto(crearReq({ params: { id: 'abc' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El identificador del producto no es válido.',
+    });
+    expect(productoRepo.updateById).not.toHaveBeenCalled();
+  });
+
+  it('cae a Fresco cuando la categoría no está en el mapa', async () => {
+    // Mismo fallback que en la baja (productoController.ts:149): un tipo_producto
+    // ausente del mapa se presenta como Fresco.
+    productoRepo.updateById.mockResolvedValue(producto({ tipoProductoId: 99 }));
+    const res = crearRes();
+    await reactivateProducto(crearReq({ params: { id: '10' } }), res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ category: 'Fresco' }));
+  });
+
+  it('responde 404 cuando el producto no existe', async () => {
+    productoRepo.updateById.mockResolvedValue(null);
+    const res = crearRes();
+    await reactivateProducto(crearReq({ params: { id: '999' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Producto no encontrado.' });
+  });
+
+  it('responde 500 si la reactivación falla', async () => {
+    const consola = jest.spyOn(console, 'error').mockImplementation(() => {});
+    productoRepo.updateById.mockRejectedValue(new Error('se cayó la conexión'));
+    const res = crearRes();
+    await reactivateProducto(crearReq({ params: { id: '10' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'No se pudo guardar el producto en la base de datos.',
+    });
+    consola.mockRestore();
+  });
 });
 
 describe('updateProducto', () => {
@@ -290,6 +413,43 @@ describe('updateProducto', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(productoRepo.updateById).not.toHaveBeenCalled();
   });
+
+  it('responde 500 si la actualización falla', async () => {
+    const consola = jest.spyOn(console, 'error').mockImplementation(() => {});
+    productoRepo.updateById.mockRejectedValue(new Error('se cayó la conexión'));
+    const res = crearRes();
+    await updateProducto(crearReq({ params: { id: '10' }, body: BODY_VALIDO }), res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'No se pudo guardar el producto en la base de datos.',
+    });
+    consola.mockRestore();
+  });
+
+  it('traduce el código duplicado a 409 sin consola', async () => {
+    // sendDatabaseError (productoController.ts:75) reconoce el choque de código
+    // y responde 409; el 500 de la rama anterior solo cubre el nombre del error
+    // cuando no es Error.
+    productoRepo.updateById.mockRejectedValue(new Error('productos_codigo_unique'));
+    const res = crearRes();
+    await updateProducto(crearReq({ params: { id: '10' }, body: BODY_VALIDO }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese código.' });
+  });
+
+  it('normaliza la unidad a UNIDADES cuando no es kg', async () => {
+    const res = crearRes();
+    await updateProducto(
+      crearReq({ params: { id: '10' }, body: { ...BODY_VALIDO, unit: 'unidad' } }), res,
+    );
+
+    expect(productoRepo.updateById).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({ unidadCompra: 'UNIDADES', unidadVenta: 'UNIDADES' }),
+    );
+  });
 });
 
 describe('deactivateProducto', () => {
@@ -309,6 +469,16 @@ describe('deactivateProducto', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ active: false }));
   });
 
+  it('cae a Fresco cuando la categoría no está en el mapa', async () => {
+    // El producto apunta a un tipo_producto que el mapa no trajo: el fallback
+    // `categoriesById.get(...) ?? 'Fresco'` (productoController.ts:134) lo cubre.
+    productoRepo.deleteById.mockResolvedValue(producto({ tipoProductoId: 99, activo: false }));
+    const res = crearRes();
+    await deactivateProducto(crearReq({ params: { id: '10' } }), res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ category: 'Fresco' }));
+  });
+
   it('responde 404 cuando el producto no existe', async () => {
     productoRepo.deleteById.mockResolvedValue(null);
     const res = crearRes();
@@ -316,5 +486,18 @@ describe('deactivateProducto', () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ message: 'Producto no encontrado.' });
+  });
+
+  it('responde 500 si la baja falla', async () => {
+    const consola = jest.spyOn(console, 'error').mockImplementation(() => {});
+    productoRepo.deleteById.mockRejectedValue(new Error('se cayó la conexión'));
+    const res = crearRes();
+    await deactivateProducto(crearReq({ params: { id: '10' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'No se pudo guardar el producto en la base de datos.',
+    });
+    consola.mockRestore();
   });
 });

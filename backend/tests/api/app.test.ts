@@ -247,6 +247,20 @@ describe('API /api/productos', () => {
     expect(res.body).toEqual({ message: 'Producto no encontrado.' });
   });
 
+  it('PUT /:id/reactivar vuelve a activar el producto', async () => {
+    const res = await request(app).put('/api/productos/10/reactivar');
+    expect(res.status).toBe(200);
+    expect(productoRepo.updateById).toHaveBeenCalledWith(10, { activo: true, fechaBaja: null });
+    expect(res.body).toEqual(expect.objectContaining({ id: '10', active: true }));
+  });
+
+  it('PUT /:id/reactivar de un producto inexistente responde 404', async () => {
+    productoRepo.updateById.mockResolvedValue(null);
+    const res = await request(app).put('/api/productos/999/reactivar');
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ message: 'Producto no encontrado.' });
+  });
+
   it('GET / con paginación inválida responde 400', async () => {
     // productoRoutes.ts no usa parsePaginacion, pero el contrato de la API
     // debe rechazar page=0 en lugar de ignorarlo en silencio.
@@ -872,6 +886,17 @@ describe('comportamiento transversal de la API', () => {
       .send({ code: 'P-001', category: 'Fresco', name: 'x'.repeat(200_000) });
     expect(res.status).toBe(413);
     expect(res.body).toEqual({ message: 'El cuerpo de la solicitud es demasiado grande.' });
+  });
+
+  it('responde 500 ante un error del stack no clasificado', async () => {
+    // Express 5 decodifica los parámetros de la ruta con decodeURIComponent; una
+    // secuencia UTF-8 incompleta tira un TypeError sin `type`, así que
+    // manejarError cae al fallback genérico (app.ts:44) en vez de los 400/413.
+    const consola = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const res = await request(app).get('/api/productos/%E0%A4%A');
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ message: 'No se pudo completar la solicitud.' });
+    consola.mockRestore();
   });
 
   it('acepta un cuerpo vacío en los DELETE sin pedir body', async () => {
