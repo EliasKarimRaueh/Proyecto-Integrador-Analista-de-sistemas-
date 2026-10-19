@@ -4,14 +4,18 @@ import MovimientoStock from 'polleria-database/models/MovimientoStock';
 import { Op } from 'sequelize';
 import { registrarMovimiento as guardarMovimiento, fraccionar, estadoStock, id, numero, objeto, ErrorOperacion } from '../services/operaciones.js';
 import { ejecutar, paginacion, rangoFechas } from './operacionesController.js';
+
 export const getEstadoStock = (req: Request, res: Response) => ejecutar(res, async () => {
   const { page, limit } = paginacion(req);
   const resultado = await Producto.findAndCountAll({ where: { activo: true }, attributes: { exclude: ['imagen'] }, order: [['id', 'ASC']], limit, offset: (page - 1) * limit });
   res.setHeader('X-Total-Count', resultado.count);
   return resultado.rows.map(p => ({ id: p.id, codigo: p.codigo, nombre: p.nombre, stockActual: p.stockActual, stockMinimo: p.stockMinimo, margenStock: p.margenStock, unidadVenta: p.unidadVenta, estado: estadoStock(p.stockActual, p.stockMinimo) }));
 });
+
 export const registrarMovimiento = (req: Request, res: Response) => ejecutar(res, () => guardarMovimiento(req.body), 201);
+
 export const registrarFraccionamiento = (req: Request, res: Response) => ejecutar(res, () => fraccionar(req.body), 201);
+
 export const getMovimientos = (req: Request, res: Response) => ejecutar(res, async () => {
   const { page, limit } = paginacion(req);
   const where: Record<string, unknown> = {};
@@ -28,8 +32,9 @@ export const getMovimientos = (req: Request, res: Response) => ejecutar(res, asy
     if (req.query.tipo !== 'INGRESO' && req.query.tipo !== 'EGRESO') throw new ErrorOperacion('Tipo inválido.');
     where.tipo = req.query.tipo;
   }
-  return MovimientoStock.findAndCountAll({ where, order: [['fechaHora', 'DESC'], ['id', 'DESC']], limit, offset: (page - 1) * limit });
+  return MovimientoStock.findAndCountAll({ where, order: [['fechaHora', 'DESC'], ['id', 'DESC']], limit, offset: (page - 1) * limit, include: [{ model: Producto,as: "producto", attributes: ['nombre'] }] });
 });
+
 export const configurarReposicion = (req: Request, res: Response) => ejecutar(res, async () => {
   const producto = await Producto.findByPk(id(req.params.productoId));
   if (!producto) throw new ErrorOperacion('Producto no encontrado.', 404);

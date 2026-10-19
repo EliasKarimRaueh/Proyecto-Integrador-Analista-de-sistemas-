@@ -4,7 +4,7 @@ import TipoProductoRepository from '../repositories/tipoProductoRepository.js';
 import DiaPedidoRepository from '../repositories/diaPedidoRepository.js';
 import ProveedorRepository from '../repositories/proveedorRepository.js';
 import ProductoRepository from '../repositories/productoRepository.js';
-import ProductoProveedorRepository from '../repositories/ProductoProveedorRepository.js';
+import ProductoProveedorRepository from '../repositories/productoProveedorRepository.js';
 import ProductoDiaPedidoRepository from '../repositories/productoDiaPedidoRepository.js';
 import PrecioRepository from '../repositories/precioRepository.js';
 import OfertaRepository from '../repositories/ofertaRepository.js';

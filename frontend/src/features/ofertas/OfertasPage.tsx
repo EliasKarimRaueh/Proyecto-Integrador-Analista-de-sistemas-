@@ -164,12 +164,12 @@ export function OfertasPage() {
           <small>En el sistema</small>
         </div>
         <div className="stat">
-          <span className="stat-icon green"><Icon name="check" size={24} /></span>
+          <span className="stat-icon status-green"><Icon name="check" size={24} /></span>
           <div><span>Ofertas vigentes</span><strong>{vigentes}</strong></div>
           <small>Se aplican hoy</small>
         </div>
         <div className="stat">
-          <span className="stat-icon gray"><Icon name="calendar" size={24} /></span>
+          <span className="stat-icon status-blue"><Icon name="calendar" size={24} /></span>
           <div><span>Programadas</span><strong>{programadas}</strong></div>
           <small>Todavía no empiezan</small>
         </div>
@@ -239,7 +239,7 @@ export function OfertasPage() {
                       </span>
                     </td>
                     <td>
-                      <span className={'badge ' + (estado === 'vigente' ? 'active' : 'inactive')}><span />{ETIQUETA_ESTADO[estado]}</span>
+                      <span className={'badge offer-' + estado}><span />{ETIQUETA_ESTADO[estado]}</span>
                     </td>
                     <td>
                       <div className="row-actions">

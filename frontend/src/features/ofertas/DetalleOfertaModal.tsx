@@ -165,7 +165,7 @@ export function DetalleOfertaModal({ oferta, onClose, onCambio }: Props) {
               <div>
                 <dt>Estado</dt>
                 <dd>
-                  <span className={'badge ' + (estado === 'vigente' ? 'active' : 'inactive')}><span />{ETIQUETA_ESTADO[estado]}</span>
+                  <span className={'badge offer-' + estado}><span />{ETIQUETA_ESTADO[estado]}</span>
                 </dd>
               </div>
               <div className="full-width">

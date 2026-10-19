@@ -2,3 +2,5 @@
 .env.*
 seeders/
 node_modules/
+scripts/
+exports/

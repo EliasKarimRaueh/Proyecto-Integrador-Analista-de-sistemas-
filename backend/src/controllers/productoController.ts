@@ -18,12 +18,21 @@ function toTitleCase(value: string) {
 }
 
 function validateInput(body: ProductInput) {
-  const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
+  // Si no mandan código, generamos uno temporal en base al nombre o dejamos un guión
+  let code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const description = typeof body.description === 'string' ? body.description.trim() : '';
   const category = categories.find(item => normalize(item) === normalize(String(body.category ?? '')));
   const unit = units.find(item => item === body.unit);
-  if (!/^[A-Z0-9-]{2,20}$/.test(code)) return { error: 'El código debe tener entre 2 y 20 letras, números o guiones.' };
+
+  // Si no hay código, lo generamos para que la BD no explote
+  if (!code && name.length >= 2) {
+      code = 'PROD-' + name.substring(0, 3).toUpperCase() + '-' + Math.floor(Math.random() * 1000);
+  }
+
+  // Ya no obligamos al código, pero si viene, validamos formato
+  if (code && !/^[A-Z0-9-]{2,20}$/.test(code)) return { error: 'El código debe tener entre 2 y 20 caracteres.' };
+  
   if (name.length < 2 || name.length > 50) return { error: 'El nombre debe tener entre 2 y 50 caracteres.' };
   if (!category) return { error: 'La categoría no es válida.' };
   if (!unit) return { error: 'La unidad de venta no es válida.' };
@@ -124,4 +133,21 @@ export const deactivateProducto = async (req: Request, res: Response) => {
     const categoriesById = await getCategoryMap();
     res.json(presentProduct(product, categoriesById.get(product.tipoProductoId) ?? 'Fresco'));
   } catch (error) { sendDatabaseError(res, error); }
+};
+
+export const reactivateProducto = async (req: Request, res: Response) => {
+  const id = parseId(req, res);
+  if (id === null) return;
+  try {
+    const product = await productoRepository.updateById(id, { 
+      activo: true, 
+      fechaBaja: null 
+    });
+    if (!product) { res.status(404).json({ message: 'Producto no encontrado.' }); return; }
+    
+    const categoriesById = await getCategoryMap();
+    res.json(presentProduct(product, categoriesById.get(product.tipoProductoId) ?? 'Fresco'));
+  } catch (error) { 
+    sendDatabaseError(res, error); 
+  }
 };
