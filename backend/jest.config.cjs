@@ -45,4 +45,7 @@ module.exports = {
 
   clearMocks: true,
   collectCoverageFrom: ['src/**/*.ts'],
+  // server.ts es el entrypoint que abre la conexión real a la base al
+  // importarse: no puede correr bajo Jest y siempre quedaría en 0%.
+  coveragePathIgnorePatterns: ['<rootDir>/src/server.ts'],
 };

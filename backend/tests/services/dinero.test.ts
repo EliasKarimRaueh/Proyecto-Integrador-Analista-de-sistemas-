@@ -26,6 +26,14 @@ describe('centavos', () => {
     expect(centavos(1e3, '1.5')).toBe(150000n);
   });
 
+  it('reescala un exponente positivo sin fracción a escala cero', () => {
+    // '2e2' parsea como base='2', exponente='2', fraccion='' → escala -2, y
+    // decimal() multiplica el entero por 10^2 para no arrastrar la escala
+    // negativa al producto (dinero.ts:7).
+    expect(centavos(1, '2e2')).toBe(20000n);
+    expect(centavos(3, '1e3')).toBe(300000n);
+  });
+
   it('escala hacia arriba cuando el producto tiene menos de dos decimales', () => {
     expect(centavos(1, '5')).toBe(500n);
     expect(centavos(3, '7')).toBe(2100n);

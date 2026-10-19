@@ -136,6 +136,16 @@ describe('getHistorialPrecios', () => {
       message: 'El identificador del producto no es válido.',
     });
   });
+
+  it('rechaza una paginación inválida antes de consultar', async () => {
+    const res = crearRes();
+    await getHistorialPrecios(
+      crearReq({ params: { productoId: '10' }, query: { limite: '1001' } }), res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(precioRepo.findHistorial).not.toHaveBeenCalled();
+  });
 });
 
 describe('getPrecioVigente', () => {
@@ -233,6 +243,19 @@ describe('registrarPrecio', () => {
     });
   });
 
+  it('rechaza un mayorista no numérico', async () => {
+    const res = crearRes();
+    await registrarPrecio(
+      crearReq({ body: { ...BODY_VALIDO, precioMayorista: 'mucho' } }), res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El campo precioMayorista debe ser un número.',
+    });
+    expect(precioRepo.registrarPrecio).not.toHaveBeenCalled();
+  });
+
   it('acepta una fechaDesde explícita', async () => {
     const res = crearRes();
     await registrarPrecio(
@@ -328,6 +351,40 @@ describe('actualizarPrecio', () => {
     expect(precioRepo.updatePrecios).not.toHaveBeenCalled();
   });
 
+  it('rechaza un minorista obligatorio ausente', async () => {
+    const res = crearRes();
+    await actualizarPrecio(crearReq({ params: { id: '1' }, body: {} }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El campo precioMinorista es obligatorio.',
+    });
+    expect(precioRepo.updatePrecios).not.toHaveBeenCalled();
+  });
+
+  it('rechaza un mayorista no numérico', async () => {
+    const res = crearRes();
+    await actualizarPrecio(
+      crearReq({ params: { id: '1' }, body: { ...BODY_VALIDO, precioMayorista: 'mucho' } }), res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El campo precioMayorista debe ser un número.',
+    });
+    expect(precioRepo.updatePrecios).not.toHaveBeenCalled();
+  });
+
+  it('acepta el precioMayorista ausente como null', async () => {
+    const res = crearRes();
+    await actualizarPrecio(
+      crearReq({ params: { id: '1' }, body: { productoId: 10, precioMinorista: '1500' } }), res,
+    );
+
+    expect(precioRepo.updatePrecios).toHaveBeenCalledWith(1, '1500.00', null);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
   it('responde 404 cuando el precio no existe', async () => {
     precioRepo.updatePrecios.mockResolvedValue(null);
     const res = crearRes();
@@ -361,5 +418,49 @@ describe('desactivarPrecio', () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ message: 'Precio no encontrado.' });
+  });
+});
+
+describe('fallos de base de datos', () => {
+
+  // Los cinco GET/PUT/DELETE que no tienen catch propio en la descripción
+  // anterior delegan a sendDatabaseError: un error sin nombre de constraint
+  // responde 500 con el mensaje genérico y loguea por consola.
+  async function expect500(accion: (res: ReturnType<typeof crearRes>) => Promise<void>) {
+    const consola = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const res = crearRes();
+    await accion(res);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'No se pudo completar la operación en la base de datos.',
+    });
+    consola.mockRestore();
+  }
+
+  it('getPrecios responde 500 cuando la lectura falla', async () => {
+    precioRepo.findGlobales.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => getPrecios(crearReq(), res));
+  });
+
+  it('getHistorialPrecios responde 500 cuando la lectura falla', async () => {
+    precioRepo.findHistorial.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => getHistorialPrecios(crearReq({ params: { productoId: '10' } }), res));
+  });
+
+  it('getPrecioVigente responde 500 cuando la lectura falla', async () => {
+    precioRepo.findVigente.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => getPrecioVigente(crearReq({ params: { productoId: '10' } }), res));
+  });
+
+  it('actualizarPrecio responde 500 cuando la escritura falla', async () => {
+    precioRepo.updatePrecios.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => actualizarPrecio(
+      crearReq({ params: { id: '1' }, body: BODY_VALIDO }), res,
+    ));
+  });
+
+  it('desactivarPrecio responde 500 cuando la baja falla', async () => {
+    precioRepo.deleteById.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => desactivarPrecio(crearReq({ params: { id: '1' } }), res));
   });
 });

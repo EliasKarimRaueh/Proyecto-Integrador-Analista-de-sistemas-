@@ -63,6 +63,22 @@ describe('crearVenta', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ message: 'Debe indicar entre 1 y 100 detalles.' });
   });
+
+  it('responde 500 cuando el fallo no es de negocio', async () => {
+    // ejecutar (operacionesController.ts:9) sólo especializa ErrorOperacion;
+    // cualquier otro error cae a sendDatabaseError con su mensaje genérico.
+    const consola = jest.spyOn(console, 'error').mockImplementation(() => {});
+    operaciones.vender.mockRejectedValue(new Error('se cayó la conexión'));
+    const res = crearRes();
+
+    await crearVenta(crearReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'No se pudo completar la operación en la base de datos.',
+    });
+    consola.mockRestore();
+  });
 });
 
 describe('cotizarVenta', () => {
@@ -148,6 +164,40 @@ describe('historialVentas', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ message: 'El rango de fechas es inválido.' });
+    expect(ventaRepo.findAllVentas).not.toHaveBeenCalled();
+  });
+
+  it('rechaza una fecha de calendario inexistente sin consultar', async () => {
+    // '2026-02-30' pasa el regex ISO y Date.parse lo normaliza a 2026-03-02;
+    // el chequeo de redondeo de fecha() (operacionesController.ts:21) lo detecta
+    // y responde 400 sin pegar a la base.
+    const res = crearRes();
+    await historialVentas(crearReq({ query: { fechaDesde: '2026-02-30' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Fecha de calendario inválida.' });
+    expect(ventaRepo.findAllVentas).not.toHaveBeenCalled();
+  });
+
+  it('rechaza una fecha fuera del formato ISO 8601 sin consultar', async () => {
+    for (const fechaDesde of ['ayer', '2026-13-45']) {
+      const res = crearRes();
+      await historialVentas(crearReq({ query: { fechaDesde } }), res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Fecha inválida: utilice ISO 8601.' });
+    }
+    expect(ventaRepo.findAllVentas).not.toHaveBeenCalled();
+  });
+
+  it('rechaza una fecha que no es texto sin consultar', async () => {
+    // Express 5 arma un arreglo cuando el query param se repite; fecha()
+    // exige string y rechaza el valor antes de tocar la base.
+    const res = crearRes();
+    await historialVentas(crearReq({ query: { fechaDesde: ['2026-01-01'] } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Fecha inválida: utilice ISO 8601.' });
     expect(ventaRepo.findAllVentas).not.toHaveBeenCalled();
   });
 });

@@ -278,6 +278,30 @@ describe('createOferta', () => {
     expect(res.status).toHaveBeenCalledWith(400);
   });
 
+  it('rechaza una fecha de fin mal formada', async () => {
+    const res = crearRes();
+    await createOferta(
+      crearReq({ body: { ...BODY_VALIDO, fechaFin: 'el mes que viene' } }), res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El campo fechaFin no es una fecha válida.',
+    });
+    expect(ofertaProductoRepo.crearOfertaConProductos).not.toHaveBeenCalled();
+  });
+
+  it('responde con presentOferta cuando el detalle no se puede recargar', async () => {
+    // Si cargarDetalle devuelve null (la oferta recién creada no se puede
+    // releer), el handler cae al fallback `detalle ?? presentOferta(oferta)`.
+    ofertaRepo.findById.mockResolvedValue(null);
+    const res = crearRes();
+    await createOferta(crearReq({ body: BODY_VALIDO }), res);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
+  });
+
   describe('validarProductos', () => {
 
     it('rechaza un valor que no es arreglo', async () => {
@@ -508,12 +532,91 @@ describe('updateOferta', () => {
     expect(res.status).toHaveBeenCalledWith(404);
   });
 
+  it('responde con presentOferta cuando el detalle no se puede recargar', async () => {
+    // updateById devuelve la fila actualizada, pero cargarDetalle no encuentra
+    // la oferta: el fallback `detalle ?? presentOferta(actualizada)` responde 200.
+    ofertaRepo.findById
+      .mockResolvedValueOnce(oferta())
+      .mockResolvedValue(null);
+    const res = crearRes();
+    await updateOferta(crearReq({ params: { id: '1' }, body: { nombre: 'Promo renombrada' } }), res);
+
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
+  });
+
   it('rechaza una descripción de más de 300 caracteres', async () => {
     const res = crearRes();
     await updateOferta(
       crearReq({ params: { id: '1' }, body: { descripcion: 'x'.repeat(301) } }), res,
     );
     expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('rechaza un nombre vacío o demasiado largo', async () => {
+    for (const nombre of ['', '   ', 'x'.repeat(51)]) {
+      const res = crearRes();
+      await updateOferta(crearReq({ params: { id: '1' }, body: { nombre } }), res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'El nombre debe tener entre 1 y 50 caracteres.',
+      });
+    }
+    expect(ofertaRepo.updateById).not.toHaveBeenCalled();
+  });
+
+  it('rechaza una fechaInicio mal formada', async () => {
+    const res = crearRes();
+    await updateOferta(
+      crearReq({ params: { id: '1' }, body: { fechaInicio: 'ayer' } }), res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El campo fechaInicio no es una fecha válida.',
+    });
+    expect(ofertaRepo.updateById).not.toHaveBeenCalled();
+  });
+
+  it('rechaza una fechaFin mal formada', async () => {
+    const res = crearRes();
+    await updateOferta(
+      crearReq({ params: { id: '1' }, body: { fechaFin: 'el mes que viene' } }), res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El campo fechaFin no es una fecha válida.',
+    });
+    expect(ofertaRepo.updateById).not.toHaveBeenCalled();
+  });
+
+  it('aplica descripción y fechaInicio cuando vienen en el cuerpo', async () => {
+    const res = crearRes();
+    await updateOferta(
+      crearReq({
+        params: { id: '1' },
+        body: { descripcion: '  Nueva descripción  ', fechaInicio: '2026-03-01T00:00:00.000Z' },
+      }),
+      res,
+    );
+
+    expect(ofertaRepo.updateById).toHaveBeenCalledWith(1, {
+      descripcion: 'Nueva descripción',
+      fechaInicio: new Date('2026-03-01T00:00:00.000Z'),
+    });
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('acepta la descripción nula para vaciarla', async () => {
+    const res = crearRes();
+    await updateOferta(
+      crearReq({ params: { id: '1' }, body: { descripcion: null } }), res,
+    );
+
+    expect(ofertaRepo.updateById).toHaveBeenCalledWith(1, { descripcion: null });
+    expect(res.status).not.toHaveBeenCalled();
   });
 });
 
@@ -576,6 +679,17 @@ describe('getProductosDeOferta', () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
   });
+
+  it('rechaza un id inválido', async () => {
+    const res = crearRes();
+    await getProductosDeOferta(crearReq({ params: { id: 'abc' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El identificador de la oferta no es válido.',
+    });
+    expect(ofertaRepo.findById).not.toHaveBeenCalled();
+  });
 });
 
 describe('actualizarPrecioEnOferta', () => {
@@ -621,6 +735,19 @@ describe('actualizarPrecioEnOferta', () => {
     expect(res.json).toHaveBeenCalledWith({
       message: 'El identificador del producto no es válido.',
     });
+  });
+
+  it('rechaza un id de oferta inválido', async () => {
+    const res = crearRes();
+    await actualizarPrecioEnOferta(
+      crearReq({ params: { id: 'abc', productoId: '10' }, body: { precioOferta: '1350' } }), res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El identificador de la oferta no es válido.',
+    });
+    expect(ofertaRepo.findByIdActivo).not.toHaveBeenCalled();
   });
 
   it('responde 404 cuando la oferta está dada de baja', async () => {
@@ -725,5 +852,89 @@ describe('quitarProductoDeOferta', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(ofertaProductoRepo.deleteByOfertaProducto).not.toHaveBeenCalled();
+  });
+
+  it('rechaza un productoId inválido', async () => {
+    const res = crearRes();
+    await quitarProductoDeOferta(crearReq({ params: { id: '1', productoId: 'abc' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El identificador del producto no es válido.',
+    });
+    expect(ofertaProductoRepo.deleteByOfertaProducto).not.toHaveBeenCalled();
+  });
+});
+
+describe('fallos de base de datos', () => {
+
+  // Los diez handlers de ofertas delegan la traducción del fallo a
+  // sendDatabaseError: un error sin constraint conocido responde 500 con el
+  // mensaje genérico y loguea por consola.
+  async function expect500(accion: (res: ReturnType<typeof crearRes>) => Promise<void>) {
+    const consola = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const res = crearRes();
+    await accion(res);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'No se pudo completar la operación en la base de datos.',
+    });
+    consola.mockRestore();
+  }
+
+  it('getOfertas responde 500 cuando la lectura falla', async () => {
+    ofertaRepo.findAllActivos.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => getOfertas(crearReq(), res));
+  });
+
+  it('getOfertasVigentes responde 500 cuando la lectura falla', async () => {
+    ofertaRepo.findVigentes.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => getOfertasVigentes(crearReq(), res));
+  });
+
+  it('getOfertasDeProducto responde 500 cuando la lectura falla', async () => {
+    ofertaProductoRepo.listarDetalleOfertas.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => getOfertasDeProducto(crearReq({ params: { productoId: '10' } }), res));
+  });
+
+  it('getOferta responde 500 cuando la lectura falla', async () => {
+    ofertaRepo.findById.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => getOferta(crearReq({ params: { id: '1' } }), res));
+  });
+
+  it('createOferta responde 500 cuando la creación falla', async () => {
+    ofertaProductoRepo.crearOfertaConProductos.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => createOferta(crearReq({ body: BODY_VALIDO }), res));
+  });
+
+  it('updateOferta responde 500 cuando la lectura falla', async () => {
+    ofertaRepo.findById.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => updateOferta(
+      crearReq({ params: { id: '1' }, body: { nombre: 'Nuevo' } }), res,
+    ));
+  });
+
+  it('desactivarOferta responde 500 cuando la baja falla', async () => {
+    ofertaRepo.deleteById.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => desactivarOferta(crearReq({ params: { id: '1' } }), res));
+  });
+
+  it('getProductosDeOferta responde 500 cuando la lectura falla', async () => {
+    ofertaProductoRepo.listarDetalleProductos.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => getProductosDeOferta(crearReq({ params: { id: '1' } }), res));
+  });
+
+  it('actualizarPrecioEnOferta responde 500 cuando la escritura falla', async () => {
+    ofertaProductoRepo.updatePrecioOferta.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => actualizarPrecioEnOferta(
+      crearReq({ params: { id: '1', productoId: '10' }, body: { precioOferta: '1350' } }), res,
+    ));
+  });
+
+  it('quitarProductoDeOferta responde 500 cuando la baja falla', async () => {
+    ofertaProductoRepo.deleteByOfertaProducto.mockRejectedValue(new Error('se cayó la conexión'));
+    await expect500((res) => quitarProductoDeOferta(
+      crearReq({ params: { id: '1', productoId: '10' } }), res,
+    ));
   });
 });

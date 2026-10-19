@@ -161,6 +161,18 @@ describe('registrarMovimiento', () => {
     await expect(registrarMovimiento(cuerpo({ tipo: 'ROBO' }))).rejects.toThrow('Tipo de movimiento inválido.');
   });
 
+  it('trata MERMA, PERDIDA, VENCIMIENTO y ROTURA como egresos', async () => {
+    // Los cuatro tipos salen del catálogo pero comparten el camino de egreso:
+    // ninguno es ingreso ni ajuste, así que caen en registrarEgreso.
+    catalogo.set(10, producto());
+    for (const tipo of ['MERMA', 'PERDIDA', 'VENCIMIENTO', 'ROTURA']) {
+      await registrarMovimiento(cuerpo({ tipo }));
+    }
+    expect(movimientosRepo.registrarEgreso).toHaveBeenCalledTimes(4);
+    expect(movimientosRepo.registrarIngreso).not.toHaveBeenCalled();
+    expect(movimientosRepo.ajustarStock).not.toHaveBeenCalled();
+  });
+
   it('bloquea el producto dentro de la transacción y propaga la referencia', async () => {
     catalogo.set(10, producto());
 await registrarMovimiento(cuerpo());
@@ -263,6 +275,17 @@ describe('fraccionar', () => {
     expect(movimientosRepo.registrarEgreso.mock.calls[0]![1]).toBe(6);
     expect(movimientosRepo.registrarEgreso.mock.calls[1]![1]).toBe(4);
     expect(movimientosRepo.registrarEgreso.mock.calls[1]![3]).toMatch(/:M Desposte$/);
+  });
+
+  it('trata la merma omitida como cero y emite un solo egreso', async () => {
+    // merma ?? 0 (operaciones.ts:80) y el guard `merma > 0` (línea 102): sin
+    // merma explícita no hay segundo egreso y todo el origen se transforma.
+    await fraccionar(cuerpo({ derivados: [{ productoId: 11, cantidad: 10 }], merma: undefined }));
+
+    expect(movimientosRepo.registrarEgreso).toHaveBeenCalledTimes(1);
+    expect(movimientosRepo.registrarEgreso).toHaveBeenCalledWith(
+      10, 10, 1, expect.stringMatching(/^DESP:[0-9a-f-]{36}:E Desposte$/), null, transaccion,
+    );
   });
 
   it('exige que derivados más merma igualen el origen', async () => {
@@ -571,6 +594,53 @@ describe('vender', () => {
     await expect(
       vender(cuerpo({ detalles: [{ productoId: 10, cantidad: 200 }] })),
     ).rejects.toThrow(/supera el máximo permitido/);
+  });
+
+  it('rechaza un total sumado que excede el máximo aunque cada línea entre', async () => {
+    // Cada subtotal queda bajo el tope de 9999999999 centavos (6000000000 y
+    // 5000000000) pero la suma (11000000000) lo supera: esa validación vive en
+    // el reduce del total (operaciones.ts:168), no en el chequeo por línea.
+    catalogo.set(10, producto({ stockActual: 50, margenStock: null }));
+    catalogo.set(11, producto({ id: 11, stockActual: 50, margenStock: null }));
+    preciosRepo.findAllVigentes.mockImplementation(async (ids: number[]) =>
+      ids.map((id) => ({
+        productoId: id,
+        precioMinorista: id === 10 ? '60000000.00' : '50000000.00',
+        precioMayorista: null,
+      })) as never,
+    );
+
+    await expect(
+      vender(cuerpo({ detalles: [{ productoId: 10, cantidad: 1 }, { productoId: 11, cantidad: 1 }] })),
+    ).rejects.toThrow('El total supera el máximo permitido.');
+    expect(VentaModel.create).not.toHaveBeenCalled();
+  });
+
+  it('persiste el detalle de una oferta con su ofertaId y consume el stock del componente', async () => {
+    // Cotizar con oferta ya estaba cubierto; acá se verifica el camino que
+    // persiste: detalles.create recibe ofertaId (y no productoId) y el egreso
+    // de stock sale contra el producto componente, no contra la oferta.
+    catalogo.set(11, producto({ id: 11 }));
+    OfertaModel.findByPk.mockResolvedValue(oferta() as never);
+    ofertasRepo.listarDetalleProductos.mockResolvedValue([
+      { producto: producto({ id: 10 }), relacion: { precioOferta: '10.00', cantidad: 2 } },
+    ] as never);
+
+    await vender(cuerpo({ detalles: [{ ofertaId: 7, cantidad: 2 }] }));
+
+    expect(detallesRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ventaId: 55,
+        productoId: null,
+        ofertaId: 7,
+        nombre: 'Promo pollo',
+        importeUnitario: 10,
+        subtotal: 20,
+      }),
+      { transaction: transaccion },
+    );
+    // 2 de la línea x 2 del componente = 4 unidades del producto 10.
+    expect(movimientosRepo.registrarEgreso).toHaveBeenCalledWith(10, 4, 1, null, 55, transaccion);
   });
 
   it('rechaza un cuerpo inválido antes de abrir la transacción', async () => {
