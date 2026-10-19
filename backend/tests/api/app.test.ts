@@ -11,6 +11,7 @@ jest.mock('polleria-database/repositories/ofertaProductoRepository', () => requi
 jest.mock('polleria-database/repositories/movimientoStockRepository', () => require('../mocks/movimientoStockRepository.js'));
 jest.mock('polleria-database/repositories/ventaRepository', () => require('../mocks/ventaRepository.js'));
 jest.mock('polleria-database/repositories/detalleVentaRepository', () => require('../mocks/detalleVentaRepository.js'));
+jest.mock('polleria-database/repositories/proveedorRepository', () => require('../mocks/proveedorRepository.js'));
 
 // stockController consulta los modelos directo (no pasa por repositorio), y
 // operaciones.ts los usa para bloquear productos y crear la venta.
@@ -39,6 +40,7 @@ import { instancia as precioRepo, ErrorVigenciaPrecio } from '../mocks/precioRep
 import { instancia as ofertaRepo } from '../mocks/ofertaRepository.js';
 import { instancia as ofertaProductoRepo } from '../mocks/ofertaProductoRepository.js';
 import { instancia as ventaRepo } from '../mocks/ventaRepository.js';
+import { instancia as proveedorRepo } from '../mocks/proveedorRepository.js';
 import { sequelize } from '../mocks/configDatabase.js';
 import { ProductoModel, MovimientoStockModel } from '../mocks/modelos.js';
 import * as operaciones from '../../src/services/operaciones.js';
@@ -110,6 +112,21 @@ function relacion(overrides: Record<string, unknown> = {}) {
   return { productoId: 10, precioOferta: '1200.00', activo: true, fechaBaja: null, ...overrides };
 }
 
+function proveedor(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 5,
+    nombre: 'Distribuidora Sur',
+    cuil: '20123456789',
+    descripcion: 'Aves frescas',
+    ctaCte: true,
+    telefono: '1145678900',
+    email: 'ventas@sur.com',
+    activo: true,
+    fechaBaja: null,
+    ...overrides,
+  };
+}
+
 const CATEGORIAS = { rows: [{ id: 1, nombre: 'FRESCO' }], count: 1 };
 const BODY_PRODUCTO = {
   code: 'P-001', name: 'Pollo entero', category: 'Fresco', unit: 'kg', description: 'Pollo del día',
@@ -169,6 +186,13 @@ beforeEach(() => {
     venta: { id: 55, total: '30.00' },
     detalles: [{ productoId: 10, cantidad: 2 }],
   } as never);
+
+  // Sprint 3: el router de proveedores llega hasta su repositorio.
+  proveedorRepo.buscarTodos.mockResolvedValue([proveedor()]);
+  proveedorRepo.buscarPorId.mockResolvedValue(proveedor());
+  proveedorRepo.crear.mockResolvedValue(proveedor());
+  proveedorRepo.actualizar.mockResolvedValue(proveedor());
+  proveedorRepo.eliminar.mockResolvedValue(proveedor({ activo: false }));
 });
 
 describe('GET /api/health', () => {
@@ -797,6 +821,109 @@ describe('API /api/ventas', () => {
 
     expect(res.status).toBe(400);
     expect(ventaRepo.findVentaConDetalles).not.toHaveBeenCalled();
+  });
+});
+
+describe('API /api/proveedores (Sprint 3)', () => {
+
+  it('GET / devuelve la lista de proveedores', async () => {
+    const res = await request(app).get('/api/proveedores');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([expect.objectContaining({ id: 5, nombre: 'Distribuidora Sur' })]);
+    expect(proveedorRepo.buscarTodos).toHaveBeenCalledWith('nombre', 'ASC');
+  });
+
+  it('GET /:id devuelve el proveedor', async () => {
+    const res = await request(app).get('/api/proveedores/5');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({ id: 5 }));
+  });
+
+  it('GET /:id responde 404 si el proveedor no existe', async () => {
+    proveedorRepo.buscarPorId.mockResolvedValue(null);
+
+    const res = await request(app).get('/api/proveedores/999');
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ message: 'Proveedor no encontrado.' });
+  });
+
+  it('GET /:id rechaza un id no numérico con 400', async () => {
+    const res = await request(app).get('/api/proveedores/abc');
+
+    expect(res.status).toBe(400);
+    expect(proveedorRepo.buscarPorId).not.toHaveBeenCalled();
+  });
+
+  it('POST / crea el proveedor y responde 201', async () => {
+    const res = await request(app)
+      .post('/api/proveedores')
+      .send({ nombre: 'Distribuidora Sur', cuil: '20123456789', ctaCte: true });
+
+    expect(res.status).toBe(201);
+    expect(proveedorRepo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ nombre: 'Distribuidora Sur', activo: true, fechaBaja: null }),
+    );
+  });
+
+  it('POST / responde 400 si el cuerpo es inválido', async () => {
+    const res = await request(app)
+      .post('/api/proveedores')
+      .send({ nombre: '', cuil: '123' });
+
+    expect(res.status).toBe(400);
+    expect(proveedorRepo.crear).not.toHaveBeenCalled();
+  });
+
+  it('POST / responde 409 ante un CUIL duplicado', async () => {
+    proveedorRepo.crear.mockRejectedValue(
+      new Error('duplicate key value violates unique constraint "proveedores_cuil_unique"'),
+    );
+
+    const res = await request(app)
+      .post('/api/proveedores')
+      .send({ nombre: 'Distribuidora Sur', cuil: '20123456789' });
+
+    expect(res.status).toBe(409);
+  });
+
+  it('PUT /:id actualiza el proveedor', async () => {
+    const res = await request(app)
+      .put('/api/proveedores/5')
+      .send({ nombre: 'Sur Renombrada' });
+
+    expect(res.status).toBe(200);
+    expect(proveedorRepo.actualizar).toHaveBeenCalledWith(
+      5,
+      expect.objectContaining({ nombre: 'Sur Renombrada' }),
+    );
+  });
+
+  it('PUT /:id responde 404 si el proveedor no existe', async () => {
+    proveedorRepo.actualizar.mockResolvedValue(null);
+
+    const res = await request(app)
+      .put('/api/proveedores/999')
+      .send({ nombre: 'Nuevo' });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE /:id da de baja el proveedor', async () => {
+    const res = await request(app).delete('/api/proveedores/5');
+
+    expect(res.status).toBe(200);
+    expect(proveedorRepo.eliminar).toHaveBeenCalledWith(5);
+    expect(res.body).toEqual(expect.objectContaining({ activo: false }));
+  });
+
+  it('PUT /:id/reactivar vuelve a activar el proveedor', async () => {
+    const res = await request(app).put('/api/proveedores/5/reactivar');
+
+    expect(res.status).toBe(200);
+    expect(proveedorRepo.actualizar).toHaveBeenCalledWith(5, { activo: true, fechaBaja: null });
   });
 });
 
