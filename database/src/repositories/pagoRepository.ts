@@ -35,7 +35,7 @@ class PagoRepository extends BaseRepository<Pago> {
         return await this.create(
             {
                 ...datos,
-                importePendiente: importe.toFixed(2)
+                importePendiente: Number(importe.toFixed(2))
             } as Partial<Pago>,
             { transaction }
         );
@@ -258,7 +258,7 @@ class PagoRepository extends BaseRepository<Pago> {
 
         return await this.updateById(
             id,
-            { importePendiente: saldoFinal } as Partial<Pago>,
+            { importePendiente: Number(saldoFinal) } as Partial<Pago>,
             transaction
         );
     }
