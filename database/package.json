@@ -16,7 +16,8 @@
     "./repositories/tipoProductoRepository": "./src/repositories/tipoProductoRepository.ts",
     "./repositories/precioRepository": "./src/repositories/precioRepository.ts",
     "./repositories/ofertaRepository": "./src/repositories/ofertaRepository.ts",
-    "./repositories/ofertaProductoRepository": "./src/repositories/ofertaProductoRepository.ts"
+    "./repositories/ofertaProductoRepository": "./src/repositories/ofertaProductoRepository.ts",
+    "./relationships/relationships": "./src/relationships/relationships.ts"
   },
   "scripts": {
     "build": "tsc",

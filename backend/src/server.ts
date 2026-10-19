@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import app from './app.js';
 import sequelize from 'polleria-database/config/database';
+import 'polleria-database/relationships/relationships'; /* <-- AGREGÁ ESTA LÍNEA AQUÍ */
 import { migrateProductCatalog } from 'polleria-database/migrations/productCatalog';
 import { migratePreciosOfertas } from 'polleria-database/migrations/preciosOfertas';
 
