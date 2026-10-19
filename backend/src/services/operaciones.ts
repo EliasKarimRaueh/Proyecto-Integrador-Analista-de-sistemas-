@@ -84,10 +84,7 @@ export async function fraccionar(body: unknown) {
   const ids = derivados.map(d => d.productoId);
   if (ids.includes(productoOrigenId) || new Set(ids).size !== ids.length) throw new ErrorOperacion('Los derivados deben ser distintos entre sí y del origen.');
   const total = derivados.reduce((s, d) => s + d.cantidad, merma);
-
-  // COMENTE ESTA LINEA PARA PERMITIR DIFERENCIAS EN EL FRACCIONAMIENTO DE LA MERMA. 
-  // if (Math.abs(total - cantidadOrigen) > 1e-6) throw new ErrorOperacion('Origen debe coincidir con derivados más merma.');
-  
+  if (Math.abs(total - cantidadOrigen) > 1e-6) throw new ErrorOperacion('Origen debe coincidir con derivados más merma.');
   const operacionId = randomUUID();
   return sequelize.transaction(async transaction => {
     const productos = await bloquear([productoOrigenId, ...ids], transaction);

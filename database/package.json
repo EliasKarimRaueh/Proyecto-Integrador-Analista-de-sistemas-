@@ -18,7 +18,7 @@
     "./repositories/ofertaRepository": "./src/repositories/ofertaRepository.ts",
     "./repositories/ofertaProductoRepository": "./src/repositories/ofertaProductoRepository.ts",
     "./relationships/relationships": "./src/relationships/relationships.ts",
-    "./repositories/proveedorRepository": "./src/repositories/proveedorRepository.js"
+    "./repositories/proveedorRepository": "./src/repositories/proveedorRepository.ts"
   },
   "scripts": {
     "build": "tsc",
