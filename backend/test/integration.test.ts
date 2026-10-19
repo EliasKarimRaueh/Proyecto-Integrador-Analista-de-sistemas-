@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import sequelize from 'polleria-database/config/database';
+// Registra las asociaciones (p. ej. MovimientoStock.belongsTo(Producto)). En
+// producción lo hace server.ts; acá app.js se importa directo, así que sin este
+// import el include de producto en /stock/movimientos falla con EagerLoadingError.
+import 'polleria-database/relationships/relationships';
 import Producto from 'polleria-database/models/Producto';
 import TipoProducto from 'polleria-database/models/TipoProducto';
 import Precio from 'polleria-database/models/Precio';

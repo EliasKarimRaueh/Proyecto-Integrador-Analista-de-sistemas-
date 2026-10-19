@@ -5,6 +5,16 @@ import BaseRepository from './BaseRepository.js';
 import MovimientoStock from '../models/MovimientoStock.js';
 import Producto from '../models/Producto.js';
 
+// stockActual es FLOAT en PostgreSQL, así que sumar/restar decimales en JS
+// arrastra errores de punto flotante (20 - 0.125 - 1.5 - ... = 7.999999999999999).
+// Se redondea a 3 decimales (milésima de kilo) para que el stock persistido sea
+// exacto y el error no se acumule entre movimientos.
+const PRECISION_STOCK = 3;
+
+function redondearStock(valor: number): number {
+    return Number(valor.toFixed(PRECISION_STOCK));
+}
+
 class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
 
     constructor() {
@@ -307,6 +317,8 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
             );
         }
 
+        const cantidadRedondeada = redondearStock(cantidad);
+
         // Bloqueamos el producto para evitar modificaciones
         // concurrentes sobre su stock.
         const producto = await Producto.findByPk(
@@ -329,12 +341,13 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
             );
         }
 
-        const cantInicial = producto.stockActual;
+        const cantInicial = redondearStock(producto.stockActual);
 
-        const cantFinal =
+        const cantFinal = redondearStock(
             tipo === 'INGRESO'
-                ? cantInicial + cantidad
-                : cantInicial - cantidad;
+                ? cantInicial + cantidadRedondeada
+                : cantInicial - cantidadRedondeada
+        );
 
         // Si margenStock es null no existe una restricción
         // sobre cuánto puede caer el stock.
@@ -374,7 +387,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
                 compraId,
                 tipo,
                 cantInicial,
-                cantMovimiento: cantidad,
+                cantMovimiento: cantidadRedondeada,
                 cantFinal,
                 fechaHora: new Date(),
                 usuarioId,
@@ -450,32 +463,33 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
             );
         }
 
-        const stockActual = producto.stockActual;
+        const stockActual = redondearStock(producto.stockActual);
+        const objetivo = redondearStock(stockObjetivo);
 
         // Si margenStock es null no existe restricción.
         if (
             producto.margenStock !== null &&
-            stockObjetivo < -producto.margenStock
+            objetivo < -producto.margenStock
         ) {
             throw new Error(
-                `El stock objetivo (${stockObjetivo}) supera ` +
+                `El stock objetivo (${objetivo}) supera ` +
                 `el margen de stock permitido ` +
                 `(${producto.margenStock}).`
             );
         }
 
         // No hay nada que ajustar.
-        if (stockObjetivo === stockActual) {
+        if (objetivo === stockActual) {
             return null;
         }
 
         const tipo =
-            stockObjetivo > stockActual
+            objetivo > stockActual
                 ? 'INGRESO'
                 : 'EGRESO';
 
         const cantidad =
-            Math.abs(stockObjetivo - stockActual);
+            redondearStock(Math.abs(objetivo - stockActual));
 
         const numeroMovimiento =
             await this.getSiguienteNumeroMovimiento(
@@ -486,7 +500,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
         // Actualizamos el stock.
         await producto.update(
             {
-                stockActual: stockObjetivo
+                stockActual: objetivo
             },
             {
                 transaction
@@ -503,7 +517,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
                 tipo,
                 cantInicial: stockActual,
                 cantMovimiento: cantidad,
-                cantFinal: stockObjetivo,
+                cantFinal: objetivo,
                 fechaHora: new Date(),
                 usuarioId,
                 motivo

@@ -109,8 +109,13 @@ MovimientoStock.init({
 
                 const { tipo, cantInicial, cantMovimiento } = this;
 
+                // cantInicial/cantMovimiento/cantFinal son FLOAT, así que la
+                // comparación exacta falla por punto flotante (p. ej.
+                // 8.2 - 0.2 === 7.999999999999999). Se tolera el epsilon binario.
+                const TOLERANCIA = 1e-6;
+
                 if (tipo === 'INGRESO') {
-                    if (value !== cantInicial + cantMovimiento) {
+                    if (Math.abs(value - (cantInicial + cantMovimiento)) > TOLERANCIA) {
                         throw new Error(
                             "La cantidad final no coincide con la cantidad inicial más la cantidad del movimiento."
                         );
@@ -118,7 +123,7 @@ MovimientoStock.init({
                 }
 
                 if (tipo === 'EGRESO') {
-                    if (value !== cantInicial - cantMovimiento) {
+                    if (Math.abs(value - (cantInicial - cantMovimiento)) > TOLERANCIA) {
                         throw new Error(
                             "La cantidad final no coincide con la cantidad inicial menos la cantidad del movimiento."
                         );
