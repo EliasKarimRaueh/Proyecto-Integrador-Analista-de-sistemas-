@@ -5,6 +5,7 @@ import precioRoutes from './routes/precioRoutes.js';
 import ofertaRoutes from './routes/ofertaRoutes.js';
 import stockRoutes from './routes/stockRoutes.js';
 import ventaRoutes from './routes/ventaRoutes.js';
+import proveedorRoutes from './routes/proveedorRoutes.js';
 
 const app: Application = express();
 
@@ -30,6 +31,7 @@ app.use('/api/precios', precioRoutes);
 app.use('/api/ofertas', ofertaRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/ventas', ventaRoutes);
+app.use('/api/proveedores', proveedorRoutes);
 
 app.use((_req, res) => { res.status(404).json({ message: 'Ruta no encontrada.' }); });
 const manejarError: ErrorRequestHandler = (error, _req, res, _next) => {
