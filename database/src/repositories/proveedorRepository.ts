@@ -208,7 +208,7 @@ class ProveedorRepository extends BaseRepository<Proveedor> {
         const pago = await Pago.findOne({
             where: {
                 proveedorId,
-                pagoPendiente: {
+                importePendiente: {
                     [Op.gt]: 0
                 }
             },
@@ -233,7 +233,7 @@ class ProveedorRepository extends BaseRepository<Proveedor> {
         return await Pago.findAll({
             where: {
                 proveedorId,
-                pagoPendiente: {
+                importePendiente: {
                     [Op.gt]: 0
                 }
             },

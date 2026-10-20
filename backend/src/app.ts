@@ -6,6 +6,10 @@ import ofertaRoutes from './routes/ofertaRoutes.js';
 import stockRoutes from './routes/stockRoutes.js';
 import ventaRoutes from './routes/ventaRoutes.js';
 import proveedorRoutes from './routes/proveedorRoutes.js';
+import catalogoRoutes from './routes/catalogoRoutes.js';
+import compraRoutes from './routes/compraRoutes.js';
+import cuentaRoutes from './routes/cuentaRoutes.js';
+import pagoRoutes from './routes/pagoRoutes.js';
 
 const app: Application = express();
 
@@ -32,6 +36,10 @@ app.use('/api/ofertas', ofertaRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/ventas', ventaRoutes);
 app.use('/api/proveedores', proveedorRoutes);
+app.use('/api/catalogo', catalogoRoutes);
+app.use('/api/compras', compraRoutes);
+app.use('/api/cuentas', cuentaRoutes);
+app.use('/api/pagos', pagoRoutes);
 
 app.use((_req, res) => { res.status(404).json({ message: 'Ruta no encontrada.' }); });
 const manejarError: ErrorRequestHandler = (error, _req, res, _next) => {
