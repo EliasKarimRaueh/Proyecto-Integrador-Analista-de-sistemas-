@@ -3,12 +3,12 @@ import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
 import { useApiResource } from '../../shared/hooks/useApiResource'
 import { formatearMonto } from '../../shared/lib/money'
-import { createProduct, deactivateProduct, fetchProducts, updateProduct } from '../../shared/services/api'
+import { createProduct, deactivateProduct, fetchProducts, reactivateProduct, updateProduct } from '../../shared/services/api'
 import { fetchPreciosVigentes } from '../../shared/services/precios'
 import { PreciosProductoModal } from '../precios/PreciosProductoModal'
 import { categories, units, emptyDraft, validateProduct, normalize, type Product, type ProductDraft } from './products'
 
-type Editor = { mode: 'create' } | { mode: 'edit' | 'detail' | 'deactivate'; product: Product }
+type Editor = { mode: 'create' } | { mode: 'edit' | 'detail' | 'deactivate' | 'reactivate'; product: Product }
 const categorySymbols: Record<Product['category'], string> = { Fresco: 'F', Congelado: 'C', 'Seco Almacen': 'S' }
 
 export function ProductsPage() {
@@ -53,6 +53,7 @@ export function ProductsPage() {
     setDraft(next.mode === 'create' ? { ...emptyDraft } : { ...next.product })
     setErrors({})
     setNotice('')
+    setApiError('')
     setEditor(next)
   }
 
@@ -80,16 +81,16 @@ export function ProductsPage() {
     }
   }
 
-  async function deactivate(product: Product) {
+  async function changeStatus(product: Product) {
     setSaving(true)
     setApiError('')
     try {
-      const updated = await deactivateProduct(product.id)
+      const updated = product.active ? await deactivateProduct(product.id) : await reactivateProduct(product.id)
       setProductos(current => (current ?? []).map(item => item.id === product.id ? updated : item))
-      setNotice('Producto dado de baja correctamente.')
+      setNotice(product.active ? 'Producto dado de baja correctamente.' : 'Producto reactivado correctamente.')
       setEditor(null)
     } catch (error) {
-      setApiError(error instanceof Error ? error.message : 'No se pudo dar de baja el producto.')
+      setApiError(error instanceof Error ? error.message : 'No se pudo cambiar el estado del producto.')
     } finally {
       setSaving(false)
     }
@@ -116,7 +117,7 @@ export function ProductsPage() {
   return (
     <section className="products-page">
       <div className="breadcrumb">Gestión <Icon name="arrow" size={14} /> <span>Productos</span></div>
-      <div className="page-heading"><div><h1>Catálogo de productos</h1><p>Administrá los productos de tu pollería en un solo lugar.</p></div><button className="button primary" disabled={!!apiError} onClick={() => open({ mode: 'create' })}><Icon name="plus" /> Nuevo producto</button></div>
+      <div className="page-heading"><div><h1>Catálogo de productos</h1><p>Administrá los productos de tu pollería en un solo lugar.</p></div><button className="button primary" disabled={!!errorCarga} onClick={() => open({ mode: 'create' })}><Icon name="plus" /> Nuevo producto</button></div>
       <div className="stats-grid">
         <div className="stat"><span className="stat-icon yellow"><Icon name="box" size={24} /></span><div><span>Total de productos</span><strong>{products.length}</strong></div><small>En tu catálogo</small></div>
         <div className="stat"><span className="stat-icon status-green"><Icon name="check" size={24} /></span><div><span>Productos activos</span><strong>{activeCount}</strong></div><small>Disponibles</small></div>
@@ -131,8 +132,8 @@ export function ProductsPage() {
           <label className="status-filter">Estado<select value={status} onChange={e => setStatus(e.target.value)}><option value="todos">Todos los estados</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option></select></label>
         </div>
         <div className="category-tabs" role="group" aria-label="Filtrar por categoría">{['Todas', ...categories].map(c => <button key={c} className={category === c ? 'selected' : ''} aria-pressed={category === c} onClick={() => setCategory(c)}>{c === 'Todas' ? 'Todos' : c}</button>)}</div>
-        <div className="table-scroll"><table><thead><tr><th scope="col">Producto</th><th scope="col">Código</th><th scope="col">Categoría</th><th scope="col">Unidad de venta</th><th scope="col">Precio</th><th scope="col">Estado</th><th scope="col" className="actions-heading">Acciones</th></tr></thead><tbody>
-          {filtered.map(p => { const precio = precioPorProducto.get(Number(p.id)); return <tr key={p.id}><td><div className="product-cell"><span className={'product-symbol symbol-' + p.category.toLowerCase()}>{categorySymbols[p.category]}</span><div><button className="product-link" onClick={() => open({ mode: 'detail', product: p })}>{p.name}</button><span className="product-description">{p.description || 'Sin descripción'}</span></div></div></td><td><code>{p.code}</code></td><td><span className="category-label">{p.category}</span></td><td>{p.unit === 'kg' ? 'Kilogramo (kg)' : p.unit[0].toUpperCase() + p.unit.slice(1)}</td><td>{precio ? <div className="precio-cell"><strong>{formatearMonto(precio.precioMinorista)}</strong>{precio.precioMayorista !== null && <small>Mayor. {formatearMonto(precio.precioMayorista)}</small>}</div> : <button className="precio-vacio" onClick={() => setPreciosDe(p)}>Sin precio &middot; agregar</button>}</td><td><span className={'badge ' + (p.active ? 'product-active' : 'product-inactive')}><span />{p.active ? 'Activo' : 'Inactivo'}</span></td><td><div className="row-actions"><button className="icon-button" title="Ver detalle" aria-label={'Ver ' + p.name} onClick={() => open({ mode: 'detail', product: p })}><Icon name="eye" size={18} /></button><button className="icon-button" title="Precios e historial" aria-label={'Precios de ' + p.name} onClick={() => setPreciosDe(p)}><Icon name="percent" size={18} /></button><button className="icon-button" title="Editar producto" aria-label={'Editar ' + p.name} onClick={() => open({ mode: 'edit', product: p })}><Icon name="edit" size={18} /></button><button className="icon-button danger-text" disabled={!p.active} title={p.active ? 'Dar de baja' : 'Producto inactivo'} aria-label={'Dar de baja ' + p.name} onClick={() => open({ mode: 'deactivate', product: p })}><Icon name="archive" size={18} /></button></div></td></tr> })}
+        <div className="table-scroll"><table><thead><tr><th scope="col">Producto</th><th scope="col">Categoría</th><th scope="col">Unidad de venta</th><th scope="col">Precio</th><th scope="col">Estado</th><th scope="col" className="actions-heading">Acciones</th></tr></thead><tbody>
+          {filtered.map(p => { const precio = precioPorProducto.get(Number(p.id)); return <tr key={p.id}><td><div className="product-cell"><span className={'product-symbol symbol-' + p.category.toLowerCase()}>{categorySymbols[p.category]}</span><div><button className="product-link" onClick={() => open({ mode: 'detail', product: p })}>{p.name}</button><span className="product-description">{p.description || 'Sin descripción'}</span></div></div></td><td><span className="category-label">{p.category}</span></td><td>{p.unit === 'kg' ? 'Kilogramo (kg)' : p.unit[0].toUpperCase() + p.unit.slice(1)}</td><td>{precio ? <div className="precio-cell"><strong>{formatearMonto(precio.precioMinorista)}</strong>{precio.precioMayorista !== null && <small>Mayor. {formatearMonto(precio.precioMayorista)}</small>}</div> : <button className="precio-vacio" onClick={() => setPreciosDe(p)}>Sin precio &middot; agregar</button>}</td><td><span className={'badge ' + (p.active ? 'product-active' : 'product-inactive')}><span />{p.active ? 'Activo' : 'Inactivo'}</span></td><td><div className="row-actions"><button className="icon-button" title="Ver detalle" aria-label={'Ver ' + p.name} onClick={() => open({ mode: 'detail', product: p })}><Icon name="eye" size={18} /></button><button className="icon-button" title="Precios e historial" aria-label={'Precios de ' + p.name} onClick={() => setPreciosDe(p)}><Icon name="percent" size={18} /></button><button className="icon-button" title="Editar producto" aria-label={'Editar ' + p.name} onClick={() => open({ mode: 'edit', product: p })}><Icon name="edit" size={18} /></button><button className="icon-button danger-text" title={p.active ? 'Dar de baja' : 'Reactivar producto'} aria-label={(p.active ? 'Dar de baja ' : 'Reactivar ') + p.name} onClick={() => open({ mode: p.active ? 'deactivate' : 'reactivate', product: p })}><Icon name={p.active ? 'archive' : 'check'} size={18} /></button></div></td></tr> })}
         </tbody></table></div>
         {filtered.length === 0 && <div className="empty-state"><Icon name="search" size={32} /><h3>{products.length ? 'No encontramos productos' : 'Tu catálogo está vacío'}</h3><p>{products.length ? 'Probá con otro nombre, código o categoría.' : 'Registrá tu primer producto para comenzar.'}</p>{products.length > 0 && <button className="button" onClick={() => { setSearch(''); setCategory('Todas'); setStatus('todos') }}>Limpiar filtros</button>}</div>}
         <div className="table-footer">Mostrando {filtered.length} de {products.length} productos<span>Las bajas conservan el historial del catálogo.</span></div>
@@ -142,7 +143,7 @@ export function ProductsPage() {
       {preciosDe && <PreciosProductoModal producto={preciosDe} onClose={() => setPreciosDe(null)} onGuardado={recargarPrecios} />}
 
       {/* Acá sigue el Modal tal cual lo tenías, sin modificaciones porque maneja puro estado de React */}
-      {editor && <Modal eyebrow="CATÁLOGO DE PRODUCTOS" title={editor.mode === 'create' ? 'Nuevo producto' : editor.mode === 'edit' ? 'Editar producto' : editor.mode === 'detail' ? 'Detalle del producto' : 'Dar de baja producto'} onClose={() => setEditor(null)}>
+      {editor && <Modal eyebrow="CATÁLOGO DE PRODUCTOS" title={editor.mode === 'create' ? 'Nuevo producto' : editor.mode === 'edit' ? 'Editar producto' : editor.mode === 'detail' ? 'Detalle del producto' : editor.mode === 'reactivate' ? 'Reactivar producto' : 'Dar de baja producto'} busy={saving} onClose={() => setEditor(null)}>
         {apiError && <div className="notice error" role="alert">{apiError}</div>}
         {(editor.mode === 'create' || editor.mode === 'edit') && <form onSubmit={submit} noValidate>
           <p className="form-intro">Completá los datos del producto. Los campos con * son obligatorios.</p>
@@ -156,8 +157,9 @@ export function ProductsPage() {
           <div className="form-note">Los precios y las ofertas se gestionan desde el botón de precios de cada producto.</div>
           <div className="modal-footer"><button type="button" className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button type="submit" className="button primary" disabled={saving}><Icon name="check" size={18} />{saving ? 'Guardando...' : editor.mode === 'create' ? 'Registrar producto' : 'Guardar cambios'}</button></div>
         </form>}
-        {editor.mode === 'detail' && <><div className="detail-product"><span className={'product-symbol symbol-' + editor.product.category.toLowerCase()}>{categorySymbols[editor.product.category]}</span><div><h3>{editor.product.name}</h3><span className={'badge ' + (editor.product.active ? 'product-active' : 'product-inactive')}>{editor.product.active ? 'Activo' : 'Inactivo'}</span></div></div><dl className="detail-grid"><div><dt>Código</dt><dd>{editor.product.code}</dd></div><div><dt>Categoría</dt><dd>{editor.product.category}</dd></div><div><dt>Unidad de venta</dt><dd>{editor.product.unit}</dd></div><div className="full-width"><dt>Descripción</dt><dd>{editor.product.description || 'Sin descripción'}</dd></div></dl><div className="modal-footer"><button className="button" onClick={() => setEditor(null)}>Cerrar</button><button className="button primary" onClick={() => open({ mode: 'edit', product: editor.product })}><Icon name="edit" size={18} />Editar producto</button></div></>}
-        {editor.mode === 'deactivate' && <><div className="confirmation-icon"><Icon name="archive" size={28} /></div><p>¿Querés dar de baja <strong>{editor.product.name}</strong>?</p><p>El producto quedará inactivo. Sus datos se conservarán y podrás consultarlo usando el filtro de estado.</p><div className="modal-footer"><button autoFocus className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button className="button danger" disabled={saving} onClick={() => deactivate(editor.product)}>{saving ? 'Procesando...' : 'Confirmar baja'}</button></div></>}
+        {editor.mode === 'detail' && <><div className="detail-product"><span className={'product-symbol symbol-' + editor.product.category.toLowerCase()}>{categorySymbols[editor.product.category]}</span><div><h3>{editor.product.name}</h3><span className={'badge ' + (editor.product.active ? 'product-active' : 'product-inactive')}>{editor.product.active ? 'Activo' : 'Inactivo'}</span></div></div><dl className="detail-grid"><div><dt>Categoría</dt><dd>{editor.product.category}</dd></div><div><dt>Unidad de venta</dt><dd>{editor.product.unit}</dd></div><div className="full-width"><dt>Descripción</dt><dd>{editor.product.description || 'Sin descripción'}</dd></div></dl><div className="modal-footer"><button className="button" onClick={() => setEditor(null)}>Cerrar</button><button className="button primary" onClick={() => open({ mode: 'edit', product: editor.product })}><Icon name="edit" size={18} />Editar producto</button></div></>}
+        {editor.mode === 'deactivate' && <><div className="confirmation-icon"><Icon name="archive" size={28} /></div><p>¿Querés dar de baja <strong>{editor.product.name}</strong>?</p><p>El producto quedará inactivo. Sus datos se conservarán y podrás consultarlo usando el filtro de estado.</p><div className="modal-footer"><button autoFocus className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button className="button danger" disabled={saving} onClick={() => changeStatus(editor.product)}>{saving ? 'Procesando...' : 'Confirmar baja'}</button></div></>}
+        {editor.mode === 'reactivate' && <><p>¿Querés reactivar <strong>{editor.product.name}</strong>?</p><p>El producto volverá a estar disponible conservando sus datos e historial.</p><div className="modal-footer"><button autoFocus className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button className="button primary" disabled={saving} onClick={() => changeStatus(editor.product)}>{saving ? 'Procesando...' : 'Confirmar reactivación'}</button></div></>}
       </Modal>}
     </section>
   )

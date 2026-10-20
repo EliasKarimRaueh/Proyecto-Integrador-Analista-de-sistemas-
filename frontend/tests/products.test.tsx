@@ -38,6 +38,12 @@ function responderComoLaApi(input: string | URL | Request, options?: RequestInit
 
   if (method === 'GET') return json(products)
 
+  if (method === 'PUT' && path.endsWith('/reactivar')) {
+    const product = products.find(p => p.id === path.split('/').at(-2))!
+    product.active = true
+    return json(product)
+  }
+
   const id = path.split('/').at(-1)
 
   if (method === 'POST') {
@@ -71,6 +77,40 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('Catálogo de productos conectado a la API', () => {
+  it('oculta el código en la consulta y conserva el campo para edición', async () => {
+    const user = userEvent.setup()
+    render(<ProductsPage />)
+    await screen.findByRole('button', { name: 'Suprema' })
+    expect(screen.queryByRole('columnheader', { name: 'Código' })).toBeNull()
+    expect(screen.queryByText('POL-001')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Ver Suprema' }))
+    expect(screen.queryByText('POL-001')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Editar producto' }))
+    expect((screen.getByLabelText('Código *') as HTMLInputElement).value).toBe('POL-001')
+  })
+
+  it('reactiva un producto inactivo usando el endpoint existente', async () => {
+    products[0].active = false
+    const user = userEvent.setup()
+    render(<ProductsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Reactivar Suprema' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reactivación' }))
+    await screen.findByText('Producto reactivado correctamente.')
+    expect(fetchMock).toHaveBeenCalledWith('/api/productos/1/reactivar', expect.objectContaining({ method: 'PUT' }))
+    expect(screen.getByRole('button', { name: 'Dar de baja Suprema' })).toBeTruthy()
+  })
+
+  it('conserva el estado inactivo si falla la reactivación', async () => {
+    products[0].active = false
+    fetchMock.mockImplementation((input, options) => String(input).endsWith('/reactivar') ? json({ message: 'No se pudo reactivar.' }, 500) : responderComoLaApi(input, options))
+    const user = userEvent.setup()
+    render(<ProductsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Reactivar Suprema' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reactivación' }))
+    expect((await screen.findByRole('alert')).textContent).toContain('No se pudo reactivar.')
+    expect(products[0].active).toBe(false)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
   it('registra, edita y da de baja mediante POST, PUT y DELETE', async () => {
     const user = userEvent.setup()
     render(<ProductsPage />)

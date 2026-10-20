@@ -1,4 +1,4 @@
-# Frontend de AvixSoft — Sprint 2
+# Frontend de AvixSoft — Sprint 3 (parte 1)
 
 React, TypeScript y Vite, integrado con la API de Express y PostgreSQL/Supabase. Catálogo, precios, ofertas, ventas y existencias usan datos del servidor; no hay un catálogo de demostración en `localStorage`.
 
@@ -31,6 +31,7 @@ En producción, configurar un proxy `/api` hacia el backend o definir `VITE_API_
 | `/` | Inicio con ventas del día, alertas de reposición y accesos operativos |
 | `/caja` | Búsqueda por código/nombre, kilos/unidades, listas minorista/mayorista, ofertas, cotización, confirmación y comprobante |
 | `/productos` | Alta, edición, baja lógica, filtros, precios vigentes e historial de precios |
+| `/proveedores` | Alta, consulta, edición, baja lógica, reactivación, búsqueda y filtros por estado/cuenta corriente |
 | `/ofertas` | Alta, edición, vigencia, cantidades por componente, precios y baja lógica |
 | `/stock` | Existencias, estados Normal/Próximo al Mínimo/Crítico, límites de reposición y movimientos justificados |
 | `/desposte` | Origen, múltiples derivados, balance de kilos, merma y confirmación de la operación |
@@ -38,6 +39,16 @@ En producción, configurar un proxy `/api` hacia el backend o definir `VITE_API_
 | `/movimientos` | Historial paginado con producto, fechas, tipo, venta y operación de desposte |
 
 Pedidos, clientes y autenticación conservan sus rutas iniciales, fuera de los módulos operativos de este Sprint. No se presentan como funcionalidades terminadas en el menú principal.
+
+## Sprint 3, primera parte
+
+El directorio guarda razón social, CUIT, teléfono, email, dirección, días habituales de entrega, descripción y habilitación de cuenta corriente. Las búsquedas actualizan la lista mientras se escribe y admiten coincidencias sin acentos. Los filtros por actividad y cuenta corriente se combinan con la búsqueda.
+
+Reiniciar el backend para ejecutar la migración incremental de dirección y días de entrega. La API mantiene los nombres `nombre` y `cuil` por compatibilidad. La validación de email conserva la regla existente del backend: debe terminar en `.com`.
+
+En el catálogo, el código interno queda oculto en tabla y detalle; continúa disponible en formularios de alta/edición y en la búsqueda. Los productos inactivos pueden reactivarse con confirmación desde su fila.
+
+La segunda parte incorpora asociaciones de productos, cambios de ofertas, cuentas corrientes y pagos. El alcance y los faltantes detectados están en [la revisión del sprint](../docs/sprint-3.md).
 
 ## Operaciones
 
