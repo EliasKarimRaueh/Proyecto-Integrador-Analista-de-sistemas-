@@ -18,7 +18,12 @@
     "./repositories/ofertaRepository": "./src/repositories/ofertaRepository.ts",
     "./repositories/ofertaProductoRepository": "./src/repositories/ofertaProductoRepository.ts",
     "./relationships/relationships": "./src/relationships/relationships.ts",
-    "./repositories/proveedorRepository": "./src/repositories/proveedorRepository.ts"
+    "./repositories/proveedorRepository": "./src/repositories/proveedorRepository.ts",
+    "./repositories/compraRepository": "./src/repositories/compraRepository.ts",
+    "./repositories/cuentaProveedorRepository": "./src/repositories/cuentaProveedorRepository.ts",
+    "./repositories/pagoRepository": "./src/repositories/pagoRepository.ts",
+    "./repositories/pagoPorCuentaRepository": "./src/repositories/pagoPorCuentaRepository.ts",
+    "./repositories/productoProveedorRepository": "./src/repositories/productoProveedorRepository.ts"
   },
   "scripts": {
     "build": "tsc",

@@ -13,6 +13,14 @@ jest.mock('polleria-database/repositories/ventaRepository', () => require('../mo
 jest.mock('polleria-database/repositories/detalleVentaRepository', () => require('../mocks/detalleVentaRepository.js'));
 jest.mock('polleria-database/repositories/proveedorRepository', () => require('../mocks/proveedorRepository.js'));
 
+// Sprint 3: catálogo, compras, cuentas corrientes y pagos (capa de datos ya
+// existente, expuesta por HTTP en esta tanda).
+jest.mock('polleria-database/repositories/productoProveedorRepository', () => require('../mocks/productoProveedorRepository.js'));
+jest.mock('polleria-database/repositories/compraRepository', () => require('../mocks/compraRepository.js'));
+jest.mock('polleria-database/repositories/cuentaProveedorRepository', () => require('../mocks/cuentaProveedorRepository.js'));
+jest.mock('polleria-database/repositories/pagoRepository', () => require('../mocks/pagoRepository.js'));
+jest.mock('polleria-database/repositories/pagoPorCuentaRepository', () => require('../mocks/pagoPorCuentaRepository.js'));
+
 // stockController consulta los modelos directo (no pasa por repositorio), y
 // operaciones.ts los usa para bloquear productos y crear la venta.
 jest.mock('polleria-database/models/Producto', () => require('../mocks/modelos.js').ProductoModel);
@@ -41,7 +49,13 @@ import { instancia as ofertaRepo } from '../mocks/ofertaRepository.js';
 import { instancia as ofertaProductoRepo } from '../mocks/ofertaProductoRepository.js';
 import { instancia as ventaRepo } from '../mocks/ventaRepository.js';
 import { instancia as proveedorRepo } from '../mocks/proveedorRepository.js';
+import { instancia as relacionRepo } from '../mocks/productoProveedorRepository.js';
+import { instancia as compraRepo } from '../mocks/compraRepository.js';
+import { instancia as cuentaRepo } from '../mocks/cuentaProveedorRepository.js';
+import { instancia as pagoRepo } from '../mocks/pagoRepository.js';
+import { instancia as aplicacionRepo } from '../mocks/pagoPorCuentaRepository.js';
 import { sequelize } from '../mocks/configDatabase.js';
+import { usarTransaccionFalsa } from '../helpers/transaccion.js';
 import { ProductoModel, MovimientoStockModel } from '../mocks/modelos.js';
 import * as operaciones from '../../src/services/operaciones.js';
 
@@ -140,6 +154,10 @@ const BODY_OFERTA = {
 };
 
 beforeEach(() => {
+  // Catálogo y compras abren transacción real en el servicio; con clearMocks la
+  // implementación se borra antes de cada test, así que hay que reconectarla.
+  usarTransaccionFalsa();
+
   tipoProductoRepo.findAll.mockResolvedValue(CATEGORIAS);
   tipoProductoRepo.create.mockResolvedValue({ id: 1, nombre: 'FRESCO', activo: true, fechaBaja: null });
 
@@ -193,6 +211,35 @@ beforeEach(() => {
   proveedorRepo.crear.mockResolvedValue(proveedor());
   proveedorRepo.actualizar.mockResolvedValue(proveedor());
   proveedorRepo.eliminar.mockResolvedValue(proveedor({ activo: false }));
+
+  // Sprint 3: catálogo, compras, cuentas y pagos.
+  relacionRepo.getProductos.mockResolvedValue([producto()]);
+  relacionRepo.getProductosActivos.mockResolvedValue([producto()]);
+  relacionRepo.getProveedores.mockResolvedValue([proveedor()]);
+  relacionRepo.findByRelation.mockResolvedValue(null);
+  relacionRepo.create.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: true });
+  relacionRepo.activateRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: true });
+  relacionRepo.deleteRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: false });
+
+  compraRepo.crear.mockResolvedValue({ id: 7, proveedorId: 5, total: '1500.00' });
+  compraRepo.buscarPorId.mockResolvedValue({ id: 7, proveedorId: 5, total: '1500.00' });
+  compraRepo.buscarTodas.mockResolvedValue([{ id: 7, proveedorId: 5, total: '1500.00' }]);
+  compraRepo.buscarPorProveedor.mockResolvedValue({ rows: [{ id: 7 }], count: 1 });
+
+  cuentaRepo.crear.mockResolvedValue({ id: 1, proveedorId: 5, compraId: 7, importePendiente: '1500.00', estado: 'PAGO PENDIENTE' });
+  cuentaRepo.buscarPorCompra.mockResolvedValue({ id: 1, proveedorId: 5, compraId: 7 });
+  cuentaRepo.buscarPorId.mockResolvedValue({ id: 1, proveedorId: 5, compraId: 7, importePendiente: '500.00', estado: 'PAGO PARCIAL' });
+  cuentaRepo.buscarPagosAplicados.mockResolvedValue([{ pagoId: 9, cuentaId: 1, importeAplicado: '500.00' }]);
+  cuentaRepo.listarPaginados.mockResolvedValue({ rows: [{ id: 1 }], count: 1 });
+  cuentaRepo.buscarPorProveedor.mockResolvedValue({ rows: [{ id: 1 }], count: 1 });
+  cuentaRepo.buscarTodas.mockResolvedValue([{ id: 1, proveedorId: 5, importePendiente: '500.00', estado: 'PAGO PARCIAL' }]);
+
+  pagoRepo.registrarPagoYAplicar.mockResolvedValue({ id: 9, proveedorId: 5, importe: '1000.00', importePendiente: '0.00' });
+  pagoRepo.buscarPorId.mockResolvedValue({ id: 9, proveedorId: 5, importe: '1000.00', importePendiente: '0.00' });
+  pagoRepo.listarPaginados.mockResolvedValue({ rows: [{ id: 9 }], count: 1 });
+  pagoRepo.buscarConSaldoPendiente.mockResolvedValue({ rows: [{ id: 9 }], count: 1 });
+  pagoRepo.buscarPorProveedor.mockResolvedValue({ rows: [{ id: 9 }], count: 1 });
+  aplicacionRepo.buscarPorPago.mockResolvedValue([{ pagoId: 9, cuentaId: 1, importeAplicado: '1000.00' }]);
 });
 
 describe('GET /api/health', () => {
@@ -924,6 +971,90 @@ describe('API /api/proveedores (Sprint 3)', () => {
 
     expect(res.status).toBe(200);
     expect(proveedorRepo.actualizar).toHaveBeenCalledWith(5, { activo: true, fechaBaja: null });
+  });
+});
+
+describe('API /api/catalogo, /api/compras, /api/cuentas y /api/pagos (Sprint 3)', () => {
+
+  it('GET /api/catalogo/proveedor/:id devuelve los productos del proveedor', async () => {
+    const res = await request(app).get('/api/catalogo/proveedor/5');
+    expect(res.status).toBe(200);
+    expect(relacionRepo.getProductos).toHaveBeenCalledWith(5);
+    expect(res.body).toEqual([expect.objectContaining({ id: 10 })]);
+  });
+
+  it('GET /api/catalogo/producto/:id devuelve los proveedores del producto', async () => {
+    const res = await request(app).get('/api/catalogo/producto/10');
+    expect(res.status).toBe(200);
+    expect(relacionRepo.getProveedores).toHaveBeenCalledWith(10);
+  });
+
+  it('POST /api/catalogo asocia producto y proveedor', async () => {
+    const res = await request(app).post('/api/catalogo').send({ productoId: 10, proveedorId: 5 });
+    expect(res.status).toBe(201);
+    expect(relacionRepo.create).toHaveBeenCalled();
+  });
+
+  it('POST /api/catalogo devuelve 409 si la relación ya está activa', async () => {
+    relacionRepo.findByRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: true });
+    const res = await request(app).post('/api/catalogo').send({ productoId: 10, proveedorId: 5 });
+    expect(res.status).toBe(409);
+  });
+
+  it('DELETE /api/catalogo/:productoId/:proveedorId da de baja la relación', async () => {
+    relacionRepo.findByRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: true });
+    const res = await request(app).delete('/api/catalogo/10/5');
+    expect(res.status).toBe(200);
+    expect(relacionRepo.deleteRelation).toHaveBeenCalledWith(10, 5);
+  });
+
+  it('POST /api/compras registra compra y cuenta', async () => {
+    const res = await request(app).post('/api/compras').send({ proveedorId: 5, total: 1500 });
+    expect(res.status).toBe(201);
+    expect(compraRepo.crear).toHaveBeenCalled();
+    expect(cuentaRepo.crear).toHaveBeenCalled();
+  });
+
+  it('GET /api/compras lista las compras', async () => {
+    const res = await request(app).get('/api/compras');
+    expect(res.status).toBe(200);
+    expect(res.headers['x-total-count']).toBe('1');
+  });
+
+  it('GET /api/compras/:id devuelve compra y cuenta', async () => {
+    const res = await request(app).get('/api/compras/7');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({ compra: expect.objectContaining({ id: 7 }) }));
+  });
+
+  it('GET /api/cuentas lista las cuentas', async () => {
+    const res = await request(app).get('/api/cuentas?proveedorId=5');
+    expect(res.status).toBe(200);
+    expect(cuentaRepo.buscarPorProveedor).toHaveBeenCalledWith(5, 'TODAS', 1, 50);
+  });
+
+  it('GET /api/cuentas/proveedor/:id consolida el saldo', async () => {
+    const res = await request(app).get('/api/cuentas/proveedor/5');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({ proveedorId: 5 }));
+  });
+
+  it('POST /api/pagos registra el pago y aplica FIFO', async () => {
+    const res = await request(app).post('/api/pagos').send({ proveedorId: 5, importe: 1000 });
+    expect(res.status).toBe(201);
+    expect(pagoRepo.registrarPagoYAplicar).toHaveBeenCalled();
+  });
+
+  it('GET /api/pagos lista los pagos', async () => {
+    const res = await request(app).get('/api/pagos');
+    expect(res.status).toBe(200);
+    expect(res.headers['x-total-count']).toBe('1');
+  });
+
+  it('GET /api/pagos/:id devuelve el pago con sus aplicaciones', async () => {
+    const res = await request(app).get('/api/pagos/9');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({ pago: expect.objectContaining({ id: 9 }) }));
   });
 });
 
