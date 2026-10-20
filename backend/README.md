@@ -105,3 +105,26 @@ Las pruebas unitarias no conectan a la base. Las de integración usan fixtures t
 El workflow `.github/workflows/backend.yml` compila ambas capas y ejecuta pruebas unitarias e integración en un PostgreSQL descartable en cada pull request y push a `main`/`master`. `TEST_DATABASE_SYNC=true` crea tablas sólo en esa base de CI; no configurarlo para la base compartida. Para impedir merges con pruebas fallidas, configurar este check como obligatorio en las reglas de la rama del repositorio.
 
 Se alinearon las opciones de campos opcionales e índices del compilador del backend con las de `database`, manteniendo `strict: true`, porque ambos paquetes comparten fuentes TypeScript.
+
+## Sprint 3: proveedores, cuentas y ofertas
+
+El frontend usa las operaciones de proveedor detalladas en [docs/sprint-3.md](../docs/sprint-3.md). Las rutas genéricas existentes de catálogo, compras, cuentas y pagos se conservan por compatibilidad.
+
+`POST /api/proveedores/:id/comprobantes` recibe `numeroComprobante`, `fecha` (YYYY-MM-DD), `total` y `claveOperacion` (UUID). Registra compra y deuda juntas, sin movimiento de inventario. El proveedor debe estar activo y tener cuenta corriente habilitada.
+
+`POST /api/proveedores/:id/pagos` recibe `importe` y `claveOperacion`. Registra pago y aplicaciones en una sola transacción, bloqueando proveedor y cuentas. No admite sobrepago y cancela primero las compras más antiguas. Un reintento con la misma clave y los mismos datos devuelve la operación anterior. Es posible cancelar deudas de un proveedor inactivo sin perder el historial.
+
+Las ofertas nuevas reciben `descuentoPorcentaje` y productos con `productoId`/`cantidad`. El servidor suma los precios vigentes de la lista seleccionada y aplica el descuento sobre el subtotal conjunto. Los importes se redondean mediante aritmética decimal. Las ofertas anteriores conservan su precio fijo mientras no se conviertan desde edición. Las ventas confirmadas conservan sus importes históricos.
+
+El alta de producto admite omitir `code`: genera un código interno válido que mantiene la columna y su unicidad. No se elimina la columna de la base.
+
+El arranque ejecuta las migraciones incrementales de proveedores y cuentas. Para comprobar migración, HTTP, asociaciones, pagos, rollback y cotización/venta con descuentos:
+
+```sh
+npm run typecheck
+npm run typecheck:tests
+npm run test:all
+npm run test:integration:sprint3
+```
+
+La integración del Sprint 3 encierra también el DDL en una transacción exterior y la revierte al terminar. Puede adelantar secuencias de IDs, pero no conserva registros de prueba ni cambios de existencias.

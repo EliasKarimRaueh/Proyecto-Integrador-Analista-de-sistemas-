@@ -89,6 +89,7 @@ describe('getOfertas', () => {
       {
         id: '1',
         nombre: 'Promo pollo',
+        descuentoPorcentaje: null,
         descripcion: null,
         fechaInicio: INICIO,
         fechaFin: FIN,

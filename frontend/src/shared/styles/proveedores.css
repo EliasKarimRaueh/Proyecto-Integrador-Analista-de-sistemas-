@@ -6,3 +6,13 @@
 .entrega-dias input, .proveedores-page .proveedor-check input { width: 16px; height: 16px; margin: 0; }
 .proveedores-page td { overflow-wrap: anywhere; }
 .proveedores-page .notice { flex-wrap: wrap; }
+.proveedor-productos { max-height: 320px; overflow: auto; margin: 16px 0; }
+.proveedor-productos label { display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid #e4e7ec; }
+.proveedor-productos input { width: 18px; height: 18px; }
+.proveedor-productos small { display: block; color: #68768b; }
+.cuenta-resumen { display: flex; flex-wrap: wrap; gap: 24px; padding: 18px 0; }
+.cuenta-resumen span { display: block; font-size: 12px; color: #68768b; }
+.cuenta-resumen strong { font-size: 24px; }
+.cuenta-form { border: 1px solid #e4e7ec; border-radius: 8px; padding: 16px; margin: 16px 0; }
+.cuenta-form label { display: grid; gap: 8px; margin: 12px 0; }
+.oferta-descuento { display: grid; gap: 8px; margin: 18px 0; max-width: 280px; }

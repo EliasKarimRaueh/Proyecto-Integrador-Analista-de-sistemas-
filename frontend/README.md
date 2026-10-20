@@ -1,4 +1,4 @@
-# Frontend de AvixSoft — Sprint 3 (parte 1)
+# Frontend de AvixSoft — Sprint 3
 
 React, TypeScript y Vite, integrado con la API de Express y PostgreSQL/Supabase. Catálogo, precios, ofertas, ventas y existencias usan datos del servidor; no hay un catálogo de demostración en `localStorage`.
 
@@ -31,7 +31,7 @@ En producción, configurar un proxy `/api` hacia el backend o definir `VITE_API_
 | `/` | Inicio con ventas del día, alertas de reposición y accesos operativos |
 | `/caja` | Búsqueda por código/nombre, kilos/unidades, listas minorista/mayorista, ofertas, cotización, confirmación y comprobante |
 | `/productos` | Alta, edición, baja lógica, filtros, precios vigentes e historial de precios |
-| `/proveedores` | Alta, consulta, edición, baja lógica, reactivación, búsqueda y filtros por estado/cuenta corriente |
+| `/proveedores` | Directorio, asociaciones de productos, cuenta corriente, comprobantes y pagos parciales/totales |
 | `/ofertas` | Alta, edición, vigencia, cantidades por componente, precios y baja lógica |
 | `/stock` | Existencias, estados Normal/Próximo al Mínimo/Crítico, límites de reposición y movimientos justificados |
 | `/desposte` | Origen, múltiples derivados, balance de kilos, merma y confirmación de la operación |
@@ -46,9 +46,13 @@ El directorio guarda razón social, CUIT, teléfono, email, dirección, días ha
 
 Reiniciar el backend para ejecutar la migración incremental de dirección y días de entrega. La API mantiene los nombres `nombre` y `cuil` por compatibilidad. La validación de email conserva la regla existente del backend: debe terminar en `.com`.
 
-En el catálogo, el código interno queda oculto en tabla y detalle; continúa disponible en formularios de alta/edición y en la búsqueda. Los productos inactivos pueden reactivarse con confirmación desde su fila.
+En el catálogo, el código interno queda oculto en tabla y detalle. El alta no lo solicita: el backend genera uno internamente y la base mantiene su unicidad. Continúa disponible en edición y búsqueda. Los productos inactivos pueden reactivarse con confirmación desde su fila.
 
-La segunda parte incorpora asociaciones de productos, cambios de ofertas, cuentas corrientes y pagos. El alcance y los faltantes detectados están en [la revisión del sprint](../docs/sprint-3.md).
+La segunda parte incorpora productos por distribuidor, descuento global de ofertas y cuentas corrientes. Desde cada proveedor, el botón de productos permite seleccionar el catálogo que abastece; el de cuenta permite consultar deuda y pagos, filtrar historiales y registrar comprobantes o pagos.
+
+Un comprobante carga una deuda y no modifica inventario. Los pagos requieren confirmación, admiten importes parciales o el saldo total y cancelan primero las cuentas más antiguas. No se permite pagar por encima de la deuda. El recibo muestra cómo se aplicó el pago. Los reintentos de pagos y comprobantes usan una misma clave para evitar duplicación ante pérdida de respuesta; mientras el resultado es incierto se conserva la operación para reintentarla.
+
+Reiniciar backend para ejecutar también la migración de cuentas/comprobantes y descuento global. El alcance y las verificaciones están en [la revisión del sprint](../docs/sprint-3.md).
 
 ## Operaciones
 
@@ -60,7 +64,9 @@ Desde inventario, `Registrar movimiento` permite entradas, salidas, ajustes abso
 
 El fraccionamiento admite productos activos en kilos, exige derivados distintos del origen y valida que derivados más merma coincidan con los kilos de origen. El backend guarda todo en una transacción. El resultado enlaza los movimientos mediante su `operacionId`.
 
-Las ofertas permiten definir la cantidad de cada producto por combo. El precio de cada componente es el total para esa cantidad, no un precio a multiplicar nuevamente al vender. Por ejemplo, un componente de 2 kg a $8000 descuenta 2 kg y cobra $8000 por combo.
+Las nuevas ofertas permiten definir cantidades y un porcentaje de descuento global. Se suman los precios de lista por las cantidades de cada producto y se descuenta sobre ese subtotal, con redondeo decimal. La vista previa utiliza precios minoristas; caja aplica los precios vigentes de la lista seleccionada. Las ofertas anteriores mantienen su precio fijo hasta que se editen; el formulario informa que al guardar se utilizará el descuento global.
+
+Las tarjetas de caja muestran nombre, precio por unidad y la acción de agregar, sin código ni stock. Las tarjetas de productos y ofertas utilizan un espaciado compacto.
 
 Los historiales muestran horas de Argentina. Los filtros de fecha incluyen el día entero en UTC−03:00. Las consultas permiten navegar páginas y abrir ventas/movimientos sin mezclar los resultados de filtros anteriores. El inventario recorre todas las páginas del endpoint para no truncar sus alertas a 1000 productos.
 

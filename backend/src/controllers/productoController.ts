@@ -1,6 +1,7 @@
 import { type Request, type Response } from 'express';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import TipoProductoRepository from 'polleria-database/repositories/tipoProductoRepository';
+import { randomUUID } from 'node:crypto';
 
 const productoRepository = new ProductoRepository();
 const tipoProductoRepository = new TipoProductoRepository();
@@ -27,7 +28,7 @@ function validateInput(body: ProductInput) {
 
   // Si no hay código, lo generamos para que la BD no explote
   if (!code && name.length >= 2) {
-      code = 'PROD-' + name.substring(0, 3).toUpperCase() + '-' + Math.floor(Math.random() * 1000);
+      code = 'PRO-' + randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase();
   }
 
   // Ya no obligamos al código, pero si viene, validamos formato

@@ -9,25 +9,10 @@ import OfertaProductoRepository from 'polleria-database/repositories/ofertaProdu
 import PrecioRepository from 'polleria-database/repositories/precioRepository';
 import { centavos, importe as formatearImporte } from './dinero.js';
 import { randomUUID } from 'node:crypto';
+import { precioCombo } from './ofertasGlobales.js';
 
-export class ErrorOperacion extends Error {
-  constructor(message: string, public status = 400) { super(message); }
-}
-export function objeto(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ErrorOperacion('Se esperaba un objeto.');
-  return value as Record<string, unknown>;
-}
-export function numero(value: unknown, campo: string, cero = false): number {
-  if ((typeof value !== 'string' && typeof value !== 'number') || String(value).trim() === '') throw new ErrorOperacion(`${campo} debe ser numérico.`);
-  const n = Number(value);
-  if (!Number.isFinite(n) || (cero ? n < 0 : n <= 0)) throw new ErrorOperacion(`${campo} no es válido.`);
-  return n;
-}
-export function id(value: unknown, campo = 'id'): number {
-  const n = numero(value, campo);
-  if (!Number.isSafeInteger(n) || n > 2147483647) throw new ErrorOperacion(`${campo} debe ser un entero válido.`);
-  return n;
-}
+import { ErrorOperacion, objeto, numero, id } from './validacion.js';
+export { ErrorOperacion, objeto, numero, id } from './validacion.js';
 export function motivo(value: unknown): string {
   if (typeof value !== 'string' || !value.trim() || value.trim().length > 250) throw new ErrorOperacion('El motivo es obligatorio y admite hasta 250 caracteres.');
   return value.trim();
@@ -118,6 +103,7 @@ export async function vender(body: unknown, cotizacion = false) {
   return sequelize.transaction(async transaction => {
     const consumos = new Map<number, number>();
     const componentes = new Map<number, Awaited<ReturnType<typeof ofertas.listarDetalleProductos>>>();
+    const ofertasPorId = new Map<number, Oferta>();
     for (const l of lineas) {
       if (l.productoId !== undefined) consumos.set(l.productoId, (consumos.get(l.productoId) ?? 0) + l.cantidad);
       else {
@@ -125,6 +111,7 @@ export async function vender(body: unknown, cotizacion = false) {
         const oferta = await Oferta.findByPk(l.ofertaId!, { transaction, lock: transaction.LOCK.SHARE });
         const ahora = new Date();
         if (!oferta || !oferta.activo || oferta.fechaInicio > ahora || oferta.fechaFin < ahora) throw new ErrorOperacion('La oferta no está vigente.');
+        ofertasPorId.set(oferta.id, oferta);
         const items = await ofertas.listarDetalleProductos(l.ofertaId!, true, transaction);
         if (!items.length) throw new ErrorOperacion('La oferta no tiene productos activos.');
         componentes.set(l.ofertaId!, items);
@@ -155,7 +142,10 @@ export async function vender(body: unknown, cotizacion = false) {
         if (importe === null) throw new ErrorOperacion('No hay precio mayorista vigente.');
         importeUnitario = Number(importe); nombre = productos.get(l.productoId)!.nombre;
       } else {
-        importeUnitario = componentes.get(l.ofertaId!)!.reduce((s, i) => s + Number(i.relacion.precioOferta), 0);
+        const oferta = ofertasPorId.get(l.ofertaId!)!;
+        importeUnitario = oferta.descuentoPorcentaje == null
+          ? componentes.get(l.ofertaId!)!.reduce((s, i) => s + Number(i.relacion.precioOferta), 0)
+          : Number((await precioCombo(componentes.get(l.ofertaId!)!.map(i => ({ productoId: i.producto.id, cantidad: i.relacion.cantidad })), oferta.descuentoPorcentaje, l.tipoPrecio, transaction)).resumen.total);
         nombre = (await Oferta.findByPk(l.ofertaId!, { transaction }))!.nombre;
       }
       if (!Number.isFinite(importeUnitario) || importeUnitario < 0) throw new ErrorOperacion('Precio inválido.');

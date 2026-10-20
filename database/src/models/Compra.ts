@@ -4,12 +4,16 @@ import sequelize from '../config/database.js';
 
 class Compra extends Model {
     declare id: number;
+    declare numeroComprobante: string | null;
+    declare claveOperacion: string | null;
     declare fechaHora: Date;
     declare total: number;
     declare proveedorId: number;
 }
 
 Compra.init({
+    numeroComprobante: { type: DataTypes.STRING(80), allowNull: true },
+    claveOperacion: { type: DataTypes.UUID, allowNull: true, unique: true },
 
     id: {
         type: DataTypes.INTEGER,

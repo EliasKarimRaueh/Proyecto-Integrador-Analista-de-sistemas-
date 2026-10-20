@@ -11,6 +11,8 @@
     "./repositories/movimientoStockRepository": "./src/repositories/movimientoStockRepository.ts",
     "./config/database": "./src/config/database.ts",
     "./migrations/productCatalog": "./src/migrations/productCatalog.ts",
+    "./migrations/proveedores": "./src/migrations/proveedores.ts",
+    "./migrations/cuentasProveedores": "./src/migrations/cuentasProveedores.ts",
     "./migrations/preciosOfertas": "./src/migrations/preciosOfertas.ts",
     "./repositories/productoRepository": "./src/repositories/productoRepository.ts",
     "./repositories/tipoProductoRepository": "./src/repositories/tipoProductoRepository.ts",

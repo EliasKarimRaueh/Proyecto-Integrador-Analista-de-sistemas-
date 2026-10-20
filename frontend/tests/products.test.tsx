@@ -47,7 +47,7 @@ function responderComoLaApi(input: string | URL | Request, options?: RequestInit
   const id = path.split('/').at(-1)
 
   if (method === 'POST') {
-    const created = { ...(JSON.parse(String(options?.body))), id: '3', active: true } as Product
+    const created = { ...(JSON.parse(String(options?.body))), id: '3', code: 'PRO-AUTO3', active: true } as Product
     products.push(created)
     return json(created, 201)
   }
@@ -118,7 +118,7 @@ describe('Catálogo de productos conectado a la API', () => {
 
     await user.click(screen.getByRole('button', { name: 'Nuevo producto' }))
     await user.type(screen.getByLabelText('Nombre del producto *'), 'Menudos')
-    await user.type(screen.getByLabelText('Código *'), 'pol-010')
+    expect(screen.queryByLabelText('Código *')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Registrar producto' }))
     await screen.findByRole('button', { name: 'Menudos' })
     expect(fetchMock).toHaveBeenCalledWith('/api/productos', expect.objectContaining({ method: 'POST' }))

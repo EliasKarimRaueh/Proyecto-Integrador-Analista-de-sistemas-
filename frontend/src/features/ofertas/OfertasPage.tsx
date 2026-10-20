@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
 import { useApiResource } from '../../shared/hooks/useApiResource'
-import { formatearFecha, formatearMonto } from '../../shared/lib/money'
+import { formatearFecha } from '../../shared/lib/money'
+import { ResumenOferta } from './ResumenOferta'
 import { desactivarOferta, fetchOferta, fetchOfertas } from '../../shared/services/ofertas'
 import { normalize } from '../products/products'
 import { DetalleOfertaModal } from './DetalleOfertaModal'
@@ -32,25 +33,7 @@ function PreciosOferta({ ofertaId, revision }: { ofertaId: string; revision: num
   const productos = data?.productos.filter(producto => producto.activo) ?? []
   if (productos.length === 0) return <span className="subtle">Sin productos</span>
 
-  const totalCentavos = productos.reduce(
-    (total, producto) => total + Math.round(Number(producto.precioOferta) * 100),
-    0
-  )
-
-  return (
-    <div className="precio-cell">
-      {productos.map(producto => (
-        <div className="precio-cell" key={producto.productoId}>
-          <strong>{formatearMonto(producto.precioOferta)}</strong>
-          <small>{producto.nombre} · {producto.unidadVenta}</small>
-        </div>
-      ))}
-      <div className="precio-cell precio-oferta-total">
-        <small>Precio total</small>
-        <strong>{formatearMonto(totalCentavos / 100)}</strong>
-      </div>
-    </div>
-  )
+  return data && <ResumenOferta detalle={data} />
 }
 
 function ModalBajaOferta({
@@ -150,7 +133,7 @@ export function OfertasPage() {
       <div className="page-heading">
         <div>
           <h1>Ofertas y promociones</h1>
-          <p>Armá ofertas con precios especiales por producto y por período.</p>
+          <p>Armá combos y aplicá el descuento sobre el subtotal de lista.</p>
         </div>
         <button className="button primary" disabled={error !== ''} onClick={() => abrir({ modo: 'crear' })}>
           <Icon name="plus" /> Nueva oferta
@@ -182,7 +165,7 @@ export function OfertasPage() {
         <div className="catalog-title">
           <div>
             <h2>Todas las ofertas <span className="count">{filtradas.length}</span></h2>
-            <p>Cada oferta tiene su propio precio por producto.</p>
+            <p>Consultá el subtotal de lista, el descuento y el total del combo.</p>
           </div>
           <span className="subtle">Promociones</span>
         </div>

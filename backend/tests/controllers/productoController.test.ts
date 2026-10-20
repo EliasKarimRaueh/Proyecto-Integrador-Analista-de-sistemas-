@@ -284,17 +284,14 @@ describe('createProducto', () => {
   });
 
   it('autogenera un código cuando el cuerpo no lo trae', async () => {
-    // Math.random se mockea para que el sufijo del código autogenerado sea determinista.
-    const random = jest.spyOn(Math, 'random').mockReturnValue(0.4242);
     const { code: _code, ...sinCode } = BODY_VALIDO;
     const res = crearRes();
     await createProducto(crearReq({ body: sinCode }), res);
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(productoRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ codigo: 'PROD-POL-424' }),
+      expect.objectContaining({ codigo: expect.stringMatching(/^PRO-[A-F0-9]{16}$/) }),
     );
-    random.mockRestore();
   });
 
   it('no autogenera código si el nombre es demasiado corto', async () => {

@@ -3,6 +3,8 @@ import { type Request, type Response } from 'express';
 import OfertaRepository from 'polleria-database/repositories/ofertaRepository';
 import OfertaProductoRepository from 'polleria-database/repositories/ofertaProductoRepository';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
+import { guardarOfertaGlobal, precioCombo } from '../services/ofertasGlobales.js';
+import { ErrorOperacion } from '../services/operaciones.js';
 import {
   esObjeto, fail, ok, parseFecha, parseId, parseMonto, parsePaginacion, texto,
   sendDatabaseError, type Resultado,
@@ -47,6 +49,7 @@ function presentOferta(oferta: StoredOferta) {
     vigente,
     activo: oferta.activo,
     fechaBaja: oferta.fechaBaja,
+    descuentoPorcentaje: oferta.descuentoPorcentaje ?? null,
   };
 }
 
@@ -128,7 +131,27 @@ async function cargarDetalle(ofertaId: number) {
     return null;
   }
 
-  return presentDetalle(oferta, productos);
+  const detalle = presentDetalle(oferta, productos);
+  if (oferta.descuentoPorcentaje != null) {
+    try {
+      const calculo = await precioCombo(productos.filter(p => p.relacion.activo).map(p => ({ productoId: p.producto.id, cantidad: p.relacion.cantidad })), oferta.descuentoPorcentaje, 'MINORISTA');
+      return { ...detalle, resumen: calculo.resumen, productos: detalle.productos.map(p => ({ ...p, precioLista: calculo.componentes.find(i => i.productoId === Number(p.productoId))?.precioLista ?? null })) };
+    } catch (error) {
+      if (error instanceof ErrorOperacion) return { ...detalle, resumen: null, errorPrecio: error.message };
+      throw error;
+    }
+  }
+  return detalle;
+}
+
+async function guardarGlobal(req: Request, res: Response, ofertaId?: number) {
+  try {
+    const oferta = await guardarOfertaGlobal(ofertaId, req.body);
+    res.status(ofertaId === undefined ? 201 : 200).json(await cargarDetalle(oferta.id));
+  } catch (error) {
+    if (error instanceof ErrorOperacion) res.status(error.status).json({ message: error.message });
+    else sendDatabaseError(res, error, 'No se pudo guardar la oferta.');
+  }
 }
 
 // GET /api/ofertas
@@ -203,6 +226,7 @@ export const getOferta = async (req: Request, res: Response) => {
 // POST /api/ofertas
 // Crea la oferta y todas sus relaciones en una sola transacción.
 export const createOferta = async (req: Request, res: Response) => {
+  if (req.body?.descuentoPorcentaje !== undefined) { await guardarGlobal(req, res); return; }
 
   const body = req.body as OfertaInput;
 
@@ -279,6 +303,7 @@ export const updateOferta = async (req: Request, res: Response) => {
 
   const id = parseId(req.params.id, 'El identificador de la oferta');
   if (!id.ok) { res.status(400).json({ message: id.error }); return; }
+  if (req.body?.descuentoPorcentaje !== undefined) { await guardarGlobal(req, res, id.value); return; }
 
   const body = req.body as OfertaUpdateInput;
   const cambios: Record<string, unknown> = {};
@@ -407,6 +432,7 @@ export const actualizarPrecioEnOferta = async (req: Request, res: Response) => {
   try {
     const oferta = await ofertaRepository.findByIdActivo(ofertaId.value);
     if (!oferta) { res.status(404).json({ message: 'Oferta no encontrada o dada de baja.' }); return; }
+    if (oferta.descuentoPorcentaje != null) { res.status(409).json({ message: 'Editá el descuento y los componentes desde la oferta completa.' }); return; }
 
     const cruda = (req.body as { cantidad?: unknown }).cantidad;
     let cantidad: number | undefined;

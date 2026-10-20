@@ -117,6 +117,27 @@ describe('getProveedorById', () => {
 
 describe('createProveedor', () => {
 
+  it('guarda dirección y normaliza días de entrega sin duplicados', async () => {
+    const res = crearRes();
+    await createProveedor(crearReq({ body: { ...BODY_VALIDO, direccion: '  San Martín 123  ', diasEntrega: ['Viernes', 'Lunes', 'Lunes'] } }), res);
+    expect(proveedorRepo.crear).toHaveBeenCalledWith(expect.objectContaining({ direccion: 'San Martín 123', diasEntrega: ['Lunes', 'Viernes'] }));
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it.each([
+    { direccion: 'a'.repeat(201) },
+    { direccion: 123 },
+    { diasEntrega: 'Lunes' },
+    { diasEntrega: ['Feriado'] },
+    { diasEntrega: [1] },
+    { diasEntrega: null },
+  ])('rechaza datos de entrega inválidos: %j', async datos => {
+    const res = crearRes();
+    await createProveedor(crearReq({ body: { ...BODY_VALIDO, ...datos } }), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(proveedorRepo.crear).not.toHaveBeenCalled();
+  });
+
   it('normaliza el cuerpo y responde 201', async () => {
     const res = crearRes();
     await createProveedor(crearReq({ body: BODY_VALIDO }), res);

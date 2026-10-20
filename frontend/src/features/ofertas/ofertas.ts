@@ -14,6 +14,7 @@ export type OfertaProductoApi = {
   unidadVenta: string
   stockActual: number
   precioOferta: string
+  precioLista?: string | null
   cantidad?: number
   activo: boolean
 }
@@ -21,6 +22,7 @@ export type OfertaProductoApi = {
 export type OfertaProducto = Omit<OfertaProductoApi, 'productoId'> & { productoId: number }
 
 export type Oferta = {
+  descuentoPorcentaje?: string | null
   id: string
   nombre: string
   descripcion: string | null
@@ -31,7 +33,8 @@ export type Oferta = {
   fechaBaja: string | null
 }
 
-export type OfertaConProductos = Oferta & { productos: OfertaProducto[] }
+export type ResumenOferta = { subtotalLista: string; descuento: string; total: string }
+export type OfertaConProductos = Oferta & { productos: OfertaProducto[]; resumen?: ResumenOferta | null; errorPrecio?: string }
 
 /** A product being added to an offer, with the price typed by the user. */
 export type ProductoOfertaDraft = {

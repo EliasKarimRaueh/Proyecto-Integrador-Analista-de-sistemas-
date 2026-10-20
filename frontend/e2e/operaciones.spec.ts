@@ -28,7 +28,7 @@ async function apiSimulada(page: Page) {
 test.beforeEach(async ({ page }) => apiSimulada(page))
 test('Caja en escritorio: kilos, cotización y confirmación sin duplicar', async ({ page }) => {
   await page.goto('/caja')
-  await page.getByRole('button', { name: /POL-001/ }).click()
+  await page.getByRole('button', { name: /Pollo entero/ }).click()
   await page.getByLabel('Cantidad de Pollo entero').fill('1,25')
   await expect(page.getByRole('button', { name: 'Confirmar venta' })).toBeEnabled()
   await page.screenshot({ path: 'artifacts/caja-desktop.png', fullPage: true })
@@ -69,7 +69,7 @@ test('Desposte: balance y confirmación', async ({ page }) => {
 test('Caja en móvil permite vender sin desbordar la página', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/caja')
-  await page.getByRole('button', { name: /POL-001/ }).click()
+  await page.getByRole('button', { name: /Pollo entero/ }).click()
   await expect(page.getByRole('button', { name: 'Confirmar venta' })).toBeEnabled()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: 'artifacts/caja-mobile.png', fullPage: true })

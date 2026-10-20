@@ -84,6 +84,7 @@ beforeEach(() => {
     const id = path.split('/').at(-1)
 
     // El selector de productos del formulario usa el catálogo.
+    if (path.startsWith('/api/precios')) return json([{ productoId: 1, precioMinorista: '4500.00', precioMayorista: '4000.00' }])
     if (path.startsWith('/api/productos')) {
       return json([producto])
     }
@@ -171,18 +172,20 @@ describe('Listado de ofertas', () => {
 })
 
 describe('Alta de oferta', () => {
-  it('crea la oferta con sus productos y precios', async () => {
+  it('crea la oferta con cantidades y descuento global sobre el subtotal', async () => {
     const user = userEvent.setup()
     render(<OfertasPage />)
     await user.click(await screen.findByRole('button', { name: 'Nueva oferta' }))
 
-    await user.type(screen.getByLabelText('Nombre de la oferta *'), 'Finde largo')
+    await user.type(await screen.findByLabelText('Nombre de la oferta *'), 'Finde largo')
     await user.type(screen.getByLabelText(/^Descripción/), 'Tres dias de promo')
 
     // El selector viene del catálogo, no de una llamada propia.
     await waitFor(() => expect(fetchMock.mock.calls.some(([path]) => String(path).startsWith('/api/productos'))).toBe(true))
     await user.click(await screen.findByRole('button', { name: 'Agregar Suprema' }))
-    await user.type(screen.getByLabelText('Precio de oferta para Suprema'), '3800,50')
+    await user.clear(screen.getByLabelText('Descuento sobre el subtotal (%)'))
+    await user.type(screen.getByLabelText('Descuento sobre el subtotal (%)'), '10')
+    expect(screen.queryByLabelText('Precio de oferta para Suprema')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Registrar oferta' }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
@@ -194,22 +197,24 @@ describe('Alta de oferta', () => {
     expect(cuerpo.nombre).toBe('Finde largo')
     expect(cuerpo.descripcion).toBe('Tres dias de promo')
     expect(cuerpo.fechaInicio).toBe(hoyComoFechaInput())
-    expect(cuerpo.productos).toEqual([{ productoId: 1, precioOferta: '3800.50', cantidad: 1 }])
+    expect(cuerpo.descuentoPorcentaje).toBe('10.00')
+    expect(cuerpo.productos).toEqual([{ productoId: 1, cantidad: 1 }])
   })
 
-  it('no deja guardar sin productos ni con precio inválido', async () => {
+  it('no deja guardar sin productos ni con descuento inválido', async () => {
     const user = userEvent.setup()
     render(<OfertasPage />)
     await user.click(await screen.findByRole('button', { name: 'Nueva oferta' }))
 
-    await user.type(screen.getByLabelText('Nombre de la oferta *'), 'Sin productos')
+    await user.type(await screen.findByLabelText('Nombre de la oferta *'), 'Sin productos')
     await user.click(screen.getByRole('button', { name: 'Registrar oferta' }))
     expect(screen.getByText('Agregá al menos un producto a la oferta.')).toBeTruthy()
 
     await user.click(await screen.findByRole('button', { name: 'Agregar Suprema' }))
-    await user.type(screen.getByLabelText('Precio de oferta para Suprema'), 'abc')
+    await user.clear(screen.getByLabelText('Descuento sobre el subtotal (%)'))
+    await user.type(screen.getByLabelText('Descuento sobre el subtotal (%)'), '101')
     await user.click(screen.getByRole('button', { name: 'Registrar oferta' }))
-    expect(screen.getByText('Ingresá el precio de oferta con hasta 2 decimales, usando coma o punto.')).toBeTruthy()
+    expect(screen.getByText('Ingresá un descuento entre 0 y 100 con hasta dos decimales.')).toBeTruthy()
 
     const escrituras = fetchMock.mock.calls.filter(([, o]) => (o as RequestInit | undefined)?.method)
     expect(escrituras).toHaveLength(0)

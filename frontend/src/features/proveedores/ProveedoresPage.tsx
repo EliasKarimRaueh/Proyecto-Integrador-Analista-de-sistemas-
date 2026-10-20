@@ -6,6 +6,8 @@ import { cambiarEstadoProveedor, fetchProveedores, guardarProveedor } from '../.
 import { normalize } from '../products/products'
 import { diasEntrega, editarProveedor, nuevoProveedor, validarProveedor, type Proveedor, type ProveedorDraft } from './proveedores'
 import '../../shared/styles/proveedores.css'
+import { ProductosProveedorModal } from './ProductosProveedorModal'
+import { CuentaProveedorModal } from './CuentaProveedorModal'
 
 type Editor = { modo: 'alta' } | { modo: 'editar' | 'detalle' | 'estado'; proveedor: Proveedor }
 
@@ -16,6 +18,7 @@ export function ProveedoresPage() {
   const [estado, setEstado] = useState('todos')
   const [cuenta, setCuenta] = useState('todas')
   const [editor, setEditor] = useState<Editor | null>(null)
+  const [modulo, setModulo] = useState<{ tipo: 'productos' | 'cuenta'; proveedor: Proveedor } | null>(null)
   const [draft, setDraft] = useState<ProveedorDraft>(nuevoProveedor)
   const [errores, setErrores] = useState<Partial<Record<keyof ProveedorDraft, string>>>({})
   const [error, setError] = useState('')
@@ -82,12 +85,14 @@ export function ProveedoresPage() {
           <td>{p.direccion || 'Sin dirección'}<small className="product-description">{p.diasEntrega?.join(', ') || 'Días sin definir'}</small></td>
           <td>{p.ctaCte ? 'Habilitada' : 'No habilitada'}</td>
           <td><span className={'badge ' + (p.activo ? 'product-active' : 'product-inactive')}>{p.activo ? 'Activo' : 'Inactivo'}</span></td>
-          <td><div className="row-actions"><button className="icon-button" aria-label={`Ver ${p.nombre}`} onClick={() => abrir({ modo: 'detalle', proveedor: p })}><Icon name="eye" /></button><button className="icon-button" aria-label={`Editar ${p.nombre}`} onClick={() => abrir({ modo: 'editar', proveedor: p })}><Icon name="edit" /></button><button className={'icon-button ' + (p.activo ? 'danger-text' : '')} aria-label={`${p.activo ? 'Dar de baja' : 'Reactivar'} ${p.nombre}`} onClick={() => abrir({ modo: 'estado', proveedor: p })}><Icon name={p.activo ? 'archive' : 'check'} /></button></div></td>
+          <td><div className="row-actions"><button className="icon-button" title="Productos asociados" aria-label={'Productos de ' + p.nombre} onClick={() => setModulo({ tipo: 'productos', proveedor: p })}><Icon name="box" /></button><button className="icon-button" title="Cuenta corriente" aria-label={'Cuenta de ' + p.nombre} onClick={() => setModulo({ tipo: 'cuenta', proveedor: p })}><Icon name="bag" /></button><button className="icon-button" aria-label={`Ver ${p.nombre}`} onClick={() => abrir({ modo: 'detalle', proveedor: p })}><Icon name="eye" /></button><button className="icon-button" aria-label={`Editar ${p.nombre}`} onClick={() => abrir({ modo: 'editar', proveedor: p })}><Icon name="edit" /></button><button className={'icon-button ' + (p.activo ? 'danger-text' : '')} aria-label={`${p.activo ? 'Dar de baja' : 'Reactivar'} ${p.nombre}`} onClick={() => abrir({ modo: 'estado', proveedor: p })}><Icon name={p.activo ? 'archive' : 'check'} /></button></div></td>
         </tr>)}
       </tbody></table></div>
       {!filtrados.length && <div className="empty-state"><Icon name="users" size={32} /><h3>{proveedores.length ? 'No encontramos proveedores' : 'Todavía no hay proveedores'}</h3><p>{proveedores.length ? 'Probá con otros datos o limpiá los filtros.' : 'Registrá tu primer distribuidor para comenzar.'}</p>{proveedores.length > 0 && <button className="button" onClick={() => { setBuscar(''); setEstado('todos'); setCuenta('todas') }}>Limpiar filtros</button>}</div>}
       <div className="table-footer" role="status">Mostrando {filtrados.length} de {proveedores.length} proveedores<span>Las bajas conservan el historial.</span></div>
     </div>}
+    {modulo?.tipo === 'productos' && <ProductosProveedorModal proveedor={modulo.proveedor} onClose={() => setModulo(null)} />}
+    {modulo?.tipo === 'cuenta' && <CuentaProveedorModal proveedor={modulo.proveedor} onClose={() => setModulo(null)} />}
     {editor && <Modal eyebrow="GESTIÓN DE PROVEEDORES" title={titulos[editor.modo]} busy={guardando} onClose={() => setEditor(null)}>
       {error && <div className="notice error" role="alert">{error}</div>}
       {(editor.modo === 'alta' || editor.modo === 'editar') && <form onSubmit={guardar} noValidate>
