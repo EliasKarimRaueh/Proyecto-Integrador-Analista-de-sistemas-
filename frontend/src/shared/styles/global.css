@@ -963,6 +963,15 @@ display:block;
 font-size:13px;
 color:#17243b}
 
+.oferta-producto-cantidad{
+display:flex;
+align-items:baseline;
+gap:10px;
+margin-top:2px}
+
+.oferta-producto-cantidad > span{
+white-space:nowrap}
+
 table td .product-description{
 display:block;
 margin-top:2px}
