@@ -5,6 +5,7 @@ import { ProductsPage } from '../src/features/products/ProductsPage'
 import { PreciosProductoModal } from '../src/features/precios/PreciosProductoModal'
 import type { Product } from '../src/features/products/products'
 import type { Precio } from '../src/features/precios/precios'
+import { hoyComoFechaInput } from '../src/shared/lib/money'
 
 HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
 HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
@@ -243,7 +244,7 @@ describe('Conflicto de vigencia con el precio vigente', () => {
   it('no ofrece en el selector una fecha anterior a la del vigente', async () => {
     const user = userEvent.setup()
     // El vigente arranca hoy, así que el primer día válido es mañana.
-    precios = [{ ...vigente, fechaDesde: new Date().toISOString() }]
+    precios = [{ ...vigente, fechaDesde: hoyComoFechaInput() }]
     abrirModal()
     await screen.findByRole('button', { name: 'Programar cambio' })
 

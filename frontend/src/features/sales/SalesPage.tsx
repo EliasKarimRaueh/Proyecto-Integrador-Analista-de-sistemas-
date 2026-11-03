@@ -4,7 +4,7 @@ import { Modal } from '../../shared/components/Modal'
 import { Encabezado, ErrorCarga, Paginacion, Vacio } from '../../shared/components/OperacionesUI'
 import { useApiResource } from '../../shared/hooks/useApiResource'
 import { formatearMonto } from '../../shared/lib/money'
-import { cantidadInput, cantidadFormato, unidadCorta, errorMensaje } from '../../shared/lib/operaciones'
+import { cantidadInput, unidadCorta, errorMensaje } from '../../shared/lib/operaciones'
 import { buscarProductosCaja, cotizar, confirmarVenta, type Unidad, type ListaPrecio, type VentaCompleta } from '../../shared/services/operaciones'
 import { fetchOfertas } from '../../shared/services/ofertas'
 import { fetchPreciosVigentes } from '../../shared/services/precios'
@@ -72,7 +72,7 @@ export function SalesPage() {
       {tab === 'productos' ? <>{productos.loading || precios.loading ? <p className="operation-loading" role="status">Buscando productos…</p> : <div className="pos-product-grid">{productos.data?.rows.map(p => {
         const precio = precioPorId.get(p.id)
         const monto = lista === 'MINORISTA' ? precio?.precioMinorista : precio?.precioMayorista
-        return <button className="pos-product" key={p.id} disabled={monto == null || search !== query || saving} onClick={() => agregar({ key: `p${p.id}`, productoId: p.id, nombre: p.nombre, unidad: p.unidadVenta })}><small>{p.codigo}</small><strong>{p.nombre}</strong><span>{monto == null ? 'Sin precio en esta lista' : `${formatearMonto(monto)} / ${unidadCorta(p.unidadVenta)}`}</span><small>Stock: {cantidadFormato(p.stockActual)} {unidadCorta(p.unidadVenta)}</small><span className="pos-add">+ Agregar</span></button>
+        return <button className="pos-product" key={p.id} disabled={monto == null || search !== query || saving} onClick={() => agregar({ key: `p${p.id}`, productoId: p.id, nombre: p.nombre, unidad: p.unidadVenta })}><strong>{p.nombre}</strong><span>{monto == null ? 'Sin precio en esta lista' : `${formatearMonto(monto)} / ${unidadCorta(p.unidadVenta)}`}</span><span className="pos-add">+ Agregar</span></button>
       })}</div>}{!productos.loading && productos.data?.count === 0 && <Vacio>No encontramos productos con esa búsqueda.</Vacio>}<Paginacion page={page} count={productos.data?.count ?? 0} onChange={setPage} disabled={productos.loading}/></> : <>{ofertas.loading ? <p className="operation-loading">Cargando ofertas…</p> : <div className="pos-product-grid">{ofertasVisibles.map(o => <button className="pos-product" key={o.id} disabled={saving} onClick={() => agregar({ key: `o${o.id}`, ofertaId: Number(o.id), nombre: o.nombre, unidad: 'UNIDADES' })}><small>OFERTA</small><strong>{o.nombre}</strong><span>{o.descripcion || 'Precio especial por combo'}</span><span className="pos-add">+ Agregar oferta</span></button>)}</div>}{!ofertas.loading && !ofertasVisibles.length && <Vacio>No hay ofertas vigentes para esta búsqueda.</Vacio>}</>}
     </div><aside className="catalog-panel pos-cart">
       <div className="catalog-title"><div><h2>Venta actual <span className="count">{items.length}</span></h2><p>Kilos y unidades según el producto.</p></div></div>

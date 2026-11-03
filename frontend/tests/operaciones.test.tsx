@@ -65,10 +65,10 @@ const calls = (path: string) => fetchMock.mock.calls.filter(([url, options]) => 
 describe('Caja integrada', () => {
   it('cotiza kilos y unidades, cambia de lista y confirma una sola venta', async () => {
     const user = userEvent.setup(); mount(<SalesPage/>)
-    await user.click(await screen.findByRole('button', { name: /POL-001/ }))
+    await user.click(await screen.findByRole('button', { name: /Pollo entero/ }))
     const qty = screen.getByLabelText('Cantidad de Pollo entero')
     await user.clear(qty); await user.type(qty, '1,25')
-    await user.click(screen.getByRole('button', { name: /UNI-001/ }))
+    await user.click(screen.getByRole('button', { name: /Hamburguesa/ }))
     await user.selectOptions(screen.getByLabelText('Lista de precios'), 'MAYORISTA')
     const confirmar = screen.getByRole('button', { name: 'Confirmar venta' })
     await waitFor(() => expect((confirmar as HTMLButtonElement).disabled).toBe(false))
@@ -81,7 +81,7 @@ describe('Caja integrada', () => {
   })
   it('una cantidad inválida invalida la cotización anterior y bloquea el cobro', async () => {
     const user = userEvent.setup(); mount(<SalesPage/>)
-    await user.click(await screen.findByRole('button', { name: /UNI-001/ }))
+    await user.click(await screen.findByRole('button', { name: /Hamburguesa/ }))
     await waitFor(() => expect((screen.getByRole('button', { name: 'Confirmar venta' }) as HTMLButtonElement).disabled).toBe(false))
     const qty = screen.getByLabelText('Cantidad de Hamburguesa')
     await user.clear(qty); await user.type(qty, '1,5')
@@ -92,7 +92,7 @@ describe('Caja integrada', () => {
   it('conserva el carrito cuando el backend rechaza la venta', async () => {
     failSale = true
     const user = userEvent.setup(); mount(<SalesPage/>)
-    await user.click(await screen.findByRole('button', { name: /POL-001/ }))
+    await user.click(await screen.findByRole('button', { name: /Pollo entero/ }))
     const confirmar = screen.getByRole('button', { name: 'Confirmar venta' })
     await waitFor(() => expect((confirmar as HTMLButtonElement).disabled).toBe(false))
     await user.click(confirmar); await user.click(screen.getByRole('button', { name: 'Registrar venta' }))
@@ -112,7 +112,7 @@ describe('Caja integrada', () => {
       return Promise.resolve(respuesta(String(path), options))
     })
     const user = userEvent.setup(); mount(<SalesPage/>)
-    await user.click(await screen.findByRole('button', { name: /POL-001/ }))
+    await user.click(await screen.findByRole('button', { name: /Pollo entero/ }))
     const confirmar = screen.getByRole('button', { name: 'Confirmar venta' })
     await waitFor(() => expect((confirmar as HTMLButtonElement).disabled).toBe(false))
     await user.click(confirmar); await user.click(screen.getByRole('button', { name: 'Registrar venta' }))

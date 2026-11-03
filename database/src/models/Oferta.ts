@@ -3,6 +3,7 @@ import sequelize from '../config/database.js';
 
 class Oferta extends Model {
     declare id: number;
+    declare descuentoPorcentaje: string | null;
     declare nombre: string;
     declare descripcion: string | null;
     declare fechaInicio: Date;
@@ -12,6 +13,7 @@ class Oferta extends Model {
 }
 
 Oferta.init({
+    descuentoPorcentaje: { type: DataTypes.DECIMAL(5, 2), allowNull: true, defaultValue: null, validate: { min: 0, max: 100 } },
 
     id: {
         type: DataTypes.INTEGER,

@@ -17,3 +17,11 @@ export function centavos(cantidad: number, precio: string | number): bigint {
 export function importe(cents: bigint): string {
   return `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`;
 }
+
+/** El descuento se redondea una sola vez sobre la suma de precios de lista. */
+export function descontarSubtotal(subtotal: bigint, porcentaje: string | number) {
+  const puntos = Number(porcentaje) * 100;
+  if (!Number.isFinite(puntos) || Math.abs(puntos - Math.round(puntos)) > 1e-6 || puntos < 0 || puntos > 10000) throw new Error('El descuento debe estar entre 0 y 100, con hasta dos decimales.');
+  const descuento = (subtotal * BigInt(Math.round(puntos)) + 5000n) / 10000n;
+  return { subtotalLista: importe(subtotal), descuento: importe(descuento), total: importe(subtotal - descuento) };
+}

@@ -346,6 +346,14 @@ describe('fraccionar', () => {
 
 describe('vender', () => {
 
+  it('aplica un único descuento al subtotal de lista del combo y respeta la lista mayorista', async () => {
+    OfertaModel.findByPk.mockResolvedValue(oferta({ descuentoPorcentaje: '10.00' }) as never);
+    ofertasRepo.listarDetalleProductos.mockResolvedValue([{ producto: producto(), relacion: { cantidad: 2, precioOferta: '0.00', activo: true } }] as never);
+    const cotizacion = await vender({ detalles: [{ ofertaId: 7, cantidad: 3, tipoPrecio: 'MAYORISTA' }] }, true);
+    expect(cotizacion).toMatchObject({ total: '70.20', detalles: [{ importeUnitario: '23.40', subtotal: '70.20' }] });
+    expect(VentaModel.create).not.toHaveBeenCalled();
+  });
+
   const cuerpo = (overrides: Record<string, unknown> = {}) => ({
     detalles: [{ productoId: 10, cantidad: 2 }],
     ...overrides,

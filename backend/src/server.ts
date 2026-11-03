@@ -5,6 +5,8 @@ import 'polleria-database/relationships/relationships'; /* <-- AGREGÁ ESTA LÍN
 import { migrateProductCatalog } from 'polleria-database/migrations/productCatalog';
 import { migratePreciosOfertas } from 'polleria-database/migrations/preciosOfertas';
 import { migrateComprasSprint4 } from 'polleria-database/migrations/comprasSprint4';
+import { migrateProveedores } from 'polleria-database/migrations/proveedores';
+import { migrateCuentasProveedores } from 'polleria-database/migrations/cuentasProveedores';
 
 const PORT = process.env.PORT || 3000;
 

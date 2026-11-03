@@ -5,6 +5,13 @@
 
 const MONTO_MAXIMO = 99999999.99
 
+/** Precios con dos decimales y cantidades con hasta seis; redondeo exacto. */
+export function subtotalListaCentavos(precio: string, cantidad: number): number {
+  const [entero, decimal = ''] = precio.split('.')
+  const centavos = BigInt(entero) * 100n + BigInt(decimal.padEnd(2, '0').slice(0, 2))
+  return Number((centavos * BigInt(Math.round(cantidad * 1000000)) + 500000n) / 1000000n)
+}
+
 const moneda = new Intl.NumberFormat('es-AR', {
   style: 'currency',
   currency: 'ARS',

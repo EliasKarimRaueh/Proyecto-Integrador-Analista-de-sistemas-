@@ -7,6 +7,8 @@ const TIPOS_COMPROBANTE = ['FACTURA', 'REMITO', 'OTRO'] as const;
 
 class Compra extends Model {
     declare id: number;
+    declare numeroComprobante: string | null;
+    declare claveOperacion: string | null;
     declare fechaHora: Date;
     declare total: number;
     declare proveedorId: number;
@@ -22,6 +24,17 @@ Compra.init({
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
+        unique: true
+    },
+
+    numeroComprobante: {
+        type: DataTypes.STRING(80),
+        allowNull: true
+    },
+    
+    claveOperacion: {
+        type: DataTypes.UUID,
+        allowNull: true,
         unique: true
     },
 
@@ -89,12 +102,20 @@ Compra.init({
             isNonNegative(value: string | number) {
                 if (Number(value) < 0) {
                     throw new Error(
-                        'El total de la venta no puede ser negativo.'
+                        'El total de la compra no puede ser negativo.'
                     );
                 }
             }
         }
-    }
+    },
+
+    formaPago: {
+        type: DataTypes.ENUM(
+            'PAGADO',
+            'A CUENTA',
+            ),
+        allowNull: false,
+    },
 
 }, {
 

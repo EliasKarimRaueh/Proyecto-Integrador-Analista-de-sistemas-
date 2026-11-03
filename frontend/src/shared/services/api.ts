@@ -18,6 +18,10 @@ export async function deactivateProduct(id: string): Promise<Product> {
   return apiRequest<Product>(`productos/${id}`, { method: 'DELETE' })
 }
 
+export async function reactivateProduct(id: string): Promise<Product> {
+  return apiRequest<Product>(`productos/${id}/reactivar`, { method: 'PUT' })
+}
+
 const apiUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
 
 /**

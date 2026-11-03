@@ -17,7 +17,7 @@ export function MovementsPage() {
   const [desde, setDesde] = useState(''), [hasta, setHasta] = useState(''), [page, setPage] = useState(1)
   const [selected, setSelected] = useState<Movimiento | null>(null)
   const productos = useApiResource(fetchProducts)
-  const nombre = new Map((productos.data ?? []).map(p => [Number(p.id), `${p.name} · ${p.code}`]))
+  const nombre = new Map((productos.data ?? []).map(p => [Number(p.id), p.name]))
   const productoId = params.get('productoId') ?? '', tipo = params.get('tipo') ?? '', ventaId = params.get('ventaId') ?? '', operacionId = params.get('operacionId') ?? ''
   const movimientos = useApiResource(() => fetchMovimientos({ page, productoId, tipo, ventaId, operacionId, ...rangoDelDia(desde, hasta) }), `${page}:${params}:${desde}:${hasta}`)
   function filtrar(key: string, value: string) {

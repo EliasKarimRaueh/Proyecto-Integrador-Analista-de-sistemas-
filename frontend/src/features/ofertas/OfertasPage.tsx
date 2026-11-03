@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
 import { useApiResource } from '../../shared/hooks/useApiResource'
-import { formatearFecha, formatearMonto } from '../../shared/lib/money'
+import { formatearFecha } from '../../shared/lib/money'
+import { cantidadFormato } from '../../shared/lib/operaciones'
+import { ResumenOferta } from './ResumenOferta'
 import { desactivarOferta, fetchOferta, fetchOfertas } from '../../shared/services/ofertas'
 import { normalize } from '../products/products'
 import { DetalleOfertaModal } from './DetalleOfertaModal'
@@ -26,31 +28,18 @@ function PreciosOferta({ ofertaId, revision }: { ofertaId: string; revision: num
     `${ofertaId}:${revision}`
   )
 
-  if (loading) return <span className="subtle">Cargando precios...</span>
-  if (error) return <button className="precio-vacio" onClick={refetch}>Reintentar precios</button>
+  if (loading) return <td colSpan={2}><span className="subtle">Cargando productos y precios...</span></td>
+  if (error) return <td colSpan={2}><button className="precio-vacio" onClick={refetch}>Reintentar productos y precios</button></td>
 
   const productos = data?.productos.filter(producto => producto.activo) ?? []
-  if (productos.length === 0) return <span className="subtle">Sin productos</span>
-
-  const totalCentavos = productos.reduce(
-    (total, producto) => total + Math.round(Number(producto.precioOferta) * 100),
-    0
-  )
-
-  return (
-    <div className="precio-cell">
-      {productos.map(producto => (
-        <div className="precio-cell" key={producto.productoId}>
-          <strong>{formatearMonto(producto.precioOferta)}</strong>
-          <small>{producto.nombre} · {producto.unidadVenta}</small>
-        </div>
-      ))}
-      <div className="precio-cell precio-oferta-total">
-        <small>Precio total</small>
-        <strong>{formatearMonto(totalCentavos / 100)}</strong>
+  return <>
+    <td>{productos.length === 0 ? <span className="subtle">Sin productos</span> : productos.map(producto => (
+      <div key={producto.productoId} className="oferta-producto-cantidad">
+        <strong>{producto.nombre}</strong><span className="subtle">{cantidadFormato(producto.cantidad ?? 1)} {producto.unidadVenta === 'UNIDADES' || producto.unidadVenta === 'unidad' ? 'unidades' : 'kg'}</span>
       </div>
-    </div>
-  )
+    ))}</td>
+    <td>{data && productos.length > 0 ? <ResumenOferta detalle={data} /> : '—'}</td>
+  </>
 }
 
 function ModalBajaOferta({
@@ -150,7 +139,7 @@ export function OfertasPage() {
       <div className="page-heading">
         <div>
           <h1>Ofertas y promociones</h1>
-          <p>Armá ofertas con precios especiales por producto y por período.</p>
+          <p>Armá combos y aplicá el descuento sobre el subtotal de lista.</p>
         </div>
         <button className="button primary" disabled={error !== ''} onClick={() => abrir({ modo: 'crear' })}>
           <Icon name="plus" /> Nueva oferta
@@ -182,7 +171,7 @@ export function OfertasPage() {
         <div className="catalog-title">
           <div>
             <h2>Todas las ofertas <span className="count">{filtradas.length}</span></h2>
-            <p>Cada oferta tiene su propio precio por producto.</p>
+            <p>Consultá el subtotal de lista, el descuento y el total del combo.</p>
           </div>
           <span className="subtle">Promociones</span>
         </div>
@@ -211,6 +200,7 @@ export function OfertasPage() {
             <thead>
               <tr>
                 <th scope="col">Oferta</th>
+                <th scope="col">Productos y cantidades</th>
                 <th scope="col">Precio de oferta</th>
                 <th scope="col">Vigencia</th>
                 <th scope="col">Estado</th>
@@ -231,7 +221,7 @@ export function OfertasPage() {
                         </div>
                       </div>
                     </td>
-                    <td><PreciosOferta ofertaId={oferta.id} revision={revisionPrecios} /></td>
+                    <PreciosOferta ofertaId={oferta.id} revision={revisionPrecios} />
                     <td>
                       <span className="date-range">
                         <Icon name="calendar" size={16} />
@@ -244,7 +234,7 @@ export function OfertasPage() {
                     <td>
                       <div className="row-actions">
                         <button className="icon-button" title="Ver detalle" aria-label={'Ver ' + oferta.nombre} onClick={() => abrir({ modo: 'detalle', oferta })}><Icon name="eye" size={18} /></button>
-                        <button className="icon-button" title="Editar oferta" aria-label={'Editar ' + oferta.nombre} onClick={() => abrir({ modo: 'editar', oferta })}><Icon name="edit" size={18} /></button>
+                        <button className="button" title="Editar productos y cantidades de la oferta" aria-label={'Editar ' + oferta.nombre} onClick={() => abrir({ modo: 'editar', oferta })}><Icon name="edit" size={18} /> Editar oferta</button>
                         <button className="icon-button danger-text" disabled={!oferta.activo} title={oferta.activo ? 'Dar de baja' : 'Oferta dada de baja'} aria-label={'Dar de baja ' + oferta.nombre} onClick={() => abrir({ modo: 'baja', oferta })}><Icon name="archive" size={18} /></button>
                       </div>
                     </td>

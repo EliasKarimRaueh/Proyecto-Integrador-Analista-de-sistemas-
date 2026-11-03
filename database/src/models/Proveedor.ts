@@ -9,6 +9,8 @@ class Proveedor extends Model {
     declare ctaCte: boolean;
     declare telefono: string | null;
     declare email: string | null;
+    declare direccion: string | null;
+    declare diasEntrega: string[];
     declare activo: boolean;
     declare fechaBaja: Date | null;
 }
@@ -98,6 +100,19 @@ Proveedor.init({
                 }
             }
         }
+    },
+
+    direccion: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        defaultValue: null,
+        validate: { len: [0, 200] }
+    },
+
+    diasEntrega: {
+        type: DataTypes.ARRAY(DataTypes.STRING(10)),
+        allowNull: false,
+        defaultValue: []
     },
 
     activo: {

@@ -1,5 +1,6 @@
-import { Op } from 'sequelize';
-import type { Transaction } from 'sequelize';
+import { Op, fn, col} from 'sequelize';
+import DetalleVenta from '../models/DetalleVenta.js';
+import type { Transaction} from 'sequelize';
 
 import BaseRepository from './BaseRepository.js';
 import Oferta from '../models/Oferta.js';
@@ -13,6 +14,72 @@ class OfertaRepository extends BaseRepository<Oferta> {
     // =========================
     // BÚSQUEDAS
     // =========================
+
+    /**
+    * Busca las ofertas activas ordenadas según la cantidad
+    * de ventas diferentes en las que fueron incluidas.
+    *
+    * Cuenta cada venta una sola vez por oferta,
+    * independientemente de la cantidad de ofertas vendidas.
+    *
+    * Las ofertas que nunca fueron vendidas también se incluyen,
+    * con un contador igual a cero.
+    */
+    async findAllActivosOrdenadosPorVentas(
+        page = 1,
+        limit = 10,
+        orderDirection: 'ASC' | 'DESC' = 'DESC',
+        transaction?: Transaction
+    ): Promise<{
+        rows: Array<Oferta & { dataValues: { cantidadVentas: number } }>;
+        count: number;
+    }> {
+
+        const offset = (page - 1) * limit;
+
+        const rows = await this.model.findAll({
+            where: {
+                activo: true
+            },
+            attributes: {
+                include: [
+                    [
+                        fn(
+                            'COUNT',
+                            fn('DISTINCT', col('detallesVenta.ventaId'))
+                        ),
+                        'cantidadVentas'
+                    ]
+                ]
+            },
+            include: [
+                {
+                    model: DetalleVenta,
+                    as: 'detallesVenta',
+                    attributes: [],
+                    required: false
+                }
+            ],
+            group: ['Oferta.id'],
+            order: [
+                [col('cantidadVentas'), orderDirection],
+                ['id', 'ASC']
+            ],
+            limit,
+            offset,
+            transaction
+        });
+
+        const count = await this.count(
+            { activo: true },
+            transaction
+        );
+
+        return {
+            rows,
+            count
+        };
+    }
 
     /**
      * Primera oferta que coincide con el nombre. ofertas.nombre no

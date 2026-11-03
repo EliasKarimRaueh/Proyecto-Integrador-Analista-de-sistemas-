@@ -19,12 +19,12 @@
 .operation-section { margin-top: 30px; }
 .pos-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(310px, 380px); gap: 24px; align-items: start; }
 .pos-product-grid { padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-.pos-product { display: flex; flex-direction: column; gap: 9px; text-align: left; border: 1px solid #e4e9f0; padding: 17px; background: white; border-radius: 9px; min-height: 180px; color: #17243b; transition: border-color .15s, box-shadow .15s; }
+.pos-product { display: flex; flex-direction: column; gap: 6px; text-align: left; border: 1px solid #e4e9f0; padding: 14px; background: white; border-radius: 9px; color: #17243b; transition: border-color .15s, box-shadow .15s; }
 .pos-product:hover:not(:disabled) { border-color: #dfab17; box-shadow: 0 3px 12px #b88d1220; }
 .pos-product small { color: #68768b; font-size: 11px; }
 .pos-product strong { font-size: 15px; }
 .pos-product > span { font-size: 12px; }
-.pos-product > .pos-add { margin-top: auto; color: #855b00; font-weight: 650; }
+.pos-product > .pos-add { margin-top: 2px; color: #855b00; font-weight: 650; }
 .pos-cart { position: sticky; top: 20px; }
 .cart-list-label { margin: 0 20px 12px; }
 .cart-items { list-style: none; padding: 0 20px; margin: 0; max-height: 480px; overflow-y: auto; }

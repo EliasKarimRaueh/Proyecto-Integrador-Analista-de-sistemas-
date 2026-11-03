@@ -3,6 +3,7 @@ import sequelize from '../config/database.js';
 
 class Pago extends Model {
     declare id: number;
+    declare claveOperacion: string | null;
     declare fechaHora: Date;
     declare proveedorId: number;
     declare importe: number;
@@ -10,6 +11,7 @@ class Pago extends Model {
 }
 
 Pago.init({
+    claveOperacion: { type: DataTypes.UUID, allowNull: true, unique: true },
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,

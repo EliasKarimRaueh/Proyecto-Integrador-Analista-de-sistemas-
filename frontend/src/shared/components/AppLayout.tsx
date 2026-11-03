@@ -7,6 +7,7 @@ const navigation: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Inicio', icon: 'home' },
   { to: '/caja', label: 'Caja y mostrador', icon: 'bag' },
   { to: '/productos', label: 'Productos', icon: 'box' },
+  { to: '/proveedores', label: 'Proveedores', icon: 'users' },
   { to: '/ofertas', label: 'Ofertas', icon: 'tag' },
   { to: '/stock', label: 'Inventario', icon: 'archive' },
   { to: '/desposte', label: 'Desposte', icon: 'box' },
@@ -65,7 +66,7 @@ export function AppLayout() {
         </nav>
         <div className="sidebar-bottom">
           <div className="sprint-label">
-            <span />AvixSoft · Sprint 2<small>Ventas e inventario</small>
+            <span />AvixSoft · Sprint 3<small>Gestión de proveedores</small>
           </div>
         </div>
       </aside>

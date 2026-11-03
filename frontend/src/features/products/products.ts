@@ -27,8 +27,8 @@ export function normalize(value: string) {
 
 export function validateProduct(draft: ProductDraft, products: Product[], editingId?: string) {
   const errors: Partial<Record<keyof ProductDraft, string>> = {}
-  if (!/^[A-Z0-9-]{2,20}$/i.test(draft.code.trim())) errors.code = 'Usá entre 2 y 20 letras, números o guiones.'
-  else if (products.some(p => p.id !== editingId && normalize(p.code) === normalize(draft.code))) errors.code = 'Este código ya existe, incluso entre los productos inactivos.'
+  if ((editingId || draft.code.trim()) && !/^[A-Z0-9-]{2,20}$/i.test(draft.code.trim())) errors.code = 'Usá entre 2 y 20 letras, números o guiones.'
+  else if (draft.code.trim() && products.some(p => p.id !== editingId && normalize(p.code) === normalize(draft.code))) errors.code = 'Este código ya existe, incluso entre los productos inactivos.'
   if (draft.name.trim().length < 2 || draft.name.trim().length > 50) errors.name = 'Ingresá un nombre de entre 2 y 50 caracteres.'
   if (!categories.includes(draft.category)) errors.category = 'Seleccioná una categoría válida.'
   if (!units.includes(draft.unit)) errors.unit = 'Seleccioná una unidad válida.'

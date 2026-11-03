@@ -23,10 +23,11 @@ type PayloadOferta = {
   descripcion: string
   fechaInicio: string
   fechaFin: string
-  productos: { productoId: number; precioOferta: string; cantidad?: number }[]
+  descuentoPorcentaje?: string
+  productos: { productoId: number; precioOferta?: string; cantidad?: number }[]
 }
 
-type PayloadActualizacion = Omit<PayloadOferta, 'productos'>
+type PayloadActualizacion = Omit<PayloadOferta, 'productos'> & { productos?: PayloadOferta['productos'] }
 
 /** Creates the offer and all of its products in one transaction. */
 export async function crearOferta(payload: PayloadOferta): Promise<OfertaConProductos> {

@@ -12,6 +12,7 @@ import { SalesPage } from '../features/sales/SalesPage'
 import { SalesHistoryPage } from '../features/sales/SalesHistoryPage'
 import { DespostePage } from '../features/stock/DespostePage'
 import { MovementsPage } from '../features/stock/MovementsPage'
+import { ProveedoresPage } from '../features/proveedores/ProveedoresPage'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<HomePage />} />
           <Route path="productos" element={<ProductsPage />} />
+          <Route path="proveedores" element={<ProveedoresPage />} />
           <Route path="ofertas" element={<OfertasPage />} />
           <Route path="pedidos" element={<OrdersPage />} />
           <Route path="stock" element={<StockPage />} />

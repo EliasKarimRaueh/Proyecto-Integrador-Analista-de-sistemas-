@@ -10,6 +10,8 @@ type ProveedorInput = {
   ctaCte?: unknown;
   telefono?: unknown;
   email?: unknown;
+  direccion?: unknown;
+  diasEntrega?: unknown;
 };
 
 function validateInput(body: ProveedorInput) {
@@ -20,6 +22,12 @@ function validateInput(body: ProveedorInput) {
   const ctaCte = typeof body.ctaCte === 'boolean' ? body.ctaCte : body.ctaCte === 'true';
   const telefono = typeof body.telefono === 'string' && body.telefono.trim() !== '' ? body.telefono.trim() : null;
   const email = typeof body.email === 'string' && body.email.trim() !== '' ? body.email.trim().toLowerCase() : null;
+  const direccion = typeof body.direccion === 'string' && body.direccion.trim() !== '' ? body.direccion.trim() : null;
+  const diasValidos = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  if (body.direccion !== undefined && body.direccion !== null && typeof body.direccion !== 'string') return { error: 'La dirección debe ser texto.' };
+  if (direccion && direccion.length > 200) return { error: 'La dirección no puede superar los 200 caracteres.' };
+  if (body.diasEntrega !== undefined && (!Array.isArray(body.diasEntrega) || body.diasEntrega.some(dia => typeof dia !== 'string' || !diasValidos.includes(dia)))) return { error: 'Los días de entrega no son válidos.' };
+  const diasEntrega = body.diasEntrega === undefined ? undefined : diasValidos.filter(dia => (body.diasEntrega as string[]).includes(dia));
 
   if (nombre.length < 1 || nombre.length > 50) return { error: 'El nombre debe tener entre 1 y 50 caracteres.' };
   if (cuil && !/^\d{11}$/.test(cuil)) return { error: 'El CUIL debe contener exactamente 11 dígitos numéricos.' };
@@ -27,7 +35,10 @@ function validateInput(body: ProveedorInput) {
   if (email && !/^[^\s@]+@[^\s@]+\.com$/.test(email)) return { error: 'El email debe tener un formato válido y finalizar en .com.' };
   if (descripcion && descripcion.length > 300) return { error: 'La descripción no puede superar los 300 caracteres.' };
 
-  return { value: { nombre, cuil, descripcion, ctaCte, telefono, email } };
+  return { value: { nombre, cuil, descripcion, ctaCte, telefono, email,
+    ...(body.direccion === undefined ? {} : { direccion }),
+    ...(diasEntrega === undefined ? {} : { diasEntrega })
+  } };
 }
 
 function parseId(req: Request, res: Response) {
