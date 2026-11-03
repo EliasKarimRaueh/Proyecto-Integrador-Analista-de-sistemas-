@@ -122,7 +122,8 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
         usuarioId: number,
         motivo: string | null = null,
         compraId: number | null = null,
-        transaction?: Transaction
+        transaction?: Transaction,
+        recepcionId: number | null = null
     ): Promise<MovimientoStock> {
 
         if (transaction) {
@@ -134,6 +135,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
                 motivo,
                 null,
                 compraId,
+                recepcionId,
                 transaction
             );
         }
@@ -147,6 +149,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
                 motivo,
                 null,
                 compraId,
+                recepcionId,
                 transaction
             );
         });
@@ -180,6 +183,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
                 motivo,
                 ventaId,
                 null,
+                null,
                 transaction
             );
         }
@@ -192,6 +196,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
                 usuarioId,
                 motivo,
                 ventaId,
+                null,
                 null,
                 transaction
             );
@@ -308,6 +313,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
         motivo: string | null,
         ventaId: number | null,
         compraId: number | null,
+        recepcionId: number | null,
         transaction: Transaction
     ): Promise<MovimientoStock> {
 
@@ -385,6 +391,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
                 numeroMovimiento,
                 ventaId,
                 compraId,
+                recepcionId,
                 tipo,
                 cantInicial,
                 cantMovimiento: cantidadRedondeada,
@@ -514,6 +521,7 @@ class MovimientoStockRepository extends BaseRepository<MovimientoStock> {
                 numeroMovimiento,
                 ventaId: null,
                 compraId: null,
+                recepcionId: null,
                 tipo,
                 cantInicial: stockActual,
                 cantMovimiento: cantidad,

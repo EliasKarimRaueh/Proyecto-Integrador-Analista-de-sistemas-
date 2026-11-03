@@ -1,10 +1,12 @@
-// Doble de prueba de polleria-database/repositories/compraRepository.
 export const instancia = {
   buscarPorId: jest.fn(),
+  buscarPorIdConBloqueo: jest.fn(),
+  buscarDetalleCompleto: jest.fn(),
   buscarTodas: jest.fn(),
   buscarPorProveedor: jest.fn(),
   buscarPorFechas: jest.fn(),
   buscarPorProveedorYFechas: jest.fn(),
+  listarConFiltros: jest.fn(),
   crear: jest.fn(),
   actualizar: jest.fn(),
 };

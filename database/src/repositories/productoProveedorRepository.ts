@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import type { Transaction } from 'sequelize';
 
 import BaseRepository from './BaseRepository.js';
@@ -116,6 +117,43 @@ class ProductoProveedorRepository
         }
 
         return proveedores;
+    }
+
+    async getProveedoresActivosPorProductos(
+        productoIds: number[],
+        transaction?: Transaction
+    ): Promise<Map<number, Proveedor[]>> {
+
+        const resultado = new Map<number, Proveedor[]>();
+
+        if (productoIds.length === 0) {
+            return resultado;
+        }
+
+        const relaciones = await this.model.findAll({
+            where: {
+                productoId: { [Op.in]: productoIds },
+                activo: true
+            },
+            include: [
+                {
+                    model: Proveedor,
+                    as: 'proveedor',
+                    where: { activo: true },
+                    required: true
+                }
+            ],
+            transaction
+        });
+
+        for (const relacion of relaciones) {
+            const proveedor = relacion.get('proveedor') as Proveedor;
+            const lista = resultado.get(relacion.productoId) ?? [];
+            lista.push(proveedor);
+            resultado.set(relacion.productoId, lista);
+        }
+
+        return resultado;
     }
 
     async findProveedoresName(

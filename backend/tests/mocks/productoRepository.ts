@@ -14,11 +14,15 @@
 
 export const instancia = {
   findAll: jest.fn(),
+  findAllActivos: jest.fn(),
+  findAllBy: jest.fn(),
+  buscarParaReposicion: jest.fn(),
   findById: jest.fn(),
   findByIds: jest.fn(),
   findBy: jest.fn(),
   create: jest.fn(),
   updateById: jest.fn(),
+  updateCosto: jest.fn(),
   deleteById: jest.fn(),
 };
 

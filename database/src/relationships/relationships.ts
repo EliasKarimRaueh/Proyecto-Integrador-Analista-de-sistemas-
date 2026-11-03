@@ -14,9 +14,11 @@ import Pago from '../models/Pago.js';
 import CuentaProveedor from '../models/CuentaProveedor.js';
 import Compra from '../models/Compra.js';
 import PagoPorCuenta from '../models/PagoPorCuenta.js';
-import Pedido from '../models/Pedido.js';
-import DetallePedido from '../models/DetallePedido.js';
+import PedidoCompra from '../models/PedidoCompra.js';
+import DetallePedidoCompra from '../models/DetallePedidoCompra.js';
 import DetalleCompra from '../models/DetalleCompra.js';
+import Recepcion from '../models/Recepcion.js';
+import DetalleRecepcion from '../models/DetalleRecepcion.js';
 
 // TipoProducto 1 ─── N Producto ────────────────────────────────────
 
@@ -273,73 +275,49 @@ PagoPorCuenta.belongsTo(CuentaProveedor, {
     foreignKey: 'cuentaId',
     as: 'cuentaProveedor'
 });
-
-
-// Pedido 1 ─── N DetallePedido ────────────────────────────────────
-
-Pedido.hasMany(DetallePedido, {
-
+// PedidoCompra 1 - N DetallePedidoCompra
+PedidoCompra.hasMany(DetallePedidoCompra, {
     foreignKey: 'pedidoId',
-
     as: 'detalles'
-
 });
 
-DetallePedido.belongsTo(Pedido, {
-
+DetallePedidoCompra.belongsTo(PedidoCompra, {
     foreignKey: 'pedidoId',
-
     as: 'pedido'
-
 });
 
+Producto.hasMany(DetallePedidoCompra, {
+    foreignKey: 'productoId',
+    as: 'detallesPedidoCompra'
+});
 
-// Proveedor 1 ─── N Pedido ────────────────────────────────────
-Proveedor.hasMany(Pedido, {
+DetallePedidoCompra.belongsTo(Producto, {
+    foreignKey: 'productoId',
+    as: 'producto'
+});
+
+Proveedor.hasMany(PedidoCompra, {
     foreignKey: 'proveedorId',
-    as: 'pedidos'
+    as: 'pedidosCompra'
 });
 
-Pedido.belongsTo(Proveedor, {
+PedidoCompra.belongsTo(Proveedor, {
     foreignKey: 'proveedorId',
     as: 'proveedor'
 });
 
-// Producto 1 ─── N DetallePedido ────────────────────────────────────
-
-Producto.hasMany(DetallePedido, {
-
-    foreignKey: 'productoId',
-
-    as: 'detallesProducto'
-
-});
-
-DetallePedido.belongsTo(Producto, {
-
-    foreignKey: 'productoId',
-
-    as: 'producto'
-
-});
-
-
-// Pedido 1 ─── 1 Compra
-// Un pedido puede generar una única compra al registrar su recepción.
-
-Pedido.hasOne(Compra, {
+// PedidoCompra 1 - N Compra
+PedidoCompra.hasMany(Compra, {
     foreignKey: 'pedidoId',
-    as: 'compra'
+    as: 'compras'
 });
 
-Compra.belongsTo(Pedido, {
+Compra.belongsTo(PedidoCompra, {
     foreignKey: 'pedidoId',
     as: 'pedido'
 });
 
-
-// Compra 1 ─── N DetalleCompra
-
+// Compra 1 - N DetalleCompra
 Compra.hasMany(DetalleCompra, {
     foreignKey: 'compraId',
     as: 'detalles'
@@ -349,9 +327,6 @@ DetalleCompra.belongsTo(Compra, {
     foreignKey: 'compraId',
     as: 'compra'
 });
-
-
-// Producto 1 ─── N DetalleCompra
 
 Producto.hasMany(DetalleCompra, {
     foreignKey: 'productoId',
@@ -363,15 +338,64 @@ DetalleCompra.belongsTo(Producto, {
     as: 'producto'
 });
 
-
-// Compra 1 ─── N MovimientoStock
-
-Compra.hasMany(MovimientoStock, {
+// Compra 1 - 1 Recepcion
+Compra.hasOne(Recepcion, {
     foreignKey: 'compraId',
+    as: 'recepcion'
+});
+
+Recepcion.belongsTo(Compra, {
+    foreignKey: 'compraId',
+    as: 'compra'
+});
+
+PedidoCompra.hasMany(Recepcion, {
+    foreignKey: 'pedidoId',
+    as: 'recepciones'
+});
+
+Recepcion.belongsTo(PedidoCompra, {
+    foreignKey: 'pedidoId',
+    as: 'pedido'
+});
+
+Proveedor.hasMany(Recepcion, {
+    foreignKey: 'proveedorId',
+    as: 'recepciones'
+});
+
+Recepcion.belongsTo(Proveedor, {
+    foreignKey: 'proveedorId',
+    as: 'proveedor'
+});
+
+// Recepcion 1 - N DetalleRecepcion
+Recepcion.hasMany(DetalleRecepcion, {
+    foreignKey: 'recepcionId',
+    as: 'detalles'
+});
+
+DetalleRecepcion.belongsTo(Recepcion, {
+    foreignKey: 'recepcionId',
+    as: 'recepcion'
+});
+
+Producto.hasMany(DetalleRecepcion, {
+    foreignKey: 'productoId',
+    as: 'detallesRecepcion'
+});
+
+DetalleRecepcion.belongsTo(Producto, {
+    foreignKey: 'productoId',
+    as: 'producto'
+});
+
+Recepcion.hasMany(MovimientoStock, {
+    foreignKey: 'recepcionId',
     as: 'movimientosStock'
 });
 
-MovimientoStock.belongsTo(Compra, {
-    foreignKey: 'compraId',
-    as: 'compra'
+MovimientoStock.belongsTo(Recepcion, {
+    foreignKey: 'recepcionId',
+    as: 'recepcion'
 });
