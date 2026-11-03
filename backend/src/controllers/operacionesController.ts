@@ -2,6 +2,7 @@ import { type Request, type Response } from 'express';
 import { ErrorOperacion, vender, buscarProductos, id } from '../services/operaciones.js';
 import VentaRepository from 'polleria-database/repositories/ventaRepository';
 import { sendDatabaseError } from './controllerHelpers.js';
+import TipoProducto from 'polleria-database/models/TipoProducto';
 export async function ejecutar(res: Response, accion: () => Promise<unknown>, status = 200) {
   try { res.status(status).json(await accion()); }
   catch (error) {
@@ -32,8 +33,10 @@ export const cotizarVenta = (req: Request, res: Response) => ejecutar(res, () =>
 export const productosMostrador = (req: Request, res: Response) => ejecutar(res, async () => {
   const { page, limit } = paginacion(req);
   if (req.query.q !== undefined && typeof req.query.q !== 'string') throw new ErrorOperacion('q debe ser texto.');
-  return buscarProductos(String(req.query.q ?? '').trim(), page, limit);
+  if (req.query.categoria !== undefined && typeof req.query.categoria !== 'string') throw new ErrorOperacion('categoria debe ser texto.');
+  return buscarProductos(String(req.query.q ?? '').trim(), page, limit, ...(req.query.categoria !== undefined || req.query.orden !== undefined ? [{ categoria: String(req.query.categoria ?? '').trim(), orden: String(req.query.orden ?? 'nombre_asc') }] : []));
 });
+export const categoriasMostrador = (_req: Request, res: Response) => ejecutar(res, () => TipoProducto.findAll({ where: { activo: true }, attributes: ['id', 'nombre'], order: [['nombre', 'ASC']] }));
 export const historialVentas = (req: Request, res: Response) => ejecutar(res, async () => {
   const { page, limit } = paginacion(req);
   const { desde, hasta } = rangoFechas(req);

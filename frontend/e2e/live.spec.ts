@@ -14,11 +14,11 @@ test('Integración real: páginas y cotización mediante proxy hacia Supabase', 
   await page.goto('/caja')
   const [respuestaProductos, respuestaPrecios] = await Promise.all([page.request.get('/api/ventas/productos?limite=20'), page.request.get('/api/precios?limite=1000')])
   expect(respuestaProductos.ok()).toBe(true); expect(respuestaPrecios.ok()).toBe(true)
-  const productos = (await respuestaProductos.json()).rows as { id: number; codigo: string; stockActual: number }[]
+  const productos = (await respuestaProductos.json()).rows as { id: number; nombre: string; stockActual: number }[]
   const precios = await respuestaPrecios.json() as { productoId: number }[]
   const producto = productos.find(p => p.stockActual >= 1 && precios.some(precio => precio.productoId === p.id))
   expect(producto, 'Debe existir un producto con precio y stock para cotizar').toBeTruthy()
-  await page.getByRole('button', { name: new RegExp(producto!.codigo) }).click()
+  await page.getByRole('button', { name: new RegExp(producto!.nombre) }).click()
   await expect(page.getByRole('button', { name: 'Confirmar venta' })).toBeEnabled({ timeout: 15000 })
   await page.screenshot({ path: 'artifacts/caja-supabase.png', fullPage: true })
   expect(errores).toEqual([])

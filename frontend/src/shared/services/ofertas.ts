@@ -9,7 +9,7 @@ import {
 
 /** Offers that were not soft deleted. A pollería will not reach 1000. */
 export async function fetchOfertas(): Promise<Oferta[]> {
-  const query = new URLSearchParams({ limite: '1000' })
+  const query = new URLSearchParams({ limite: '1000', incluirBajas: 'true' })
   return await apiRequest<Oferta[]>(`ofertas?${query.toString()}`)
 }
 
@@ -22,8 +22,9 @@ type PayloadOferta = {
   nombre: string
   descripcion: string
   fechaInicio: string
-  fechaFin: string
+  fechaFin: string | null
   descuentoPorcentaje?: string
+  precioFinal?: string
   productos: { productoId: number; precioOferta?: string; cantidad?: number }[]
 }
 
@@ -53,6 +54,7 @@ export async function actualizarOferta(
 export async function desactivarOferta(id: string): Promise<Oferta> {
   return await apiRequest<Oferta>(`ofertas/${id}`, { method: 'DELETE' })
 }
+export const reactivarOferta = (id: string, fechas: { fechaInicio: string; fechaFin: string | null }) => apiRequest<Oferta>(`ofertas/${id}/reactivar`, { method: 'PUT', body: JSON.stringify(fechas) })
 
 export async function fetchProductosDeOferta(id: string): Promise<OfertaProducto[]> {
   const productos = await apiRequest<OfertaProducto[]>(`ofertas/${id}/productos`)

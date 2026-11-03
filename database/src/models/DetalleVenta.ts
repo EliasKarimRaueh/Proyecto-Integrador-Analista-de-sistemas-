@@ -12,10 +12,12 @@ class DetalleVenta extends Model {
 
     declare importeUnitario: number;
     declare subtotal: number;
+    declare despacho: { productoId: number; nombre: string; unidadVenta: string; cantidadPromocional: number; cantidadReal: number }[] | null;
 }
 
 DetalleVenta.init(
     {
+        despacho: { type: DataTypes.JSONB, allowNull: true, defaultValue: null },
         ventaId: {
             type: DataTypes.INTEGER,
             primaryKey: true,

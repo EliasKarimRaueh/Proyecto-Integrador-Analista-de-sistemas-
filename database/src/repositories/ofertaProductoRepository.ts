@@ -187,7 +187,7 @@ class OfertaProductoRepository
             nombre: string;
             descripcion: string | null;
             fechaInicio: Date;
-            fechaFin: Date;
+            fechaFin: Date | null;
         },
         items: { productoId: number; precioOferta: string; cantidad?: number }[],
         transaction?: Transaction
@@ -198,6 +198,7 @@ class OfertaProductoRepository
         // =========================
 
         if (transaction) {
+            await this.ofertaRepository.validarSuperposicion(items.map(i => i.productoId), datos.fechaInicio, datos.fechaFin, undefined, transaction);
 
             const oferta = await this.ofertaRepository.create(
                 {
@@ -233,6 +234,7 @@ class OfertaProductoRepository
         // =========================
 
         return await sequelize.transaction(async transaction => {
+            await this.ofertaRepository.validarSuperposicion(items.map(i => i.productoId), datos.fechaInicio, datos.fechaFin, undefined, transaction);
 
             const oferta = await this.ofertaRepository.create(
                 {

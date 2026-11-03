@@ -1,4 +1,5 @@
-import { aFechaInput, esFechaValida, fechaInputDesdeHoy, hoyComoFechaInput, parseMontoInput } from '../../shared/lib/money'
+import { fechaInputOferta } from './fechasOfertas'
+import { esFechaValida, fechaInputDesdeHoy, hoyComoFechaInput, parseMontoInput } from '../../shared/lib/money'
 import { cantidadInput } from '../../shared/lib/operaciones'
 
 /**
@@ -22,12 +23,13 @@ export type OfertaProductoApi = {
 export type OfertaProducto = Omit<OfertaProductoApi, 'productoId'> & { productoId: number }
 
 export type Oferta = {
+  precioFinal?: string | null
   descuentoPorcentaje?: string | null
   id: string
   nombre: string
   descripcion: string | null
   fechaInicio: string
-  fechaFin: string
+  fechaFin: string | null
   vigente: boolean
   activo: boolean
   fechaBaja: string | null
@@ -94,7 +96,7 @@ export const ETIQUETA_ESTADO: Record<EstadoOferta, string> = {
 export function estadoOferta(oferta: Oferta): EstadoOferta {
   if (!oferta.activo) return 'baja'
   if (oferta.vigente) return 'vigente'
-  return aFechaInput(oferta.fechaInicio) > hoyComoFechaInput() ? 'programada' : 'vencida'
+  return fechaInputOferta(oferta.fechaInicio) > hoyComoFechaInput() ? 'programada' : 'vencida'
 }
 
 export type ErroresOferta = Partial<Record<'nombre' | 'descripcion' | 'fechaInicio' | 'fechaFin' | 'productos', string>> & {
@@ -117,11 +119,11 @@ export function validarOferta(draft: OfertaDraft): ErroresOferta {
     errors.fechaInicio = 'Ingresá una fecha de inicio válida.'
   }
 
-  if (draft.fechaFin === '' || !esFechaValida(draft.fechaFin)) {
+  if (draft.fechaFin !== '' && !esFechaValida(draft.fechaFin)) {
     errors.fechaFin = 'Ingresá una fecha de fin válida.'
   }
 
-  if (errors.fechaInicio === undefined && errors.fechaFin === undefined && draft.fechaFin <= draft.fechaInicio) {
+  if (draft.fechaFin && errors.fechaInicio === undefined && errors.fechaFin === undefined && draft.fechaFin <= draft.fechaInicio) {
     errors.fechaFin = 'La fecha de fin debe ser posterior a la fecha de inicio.'
   }
 
@@ -167,7 +169,7 @@ export function armarPayloadOferta(draft: OfertaDraft) {
     nombre: draft.nombre.trim(),
     descripcion: draft.descripcion.trim(),
     fechaInicio: draft.fechaInicio,
-    fechaFin: draft.fechaFin,
+    fechaFin: draft.fechaFin || null,
     productos,
   }
 }
@@ -178,6 +180,6 @@ export function armarPayloadActualizacion(draft: OfertaDraft) {
     nombre: draft.nombre.trim(),
     descripcion: draft.descripcion.trim(),
     fechaInicio: draft.fechaInicio,
-    fechaFin: draft.fechaFin,
+    fechaFin: draft.fechaFin || null,
   }
 }

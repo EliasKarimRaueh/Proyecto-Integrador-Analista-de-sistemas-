@@ -125,6 +125,7 @@ function sendDatabaseError(res: Response, error: unknown, mensaje: string) {
 
   const nombre = error instanceof Error ? error.name : '';
   const detalle = error instanceof Error ? error.message : String(error);
+  if (nombre === 'ConflictoOferta') { res.status(409).json({ message: detalle }); return; }
 
   if (nombre === 'SequelizeUniqueConstraintError' || /unique|duplicate key/i.test(detalle)) {
     res.status(409).json({ message: mensaje });

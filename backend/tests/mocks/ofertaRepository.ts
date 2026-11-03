@@ -2,6 +2,9 @@
 // Lo consume ofertaController.ts:11.
 
 export const instancia = {
+  findAll: jest.fn(),
+  bloquearVigencias: jest.fn(),
+  validarSuperposicion: jest.fn(),
   findAllActivos: jest.fn(),
   findVigentes: jest.fn(),
   findById: jest.fn(),

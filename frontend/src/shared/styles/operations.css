@@ -72,3 +72,23 @@
 @media (max-width: 850px) { .pos-layout { grid-template-columns: minmax(0, 1fr); } .pos-cart { position: static; } .cart-items { max-height: none; } .cart-summary { grid-template-columns: 1fr 1fr; } .cart-summary > strong { text-align: right; } .page-heading { flex-wrap: wrap; gap: 14px; } }
 @media (max-width: 540px) { .operation-form { padding: 18px; } .derived-row { grid-template-columns: minmax(0, 1fr) 85px 25px; gap: 8px; } .pos-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; gap: 9px; } .pos-product { padding: 12px; } .topbar .workspace-tag { font-size: 10px; max-width: 145px; } .history-filters label { min-width: 120px; } }
 @media print { .sidebar, .topbar, .app-footer, .modal-footer, .modal-heading, .modal > .notice, .skip-link { display: none !important; } .modal { position: static; width: 100%; max-width: none; border: 0; box-shadow: none; } }
+.pos-category-filters { align-items: end; flex-wrap: wrap; gap: .75rem; }
+.pos-category-filters label { display: grid; gap: .4rem; flex: 1; min-width: 140px; }
+.pos-offer-card { display: flex; flex-direction: column; }
+.pos-offer-card .pos-product { width: 100%; height: 100%; }
+.cart-despacho { display: grid; gap: .65rem; margin-top: .8rem; padding: .75rem; background: #f5f7fa; border-radius: .5rem; }
+.cart-despacho p { margin: .25rem 0; font-size: .85rem; }
+.cart-despacho label { display: grid; gap: .35rem; font-size: .85rem; }
+.cart-despacho input { width: 100%; min-width: 0; }
+.receipt-despacho { display: block; margin-top: .35rem; color: #536073; }
+.oferta-precio-final { display: grid; gap: 8px; margin: 18px 0; max-width: 320px; font-weight: 600; }
+.oferta-precio-final input { width: 100%; padding: 12px; border: 1px solid #dce2ec; border-radius: 6px; font-size: 17px; color: #17243b; }
+.offer-price-summary { align-items: flex-start; gap: 4px; }
+.offer-validity { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 5px; color: #4b5a70; font-size: 12px; }
+.offer-validity > span { display: flex; align-items: center; gap: 5px; }
+.offer-validity svg { flex-shrink: 0; }
+.offers-table { white-space: normal; }
+.offers-table th, .offers-table td { padding: 14px 12px; }
+.offers-table .product-description { max-width: 180px; }
+.offers-table .oferta-producto-cantidad { flex-wrap: wrap; gap: 4px 8px; }
+.offers-table .row-actions { flex-wrap: wrap; gap: 6px; }

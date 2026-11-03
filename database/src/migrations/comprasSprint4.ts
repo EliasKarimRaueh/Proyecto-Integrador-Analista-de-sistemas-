@@ -3,6 +3,9 @@ import sequelize from '../config/database.js';
 export async function migrateComprasSprint4() {
     await sequelize.transaction(async transaction => {
         const query = (sql: string) => sequelize.query(sql, { transaction });
+        await query('ALTER TABLE ofertas ALTER COLUMN "fechaFin" DROP NOT NULL');
+        await query('ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS "precioFinal" NUMERIC(12,2) CHECK ("precioFinal" > 0 AND "precioFinal" <= 99999999.99)');
+        await query('ALTER TABLE "detallesVenta" ADD COLUMN IF NOT EXISTS despacho JSONB');
 
         await query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS "proveedorHabitualId" INTEGER REFERENCES proveedores(id)');
         await query('CREATE INDEX IF NOT EXISTS productos_proveedor_habitual ON productos ("proveedorHabitualId") WHERE "proveedorHabitualId" IS NOT NULL');

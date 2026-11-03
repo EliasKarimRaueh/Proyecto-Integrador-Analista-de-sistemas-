@@ -3,7 +3,8 @@ import { type Request, type Response } from 'express';
 import OfertaRepository from 'polleria-database/repositories/ofertaRepository';
 import OfertaProductoRepository from 'polleria-database/repositories/ofertaProductoRepository';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
-import { guardarOfertaGlobal, precioCombo } from '../services/ofertasGlobales.js';
+import PrecioRepository from 'polleria-database/repositories/precioRepository';
+import { guardarOfertaGlobal, precioCombo, reactivarOferta } from '../services/ofertasGlobales.js';
 import { ErrorOperacion } from '../services/operaciones.js';
 import {
   esObjeto, fail, ok, parseFecha, parseId, parseMonto, parsePaginacion, texto,
@@ -38,7 +39,7 @@ function presentOferta(oferta: StoredOferta) {
   const vigente =
     oferta.activo &&
     oferta.fechaInicio <= hoy &&
-    oferta.fechaFin >= hoy;
+    (oferta.fechaFin === null || oferta.fechaFin >= hoy);
 
   return {
     id: String(oferta.id),
@@ -50,6 +51,7 @@ function presentOferta(oferta: StoredOferta) {
     activo: oferta.activo,
     fechaBaja: oferta.fechaBaja,
     descuentoPorcentaje: oferta.descuentoPorcentaje ?? null,
+    ...(oferta.precioFinal == null ? {} : { precioFinal: oferta.precioFinal }),
   };
 }
 
@@ -132,6 +134,10 @@ async function cargarDetalle(ofertaId: number) {
   }
 
   const detalle = presentDetalle(oferta, productos);
+  if (oferta.precioFinal != null) {
+    const precios = await new PrecioRepository().findAllVigentes(productos.map(p => p.producto.id), new Date());
+    return { ...detalle, productos: detalle.productos.map(p => ({ ...p, precioLista: precios.find(i => i.productoId === Number(p.productoId))?.precioMinorista ?? null })) };
+  }
   if (oferta.descuentoPorcentaje != null) {
     try {
       const calculo = await precioCombo(productos.filter(p => p.relacion.activo).map(p => ({ productoId: p.producto.id, cantidad: p.relacion.cantidad })), oferta.descuentoPorcentaje, 'MINORISTA');
@@ -163,7 +169,10 @@ export const getOfertas = async (req: Request, res: Response) => {
 
   try {
     const { page, limit } = paginacion.value;
-    const resultado = await ofertaRepository.findAllActivos(page, limit, 'id', 'DESC');
+    const resultado = req.query.incluirBajas === 'true'
+      ? await ofertaRepository.findAll(page, limit, 'id', 'DESC')
+      : await ofertaRepository.findAllActivos(page, limit, 'id', 'DESC');
+    res.setHeader('X-Total-Count', resultado.count);
     res.json(resultado.rows.map(presentOferta));
   } catch (error) {
     sendDatabaseError(res, error, 'No se pudieron leer las ofertas.');
@@ -226,7 +235,7 @@ export const getOferta = async (req: Request, res: Response) => {
 // POST /api/ofertas
 // Crea la oferta y todas sus relaciones en una sola transacción.
 export const createOferta = async (req: Request, res: Response) => {
-  if (req.body?.descuentoPorcentaje !== undefined) { await guardarGlobal(req, res); return; }
+  if (req.body?.precioFinal !== undefined || req.body?.descuentoPorcentaje !== undefined) { await guardarGlobal(req, res); return; }
 
   const body = req.body as OfertaInput;
 
@@ -248,10 +257,10 @@ export const createOferta = async (req: Request, res: Response) => {
   const fechaInicio = parseFecha(body.fechaInicio, 'fechaInicio');
   if (!fechaInicio.ok) { res.status(400).json({ message: fechaInicio.error }); return; }
 
-  const fechaFin = parseFecha(body.fechaFin, 'fechaFin');
+  const fechaFin = body.fechaFin === undefined || body.fechaFin === null || body.fechaFin === '' ? ok<Date | null>(null) : parseFecha(body.fechaFin, 'fechaFin');
   if (!fechaFin.ok) { res.status(400).json({ message: fechaFin.error }); return; }
 
-  if (fechaFin.value <= fechaInicio.value) {
+  if (fechaFin.value !== null && fechaFin.value <= fechaInicio.value) {
     res.status(400).json({ message: 'La fecha de fin debe ser posterior a la fecha de inicio.' });
     return;
   }
@@ -303,7 +312,7 @@ export const updateOferta = async (req: Request, res: Response) => {
 
   const id = parseId(req.params.id, 'El identificador de la oferta');
   if (!id.ok) { res.status(400).json({ message: id.error }); return; }
-  if (req.body?.descuentoPorcentaje !== undefined) { await guardarGlobal(req, res, id.value); return; }
+  if (req.body?.precioFinal !== undefined || req.body?.descuentoPorcentaje !== undefined) { await guardarGlobal(req, res, id.value); return; }
 
   const body = req.body as OfertaUpdateInput;
   const cambios: Record<string, unknown> = {};
@@ -327,7 +336,7 @@ export const updateOferta = async (req: Request, res: Response) => {
   }
 
   let fechaInicio: Date | null = null;
-  let fechaFin: Date | null = null;
+  let fechaFin: Date | null | undefined;
 
   if (body.fechaInicio !== undefined) {
     const fecha = parseFecha(body.fechaInicio, 'fechaInicio');
@@ -337,7 +346,7 @@ export const updateOferta = async (req: Request, res: Response) => {
   }
 
   if (body.fechaFin !== undefined) {
-    const fecha = parseFecha(body.fechaFin, 'fechaFin');
+    const fecha = body.fechaFin === null || body.fechaFin === '' ? ok<Date | null>(null) : parseFecha(body.fechaFin, 'fechaFin');
     if (!fecha.ok) { res.status(400).json({ message: fecha.error }); return; }
     fechaFin = fecha.value;
     cambios.fechaFin = fechaFin;
@@ -355,9 +364,9 @@ export const updateOferta = async (req: Request, res: Response) => {
     // La vigencia se valida contra el valor guardado, no contra el
     // cuerpo, para no rechazar una actualización parcial válida.
     const inicio = fechaInicio ?? actual.fechaInicio;
-    const fin = fechaFin ?? actual.fechaFin;
+    const fin = fechaFin === undefined ? actual.fechaFin : fechaFin;
 
-    if (fin <= inicio) {
+    if (fin !== null && fin <= inicio) {
       res.status(400).json({ message: 'La fecha de fin debe ser posterior a la fecha de inicio.' });
       return;
     }
@@ -369,6 +378,16 @@ export const updateOferta = async (req: Request, res: Response) => {
     res.json(detalle ?? presentOferta(actualizada));
   } catch (error) {
     sendDatabaseError(res, error, 'No se pudo actualizar la oferta.');
+  }
+};
+
+export const activarOferta = async (req: Request, res: Response) => {
+  const id = parseId(req.params.id, 'El identificador de la oferta');
+  if (!id.ok) { res.status(400).json({ message: id.error }); return; }
+  try { res.json(presentOferta(await reactivarOferta(id.value, req.body ?? {}))); }
+  catch (error) {
+    if (error instanceof ErrorOperacion) res.status(error.status).json({ message: error.message });
+    else sendDatabaseError(res, error, 'No se pudo reactivar la oferta.');
   }
 };
 
@@ -432,7 +451,7 @@ export const actualizarPrecioEnOferta = async (req: Request, res: Response) => {
   try {
     const oferta = await ofertaRepository.findByIdActivo(ofertaId.value);
     if (!oferta) { res.status(404).json({ message: 'Oferta no encontrada o dada de baja.' }); return; }
-    if (oferta.descuentoPorcentaje != null) { res.status(409).json({ message: 'Editá el descuento y los componentes desde la oferta completa.' }); return; }
+    if (oferta.precioFinal != null || oferta.descuentoPorcentaje != null) { res.status(409).json({ message: 'Editá el precio final y los componentes desde la oferta completa.' }); return; }
 
     const cruda = (req.body as { cantidad?: unknown }).cantidad;
     let cantidad: number | undefined;

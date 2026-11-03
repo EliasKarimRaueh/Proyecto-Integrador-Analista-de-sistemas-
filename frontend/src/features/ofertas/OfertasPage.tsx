@@ -2,27 +2,31 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
 import { useApiResource } from '../../shared/hooks/useApiResource'
-import { formatearFecha } from '../../shared/lib/money'
+import { fechaTextoOferta as formatearFecha } from './fechasOfertas'
 import { cantidadFormato } from '../../shared/lib/operaciones'
 import { ResumenOferta } from './ResumenOferta'
 import { desactivarOferta, fetchOferta, fetchOfertas } from '../../shared/services/ofertas'
 import { normalize } from '../products/products'
 import { DetalleOfertaModal } from './DetalleOfertaModal'
 import { FormularioOfertaModal } from './FormularioOfertaModal'
+import { ReactivarOfertaModal } from './ReactivarOfertaModal'
+import { fetchPreciosVigentes } from '../../shared/services/precios'
+import type { Precio } from '../precios/precios'
 import { ETIQUETA_ESTADO, estadoOferta, type Oferta } from './ofertas'
 
 type Editor =
   | { modo: 'crear' }
-  | { modo: 'editar' | 'detalle' | 'baja'; oferta: Oferta }
+  | { modo: 'editar' | 'detalle' | 'baja' | 'reactivar'; oferta: Oferta }
 
 const FILTROS = [
   { valor: 'todas', etiqueta: 'Todas las ofertas' },
   { valor: 'vigente', etiqueta: 'Solo vigentes' },
   { valor: 'programada', etiqueta: 'Programadas' },
   { valor: 'vencida', etiqueta: 'Vencidas' },
+  { valor: 'baja', etiqueta: 'Dadas de baja' },
 ]
 
-function PreciosOferta({ ofertaId, revision }: { ofertaId: string; revision: number }) {
+function PreciosOferta({ ofertaId, revision, precios }: { ofertaId: string; revision: number; precios: Precio[] }) {
   const { data, loading, error, refetch } = useApiResource(
     () => fetchOferta(ofertaId),
     `${ofertaId}:${revision}`
@@ -38,7 +42,7 @@ function PreciosOferta({ ofertaId, revision }: { ofertaId: string; revision: num
         <strong>{producto.nombre}</strong><span className="subtle">{cantidadFormato(producto.cantidad ?? 1)} {producto.unidadVenta === 'UNIDADES' || producto.unidadVenta === 'unidad' ? 'unidades' : 'kg'}</span>
       </div>
     ))}</td>
-    <td>{data && productos.length > 0 ? <ResumenOferta detalle={data} /> : '—'}</td>
+    <td>{data && productos.length > 0 ? <ResumenOferta detalle={data} precios={precios} /> : '—'}</td>
   </>
 }
 
@@ -56,7 +60,7 @@ function ModalBajaOferta({
   onConfirmar: () => void
 }) {
   return (
-    <Modal eyebrow="CATÁLOGO DE PRODUCTOS" title="Dar de baja oferta" onClose={onCancelar}>
+    <Modal eyebrow="CATÁLOGO DE OFERTAS" title="Dar de baja oferta" onClose={onCancelar} busy={saving}>
       <div className="confirmation-icon"><Icon name="archive" size={28} /></div>
       <p>¿Querés dar de baja <strong>{oferta.nombre}</strong>?</p>
       <p>La oferta dejará de aplicarse. Sus datos se conservarán y sus productos quedarán sin precio de oferta.</p>
@@ -73,6 +77,7 @@ function ModalBajaOferta({
 
 export function OfertasPage() {
   const { data, loading, error, refetch, setData } = useApiResource(fetchOfertas)
+  const precios = useApiResource(fetchPreciosVigentes)
 
   const [search, setSearch] = useState('')
   const [filtro, setFiltro] = useState('todas')
@@ -84,6 +89,7 @@ export function OfertasPage() {
 
   function recargarOfertas() {
     refetch()
+    precios.refetch()
     setRevisionPrecios(actual => actual + 1)
   }
 
@@ -139,7 +145,7 @@ export function OfertasPage() {
       <div className="page-heading">
         <div>
           <h1>Ofertas y promociones</h1>
-          <p>Armá combos y aplicá el descuento sobre el subtotal de lista.</p>
+          <p>Armá combos y definí el precio final de cada oferta.</p>
         </div>
         <button className="button primary" disabled={error !== ''} onClick={() => abrir({ modo: 'crear' })}>
           <Icon name="plus" /> Nueva oferta
@@ -171,7 +177,7 @@ export function OfertasPage() {
         <div className="catalog-title">
           <div>
             <h2>Todas las ofertas <span className="count">{filtradas.length}</span></h2>
-            <p>Consultá el subtotal de lista, el descuento y el total del combo.</p>
+            <p>Consultá los productos, cantidades y precio final del combo.</p>
           </div>
           <span className="subtle">Promociones</span>
         </div>
@@ -196,7 +202,7 @@ export function OfertasPage() {
         </div>
 
         <div className="table-scroll">
-          <table>
+          <table className="offers-table">
             <thead>
               <tr>
                 <th scope="col">Oferta</th>
@@ -221,11 +227,11 @@ export function OfertasPage() {
                         </div>
                       </div>
                     </td>
-                    <PreciosOferta ofertaId={oferta.id} revision={revisionPrecios} />
+                    <PreciosOferta ofertaId={oferta.id} revision={revisionPrecios} precios={precios.data ?? []} />
                     <td>
-                      <span className="date-range">
-                        <Icon name="calendar" size={16} />
-                        {formatearFecha(oferta.fechaInicio)} — {formatearFecha(oferta.fechaFin)}
+                      <span className="offer-validity">
+                        <span><Icon name="calendar" size={14} /><span>Desde: {formatearFecha(oferta.fechaInicio)}</span></span>
+                        <span><Icon name="calendar" size={14} /><span>Hasta: {oferta.fechaFin ? formatearFecha(oferta.fechaFin) : 'Sin fecha de fin'}</span></span>
                       </span>
                     </td>
                     <td>
@@ -234,7 +240,8 @@ export function OfertasPage() {
                     <td>
                       <div className="row-actions">
                         <button className="icon-button" title="Ver detalle" aria-label={'Ver ' + oferta.nombre} onClick={() => abrir({ modo: 'detalle', oferta })}><Icon name="eye" size={18} /></button>
-                        <button className="button" title="Editar productos y cantidades de la oferta" aria-label={'Editar ' + oferta.nombre} onClick={() => abrir({ modo: 'editar', oferta })}><Icon name="edit" size={18} /> Editar oferta</button>
+                        <button className="button" disabled={!oferta.activo} title="Editar productos y cantidades de la oferta" aria-label={'Editar ' + oferta.nombre} onClick={() => abrir({ modo: 'editar', oferta })}><Icon name="edit" size={18} /> Editar oferta</button>
+                        {!oferta.activo && <button className="button" aria-label={'Reactivar ' + oferta.nombre} onClick={() => abrir({ modo: 'reactivar', oferta })}><Icon name="check" size={18}/>Reactivar</button>}
                         <button className="icon-button danger-text" disabled={!oferta.activo} title={oferta.activo ? 'Dar de baja' : 'Oferta dada de baja'} aria-label={'Dar de baja ' + oferta.nombre} onClick={() => abrir({ modo: 'baja', oferta })}><Icon name="archive" size={18} /></button>
                       </div>
                     </td>
@@ -268,6 +275,7 @@ export function OfertasPage() {
           onGuardado={() => { recargarOfertas(); setEditor(null) }}
         />
       )}
+      {editor?.modo === 'reactivar' && <ReactivarOfertaModal oferta={editor.oferta} onClose={() => setEditor(null)} onGuardado={() => { recargarOfertas(); setEditor(null); setNotice('Oferta reactivada correctamente.') }}/>}
 
       {editor?.modo === 'editar' && (
         <FormularioOfertaModal
