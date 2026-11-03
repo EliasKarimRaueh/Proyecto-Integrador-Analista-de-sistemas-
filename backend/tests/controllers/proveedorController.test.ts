@@ -35,6 +35,7 @@ const BODY_VALIDO = {
 
 beforeEach(() => {
   proveedorRepo.buscarTodos.mockResolvedValue([proveedor()]);
+  proveedorRepo.buscarTodosPorEstado.mockResolvedValue([proveedor()]);
   proveedorRepo.buscarPorId.mockResolvedValue(proveedor());
   proveedorRepo.crear.mockResolvedValue(proveedor());
   proveedorRepo.actualizar.mockResolvedValue(proveedor());
@@ -50,6 +51,35 @@ describe('getProveedores', () => {
     expect(proveedorRepo.buscarTodos).toHaveBeenCalledWith('nombre', 'ASC');
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith([proveedor()]);
+  });
+
+  it('filtra proveedores activos', async () => {
+    const res = crearRes();
+    await getProveedores(crearReq({ query: { activo: 'true' } }), res);
+
+    expect(proveedorRepo.buscarTodosPorEstado).toHaveBeenCalledWith(true, 'nombre', 'ASC');
+    expect(res.json).toHaveBeenCalledWith([proveedor()]);
+  });
+
+  it('filtra proveedores inactivos', async () => {
+    proveedorRepo.buscarTodosPorEstado.mockResolvedValue([proveedor({ activo: false })]);
+    const res = crearRes();
+    await getProveedores(crearReq({ query: { activo: 'false' } }), res);
+
+    expect(proveedorRepo.buscarTodosPorEstado).toHaveBeenCalledWith(false, 'nombre', 'ASC');
+    expect(res.json).toHaveBeenCalledWith([proveedor({ activo: false })]);
+  });
+
+  it('rechaza un filtro activo inválido con 400', async () => {
+    const res = crearRes();
+    await getProveedores(crearReq({ query: { activo: 'si' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El filtro activo debe ser true o false.',
+    });
+    expect(proveedorRepo.buscarTodos).not.toHaveBeenCalled();
+    expect(proveedorRepo.buscarTodosPorEstado).not.toHaveBeenCalled();
   });
 
   it('responde 500 si el repositorio falla', async () => {

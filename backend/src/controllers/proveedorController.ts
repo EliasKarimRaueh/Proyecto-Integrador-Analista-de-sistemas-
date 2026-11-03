@@ -50,9 +50,18 @@ function sendDatabaseError(res: Response, error: unknown) {
   res.status(500).json({ message: 'No se pudo guardar el proveedor en la base de datos.' });
 }
 
-export const getProveedores = async (_req: Request, res: Response) => {
+export const getProveedores = async (req: Request, res: Response) => {
+  const activo = req.query.activo;
+
+  if (activo !== undefined && activo !== 'true' && activo !== 'false') {
+    res.status(400).json({ message: 'El filtro activo debe ser true o false.' });
+    return;
+  }
+
   try {
-    const proveedores = await proveedorRepository.buscarTodos('nombre', 'ASC');
+    const proveedores = activo === undefined
+      ? await proveedorRepository.buscarTodos('nombre', 'ASC')
+      : await proveedorRepository.buscarTodosPorEstado(activo === 'true', 'nombre', 'ASC');
     res.json(proveedores);
   } catch (error) { sendDatabaseError(res, error); }
 };

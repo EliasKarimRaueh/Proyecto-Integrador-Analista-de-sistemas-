@@ -58,6 +58,12 @@ function presentProduct(product: StoredProduct, category: string) {
     id: String(product.id), code: product.codigo, name: product.nombre, category,
     unit: product.unidadVenta === 'KILOS' ? 'kg' : 'unidad',
     description: product.descripcion, active: product.activo,
+    unidadCompra: product.unidadCompra,
+    unidadVenta: product.unidadVenta,
+    factorConversion: product.factorConversion,
+    stockActual: product.stockActual,
+    stockMinimo: product.stockMinimo,
+    costoActual: product.costoActual,
   };
 }
 
@@ -80,11 +86,22 @@ function sendDatabaseError(res: Response, error: unknown) {
   res.status(500).json({ message: 'No se pudo guardar el producto en la base de datos.' });
 }
 
-export const getProductos = async (_req: Request, res: Response) => {
+export const getProductos = async (req: Request, res: Response) => {
+  const activo = req.query.activo;
+
+  if (activo !== undefined && activo !== 'true' && activo !== 'false') {
+    res.status(400).json({ message: 'El filtro activo debe ser true o false.' });
+    return;
+  }
+
   try {
-    const [{ rows }, categoriesById] = await Promise.all([
-      productoRepository.findAll(1, 1000, 'id', 'ASC'), getCategoryMap(),
-    ]);
+    const consulta = activo === 'true'
+      ? productoRepository.findAllActivos(1, 1000, 'id', 'ASC')
+      : activo === 'false'
+        ? productoRepository.findAllBy({ activo: false }, 1, 1000, 'id', 'ASC')
+        : productoRepository.findAll(1, 1000, 'id', 'ASC');
+
+    const [{ rows }, categoriesById] = await Promise.all([consulta, getCategoryMap()]);
     res.json(rows.map(product => presentProduct(product, categoriesById.get(product.tipoProductoId) ?? 'Fresco')));
   } catch (error) { sendDatabaseError(res, error); }
 };

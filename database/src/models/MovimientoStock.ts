@@ -7,6 +7,7 @@ class MovimientoStock extends Model {
     declare numeroMovimiento: number;
     declare ventaId: number | null;
     declare compraId: number | null;
+    declare recepcionId: number | null;
     declare tipo: 'INGRESO' | 'EGRESO';
     declare cantInicial: number;
     declare cantMovimiento: number;
@@ -72,6 +73,16 @@ MovimientoStock.init({
             model: 'compras',
             key: 'id'
         }*/
+    },
+
+    recepcionId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null,
+        references: {
+            model: 'recepciones',
+            key: 'id'
+        }
     },
 
     tipo: {

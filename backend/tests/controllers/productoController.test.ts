@@ -47,6 +47,8 @@ const BODY_VALIDO = {
 beforeEach(() => {
   tipoProductoRepo.findAll.mockResolvedValue(CATEGORIAS);
   productoRepo.findAll.mockResolvedValue({ rows: [producto()], count: 1 });
+  productoRepo.findAllActivos.mockResolvedValue({ rows: [producto()], count: 1 });
+  productoRepo.findAllBy.mockResolvedValue({ rows: [producto()], count: 1 });
   productoRepo.findById.mockResolvedValue(producto());
   productoRepo.create.mockResolvedValue(producto());
   productoRepo.updateById.mockResolvedValue(producto());
@@ -69,8 +71,46 @@ describe('getProductos', () => {
         unit: 'kg',
         description: 'Pollo del día',
         active: true,
+        unidadCompra: 'KILOS',
+        unidadVenta: 'KILOS',
+        factorConversion: 1,
+        stockActual: 0,
+        stockMinimo: null,
+        costoActual: '0',
       },
     ]);
+  });
+
+  it('filtra productos activos', async () => {
+    const res = crearRes();
+    await getProductos(crearReq({ query: { activo: 'true' } }), res);
+
+    expect(productoRepo.findAllActivos).toHaveBeenCalledWith(1, 1000, 'id', 'ASC');
+    expect(res.json).toHaveBeenCalledWith([expect.objectContaining({ active: true })]);
+  });
+
+  it('filtra productos inactivos', async () => {
+    productoRepo.findAllBy.mockResolvedValue({
+      rows: [producto({ activo: false })], count: 1,
+    });
+    const res = crearRes();
+    await getProductos(crearReq({ query: { activo: 'false' } }), res);
+
+    expect(productoRepo.findAllBy).toHaveBeenCalledWith({ activo: false }, 1, 1000, 'id', 'ASC');
+    expect(res.json).toHaveBeenCalledWith([expect.objectContaining({ active: false })]);
+  });
+
+  it('rechaza un filtro activo inválido con 400', async () => {
+    const res = crearRes();
+    await getProductos(crearReq({ query: { activo: 'si' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El filtro activo debe ser true o false.',
+    });
+    expect(productoRepo.findAll).not.toHaveBeenCalled();
+    expect(productoRepo.findAllActivos).not.toHaveBeenCalled();
+    expect(productoRepo.findAllBy).not.toHaveBeenCalled();
   });
 
   it('devuelve la categoría en Title Case según la tabla de tipos', async () => {

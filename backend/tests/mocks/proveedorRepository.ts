@@ -13,6 +13,7 @@
 
 export const instancia = {
   buscarTodos: jest.fn(),
+  buscarTodosPorEstado: jest.fn(),
   buscarPorId: jest.fn(),
   crear: jest.fn(),
   actualizar: jest.fn(),

@@ -8,6 +8,8 @@ import ventaRoutes from './routes/ventaRoutes.js';
 import proveedorRoutes from './routes/proveedorRoutes.js';
 import catalogoRoutes from './routes/catalogoRoutes.js';
 import compraRoutes from './routes/compraRoutes.js';
+import pedidoRoutes from './routes/pedidoRoutes.js';
+import recepcionRoutes from './routes/recepcionRoutes.js';
 import cuentaRoutes from './routes/cuentaRoutes.js';
 import pagoRoutes from './routes/pagoRoutes.js';
 
@@ -38,6 +40,8 @@ app.use('/api/ventas', ventaRoutes);
 app.use('/api/proveedores', proveedorRoutes);
 app.use('/api/catalogo', catalogoRoutes);
 app.use('/api/compras', compraRoutes);
+app.use('/api/pedidos', pedidoRoutes);
+app.use('/api/recepciones', recepcionRoutes);
 app.use('/api/cuentas', cuentaRoutes);
 app.use('/api/pagos', pagoRoutes);
 

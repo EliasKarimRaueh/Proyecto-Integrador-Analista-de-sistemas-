@@ -3,6 +3,10 @@ import type { Transaction, WhereOptions } from 'sequelize';
 
 import BaseRepository from './BaseRepository.js';
 import Compra from '../models/Compra.js';
+import DetalleCompra from '../models/DetalleCompra.js';
+import Recepcion from '../models/Recepcion.js';
+import Proveedor from '../models/Proveedor.js';
+import CuentaProveedor from '../models/CuentaProveedor.js';
 
 class CompraRepository extends BaseRepository<Compra> {
 
@@ -28,8 +32,83 @@ class CompraRepository extends BaseRepository<Compra> {
         );
     }
 
+    async buscarPorIdConBloqueo(
+        id: number,
+        transaction: Transaction
+    ): Promise<Compra | null> {
+
+        return await Compra.findByPk(id, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+    }
+
+    async buscarDetalleCompleto(
+        id: number,
+        transaction?: Transaction
+    ): Promise<Compra | null> {
+
+        return await Compra.findByPk(id, {
+            transaction,
+            include: [
+                { model: Proveedor, as: 'proveedor' },
+                { model: CuentaProveedor, as: 'cuentaProveedor' },
+                { model: Recepcion, as: 'recepcion' },
+                {
+                    model: DetalleCompra,
+                    as: 'detalles'
+                }
+            ]
+        });
+    }
+
+    async listarConFiltros(
+        filtros: {
+            proveedorId?: number;
+            estado?: string;
+            desde?: Date;
+            hasta?: Date;
+        },
+        page = 1,
+        limit = 50,
+        transaction?: Transaction
+    ) {
+
+        const where: WhereOptions<Compra> = {};
+
+        if (filtros.proveedorId !== undefined) {
+            where.proveedorId = filtros.proveedorId;
+        }
+
+        if (filtros.estado !== undefined) {
+            where.estado = filtros.estado as Compra['estado'];
+        }
+
+        if (filtros.desde && filtros.hasta) {
+            where.fechaHora = {
+                [Op.between]: [filtros.desde, filtros.hasta]
+            };
+        } else if (filtros.desde) {
+            where.fechaHora = { [Op.gte]: filtros.desde };
+        } else if (filtros.hasta) {
+            where.fechaHora = { [Op.lte]: filtros.hasta };
+        }
+
+        return await Compra.findAndCountAll({
+            where,
+            include: [
+                { model: Proveedor, as: 'proveedor' },
+                { model: Recepcion, as: 'recepcion' }
+            ],
+            order: [['fechaHora', 'DESC']],
+            offset: (page - 1) * limit,
+            limit,
+            transaction
+        });
+    }
+
     /**
-     * Busca todas las compras sin aplicar paginación.
+     * Busca todas las compras sin aplicar paginaci��n.
      */
     async buscarTodas(
         orderBy = 'fechaHora',

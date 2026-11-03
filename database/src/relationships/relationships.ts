@@ -14,6 +14,11 @@ import Pago from '../models/Pago.js';
 import CuentaProveedor from '../models/CuentaProveedor.js';
 import Compra from '../models/Compra.js';
 import PagoPorCuenta from '../models/PagoPorCuenta.js';
+import PedidoCompra from '../models/PedidoCompra.js';
+import DetallePedidoCompra from '../models/DetallePedidoCompra.js';
+import DetalleCompra from '../models/DetalleCompra.js';
+import Recepcion from '../models/Recepcion.js';
+import DetalleRecepcion from '../models/DetalleRecepcion.js';
 
 // TipoProducto 1 ─── N Producto ────────────────────────────────────
 
@@ -269,4 +274,128 @@ CuentaProveedor.hasMany(PagoPorCuenta, {
 PagoPorCuenta.belongsTo(CuentaProveedor, {
     foreignKey: 'cuentaId',
     as: 'cuentaProveedor'
+});
+// PedidoCompra 1 - N DetallePedidoCompra
+PedidoCompra.hasMany(DetallePedidoCompra, {
+    foreignKey: 'pedidoId',
+    as: 'detalles'
+});
+
+DetallePedidoCompra.belongsTo(PedidoCompra, {
+    foreignKey: 'pedidoId',
+    as: 'pedido'
+});
+
+Producto.hasMany(DetallePedidoCompra, {
+    foreignKey: 'productoId',
+    as: 'detallesPedidoCompra'
+});
+
+DetallePedidoCompra.belongsTo(Producto, {
+    foreignKey: 'productoId',
+    as: 'producto'
+});
+
+Proveedor.hasMany(PedidoCompra, {
+    foreignKey: 'proveedorId',
+    as: 'pedidosCompra'
+});
+
+PedidoCompra.belongsTo(Proveedor, {
+    foreignKey: 'proveedorId',
+    as: 'proveedor'
+});
+
+// PedidoCompra 1 - N Compra
+PedidoCompra.hasMany(Compra, {
+    foreignKey: 'pedidoId',
+    as: 'compras'
+});
+
+Compra.belongsTo(PedidoCompra, {
+    foreignKey: 'pedidoId',
+    as: 'pedido'
+});
+
+// Compra 1 - N DetalleCompra
+Compra.hasMany(DetalleCompra, {
+    foreignKey: 'compraId',
+    as: 'detalles'
+});
+
+DetalleCompra.belongsTo(Compra, {
+    foreignKey: 'compraId',
+    as: 'compra'
+});
+
+Producto.hasMany(DetalleCompra, {
+    foreignKey: 'productoId',
+    as: 'detallesCompra'
+});
+
+DetalleCompra.belongsTo(Producto, {
+    foreignKey: 'productoId',
+    as: 'producto'
+});
+
+// Compra 1 - 1 Recepcion
+Compra.hasOne(Recepcion, {
+    foreignKey: 'compraId',
+    as: 'recepcion'
+});
+
+Recepcion.belongsTo(Compra, {
+    foreignKey: 'compraId',
+    as: 'compra'
+});
+
+PedidoCompra.hasMany(Recepcion, {
+    foreignKey: 'pedidoId',
+    as: 'recepciones'
+});
+
+Recepcion.belongsTo(PedidoCompra, {
+    foreignKey: 'pedidoId',
+    as: 'pedido'
+});
+
+Proveedor.hasMany(Recepcion, {
+    foreignKey: 'proveedorId',
+    as: 'recepciones'
+});
+
+Recepcion.belongsTo(Proveedor, {
+    foreignKey: 'proveedorId',
+    as: 'proveedor'
+});
+
+// Recepcion 1 - N DetalleRecepcion
+Recepcion.hasMany(DetalleRecepcion, {
+    foreignKey: 'recepcionId',
+    as: 'detalles'
+});
+
+DetalleRecepcion.belongsTo(Recepcion, {
+    foreignKey: 'recepcionId',
+    as: 'recepcion'
+});
+
+Producto.hasMany(DetalleRecepcion, {
+    foreignKey: 'productoId',
+    as: 'detallesRecepcion'
+});
+
+DetalleRecepcion.belongsTo(Producto, {
+    foreignKey: 'productoId',
+    as: 'producto'
+});
+
+Recepcion.hasMany(MovimientoStock, {
+    foreignKey: 'recepcionId',
+    as: 'movimientosStock'
+});
+
+MovimientoStock.belongsTo(Recepcion, {
+    foreignKey: 'recepcionId',
+    as: 'recepcion'
 });
