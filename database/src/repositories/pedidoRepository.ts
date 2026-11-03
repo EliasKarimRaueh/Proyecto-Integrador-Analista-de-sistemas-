@@ -7,11 +7,23 @@ import sequelize from '../config/database.js';
 import BaseRepository from './BaseRepository.js';
 import DetallePedidoRepository from './detallePedidoRepository.js';
 import CompraRepository from './compraRepository.js';
+import Producto from '../models/Producto.js';
+import ProductoDiaPedido from '../models/ProductoDiaPedido.js';
+import DiaPedido from '../models/DiaPedido.js';
+import ProductoProveedor from '../models/ProductoProveedor.js';
 
 import Pedido from '../models/Pedido.js';
 import DetallePedido from '../models/DetallePedido.js';
 import Proveedor from '../models/Proveedor.js';
 import Compra from '../models/Compra.js';
+type MotivoNecesidadReposicion =
+    | 'DIA_PEDIDO'
+    | 'STOCK_MINIMO';
+
+type ProductoNecesidadReposicion = {
+    producto: Producto;
+    motivos: MotivoNecesidadReposicion[];
+};
 
 class PedidoRepository extends BaseRepository<Pedido> {
     private detallePedidoRepository: DetallePedidoRepository;
@@ -342,6 +354,142 @@ class PedidoRepository extends BaseRepository<Pedido> {
         }
 
         return await sequelize.transaction(ejecutar);
+    }
+
+    /**
+     * Busca los productos que necesitan reposición.
+     *
+     * Considera dos criterios independientes:
+     *
+     * 1. Productos cuyo día de pedido coincide con el día actual.
+     * 2. Productos cuyo stock actual es igual o inferior al stock mínimo.
+     *
+     * Si un producto cumple ambos criterios, se incluye una sola vez
+     * indicando ambos motivos.
+     *
+    * Permite filtrar opcionalmente por proveedor asociado.
+    */
+    async buscarNecesidadesReposicion(
+        proveedorId?: number,
+        fecha: Date = new Date(),
+        transaction?: Transaction
+    ): Promise<ProductoNecesidadReposicion[]> {
+
+        // Obtener el día actual.
+        const dias: DiaPedido['nombre'][] = [
+            'Domingo',
+            'Lunes',
+            'Martes',
+            'Miércoles',
+            'Jueves',
+            'Viernes',
+            'Sábado'
+        ];
+
+        const diaActual = dias[fecha.getDay()];
+
+        // Obtener todos los productos activos.
+        const productos = await Producto.findAll({
+            where: {
+                activo: true
+            },
+            transaction
+        });
+
+        // Si se especifica un proveedor, filtrar por sus productos asociados.
+        let productosProveedor = new Set<number>();
+
+        if (proveedorId !== undefined) {
+
+            const proveedor = await Proveedor.findOne({
+                where: {
+                    id: proveedorId,
+                    activo: true
+                },
+                transaction
+            });
+
+            if (!proveedor) {
+                throw new Error('No se encontró un proveedor activo.');
+            }
+
+            const relaciones = await ProductoProveedor.findAll({
+                where: {
+                    proveedorId,
+                    activo: true
+                },
+                transaction
+            });
+
+            productosProveedor = new Set(
+                relaciones.map(relacion => relacion.productoId)
+            );
+        }
+
+        // Aplicar el filtro por proveedor si corresponde.
+        const productosFiltrados = proveedorId === undefined
+            ? productos
+            : productos.filter(
+                producto => productosProveedor.has(producto.id)
+            );
+
+        // Obtener el registro del día actual.
+        const diaPedido = await DiaPedido.findOne({
+            where: {
+                nombre: diaActual,
+                activo: true
+            },
+            transaction
+        });
+
+        // Obtener los productos asociados al día actual.
+        let productosDelDia = new Set<number>();
+
+        if (diaPedido) {
+
+            const relacionesDia = await ProductoDiaPedido.findAll({
+                where: {
+                    diaPedidoId: diaPedido.id,
+                    activo: true
+                },
+                transaction
+            });
+
+            productosDelDia = new Set(
+                relacionesDia.map(relacion => relacion.productoId)
+            );
+        }
+
+        // Consolidar las necesidades sin duplicar productos.
+        const resultado = new Map<number, ProductoNecesidadReposicion>();
+
+        for (const producto of productosFiltrados) {
+
+            const motivos: MotivoNecesidadReposicion[] = [];
+
+            // Criterio 1: día de pedido.
+            if (productosDelDia.has(producto.id)) {
+                motivos.push('DIA_PEDIDO');
+            }
+
+            // Criterio 2: stock igual o inferior al mínimo.
+            if (
+                producto.stockMinimo !== null &&
+                producto.stockActual <= producto.stockMinimo
+            ) {
+                motivos.push('STOCK_MINIMO');
+            }
+
+            // Incorporar solamente productos que cumplan al menos un criterio.
+            if (motivos.length > 0) {
+                resultado.set(producto.id, {
+                    producto,
+                    motivos
+                });
+            }
+        }
+
+        return Array.from(resultado.values());
     }
 }
 

@@ -10,6 +10,10 @@ import CompraRepository from './compraRepository.js';
 import CuentaProveedorRepository from './cuentaProveedorRepository.js';
 import ProductoProveedorRepository from './productoProveedorRepository.js';
 
+import DetalleCompraRepository from './detalleCompraRepository.js';
+import MovimientoStockRepository from './movimientoStockRepository.js';
+import ProductoRepository from './productoRepository.js';
+
 type FiltroEstadoCuenta = 'TODAS' | 'PAGADO' | 'NO_PAGADO';
 
 class ProveedorRepository extends BaseRepository<Proveedor> {
@@ -20,8 +24,20 @@ class ProveedorRepository extends BaseRepository<Proveedor> {
     constructor() {
         super(Proveedor);
 
-        this.compraRepository = new CompraRepository();
         this.cuentaProveedorRepository = new CuentaProveedorRepository();
+
+        const productoRepository = new ProductoRepository();
+
+        const detalleCompraRepository = new DetalleCompraRepository(
+            productoRepository
+        );
+
+        this.compraRepository = new CompraRepository(
+            detalleCompraRepository,
+            new MovimientoStockRepository(),
+            this.cuentaProveedorRepository,
+            productoRepository
+        );
     }
 
     // =========================
