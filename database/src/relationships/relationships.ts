@@ -14,6 +14,9 @@ import Pago from '../models/Pago.js';
 import CuentaProveedor from '../models/CuentaProveedor.js';
 import Compra from '../models/Compra.js';
 import PagoPorCuenta from '../models/PagoPorCuenta.js';
+import Pedido from '../models/Pedido.js';
+import DetallePedido from '../models/DetallePedido.js';
+import DetalleCompra from '../models/DetalleCompra.js';
 
 // TipoProducto 1 ─── N Producto ────────────────────────────────────
 
@@ -269,4 +272,106 @@ CuentaProveedor.hasMany(PagoPorCuenta, {
 PagoPorCuenta.belongsTo(CuentaProveedor, {
     foreignKey: 'cuentaId',
     as: 'cuentaProveedor'
+});
+
+
+// Pedido 1 ─── N DetallePedido ────────────────────────────────────
+
+Pedido.hasMany(DetallePedido, {
+
+    foreignKey: 'pedidoId',
+
+    as: 'detalles'
+
+});
+
+DetallePedido.belongsTo(Pedido, {
+
+    foreignKey: 'pedidoId',
+
+    as: 'pedido'
+
+});
+
+
+// Proveedor 1 ─── N Pedido ────────────────────────────────────
+Proveedor.hasMany(Pedido, {
+    foreignKey: 'proveedorId',
+    as: 'pedidos'
+});
+
+Pedido.belongsTo(Proveedor, {
+    foreignKey: 'proveedorId',
+    as: 'proveedor'
+});
+
+// Producto 1 ─── N DetallePedido ────────────────────────────────────
+
+Producto.hasMany(DetallePedido, {
+
+    foreignKey: 'productoId',
+
+    as: 'detallesProducto'
+
+});
+
+DetallePedido.belongsTo(Producto, {
+
+    foreignKey: 'productoId',
+
+    as: 'producto'
+
+});
+
+
+// Pedido 1 ─── 1 Compra
+// Un pedido puede generar una única compra al registrar su recepción.
+
+Pedido.hasOne(Compra, {
+    foreignKey: 'pedidoId',
+    as: 'compra'
+});
+
+Compra.belongsTo(Pedido, {
+    foreignKey: 'pedidoId',
+    as: 'pedido'
+});
+
+
+// Compra 1 ─── N DetalleCompra
+
+Compra.hasMany(DetalleCompra, {
+    foreignKey: 'compraId',
+    as: 'detalles'
+});
+
+DetalleCompra.belongsTo(Compra, {
+    foreignKey: 'compraId',
+    as: 'compra'
+});
+
+
+// Producto 1 ─── N DetalleCompra
+
+Producto.hasMany(DetalleCompra, {
+    foreignKey: 'productoId',
+    as: 'detallesCompra'
+});
+
+DetalleCompra.belongsTo(Producto, {
+    foreignKey: 'productoId',
+    as: 'producto'
+});
+
+
+// Compra 1 ─── N MovimientoStock
+
+Compra.hasMany(MovimientoStock, {
+    foreignKey: 'compraId',
+    as: 'movimientosStock'
+});
+
+MovimientoStock.belongsTo(Compra, {
+    foreignKey: 'compraId',
+    as: 'compra'
 });

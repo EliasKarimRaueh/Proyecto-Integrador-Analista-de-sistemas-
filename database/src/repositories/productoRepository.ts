@@ -1,8 +1,11 @@
 import BaseRepository from './BaseRepository.js';
 import Producto from '../models/Producto.js';
 import Proveedor from '../models/Proveedor.js';
+import DetalleVenta from '../models/DetalleVenta.js';
+import TipoProducto from '../models/TipoProducto.js';
 import ProductoProveedorRepository from './productoProveedorRepository.js';
-import type { Transaction } from 'sequelize';
+import { Op, fn, col } from 'sequelize';
+import type { Transaction} from 'sequelize';
 
 class ProductoRepository extends BaseRepository<Producto> {
 
@@ -13,6 +16,76 @@ class ProductoRepository extends BaseRepository<Producto> {
     // =========================
     // BÚSQUEDAS
     // =========================
+    
+    /**
+    * Busca los productos activos ordenados según la cantidad
+    * de ventas diferentes en las que fueron incluidos.
+    *
+    * Cuenta cada venta una sola vez por producto,
+    * independientemente de la cantidad vendida.
+    *
+    * Los productos que nunca fueron vendidos también se incluyen,
+    * con un contador igual a cero.
+    *
+    * Permite filtrar opcionalmente por tipo de producto.
+    */
+    async findAllActivosOrdenadosPorVentas(
+        page = 1,
+        limit = 10,
+        orderDirection: 'ASC' | 'DESC' = 'DESC',
+        tipo?: TipoProducto,
+        transaction?: Transaction
+    ): Promise<{
+        rows: Array<Producto & { dataValues: { cantidadVentas: number } }>;
+        count: number;
+    }> {
+
+        const offset = (page - 1) * limit;
+
+        const where = {
+            activo: true,
+            ...(tipo !== undefined && { tipo })
+        };
+
+        const rows = await this.model.findAll({
+            where,
+            attributes: {
+                include: [
+                    [
+                        fn(
+                            'COUNT',
+                            fn('DISTINCT', col('detallesVenta.ventaId'))
+                        ),
+                        'cantidadVentas'
+                    ]
+                ]
+            },
+            include: [
+                {
+                    model: DetalleVenta,
+                    as: 'detallesVenta',
+                    attributes: [],
+                    required: false
+                }
+            ],
+            group: ['Producto.id'],
+            order: [
+                [col('cantidadVentas'), orderDirection],
+                ['id', 'ASC']
+            ],
+            limit,
+            offset,
+            transaction
+        });
+
+        const count = await this.count(where, transaction);
+
+        return {
+            rows,
+            count
+        };
+    }
+
 
     async findByName(
         nombre: string,
@@ -431,6 +504,8 @@ class ProductoRepository extends BaseRepository<Producto> {
             transaction
         );
     }
+
+    
 }
 
 export default ProductoRepository;
