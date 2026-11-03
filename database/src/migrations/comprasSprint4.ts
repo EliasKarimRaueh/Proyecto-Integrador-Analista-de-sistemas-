@@ -88,6 +88,38 @@ export async function migrateComprasSprint4() {
         await query("ALTER TABLE compras ALTER COLUMN estado SET DEFAULT 'PENDIENTE_RECEPCION'");
         await query('ALTER TABLE compras ALTER COLUMN estado SET NOT NULL');
 
+        // 1. Elimina cualquier clave foránea previa sobre compras.pedidoId que no apunte a pedidos_compra
+        await query(`
+            DO $$
+            DECLARE
+                r RECORD;
+            BEGIN
+                FOR r IN (
+                    SELECT tc.constraint_name
+                    FROM information_schema.table_constraints tc
+                    JOIN information_schema.key_column_usage kcu
+                      ON tc.constraint_name = kcu.constraint_name
+                    JOIN information_schema.constraint_column_usage ccu
+                      ON ccu.constraint_name = tc.constraint_name
+                    WHERE tc.constraint_type = 'FOREIGN KEY'
+                      AND tc.table_name = 'compras'
+                      AND kcu.column_name = 'pedidoId'
+                      AND ccu.table_name <> 'pedidos_compra'
+                ) LOOP
+                    EXECUTE 'ALTER TABLE compras DROP CONSTRAINT ' || quote_ident(r.constraint_name);
+                END LOOP;
+            END $$;
+        `);
+
+        // 2. Limpia los pedidoId huérfanos que no existen en pedidos_compra
+        await query(`
+            UPDATE compras
+            SET "pedidoId" = NULL
+            WHERE "pedidoId" IS NOT NULL
+              AND "pedidoId" NOT IN (SELECT id FROM pedidos_compra);
+        `);
+
+        // 3. Aplica la clave foránea hacia pedidos_compra
         await query(`
             DO $$
             BEGIN
