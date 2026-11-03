@@ -41,6 +41,7 @@
     "test:repositories": "tsx src/test/test-repositories.ts",
     "test:repositories2": "npx jest src/test/test-repositories2.test.ts",
     "seed:productos": "tsx src/seeders/seederProductos.ts",
+    "db:seed": "tsx src/seeders/seedDatabase.ts",
     "seed:proveedores": "tsx src/seeders/seederProveedores.ts",
     "seed:ventas": "tsx src/seeders/seederVentas.ts"
   },

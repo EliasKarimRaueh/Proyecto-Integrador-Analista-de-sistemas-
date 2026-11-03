@@ -64,7 +64,7 @@ Producto.init({
 
     descripcion: {
         type: DataTypes.STRING(300),
-        allowNull: false,
+        allowNull: true,
         defaultValue: ''
     },
 

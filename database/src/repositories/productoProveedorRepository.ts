@@ -7,19 +7,16 @@ import Producto from '../models/Producto.js';
 import Proveedor from '../models/Proveedor.js';
 
 import ProductoRepository from './productoRepository.js';
-import ProveedorRepository from './proveedorRepository.js';
 
 class ProductoProveedorRepository
     extends BaseRepository<ProductoProveedor> {
 
     private productoRepository: ProductoRepository;
-    private proveedorRepository: ProveedorRepository;
 
     constructor() {
         super(ProductoProveedor);
 
         this.productoRepository = new ProductoRepository();
-        this.proveedorRepository = new ProveedorRepository();
     }
 
     // =========================
@@ -74,11 +71,10 @@ class ProductoProveedorRepository
 
         for (const relacion of relaciones) {
 
-            const proveedor =
-                await this.proveedorRepository.findById(
-                    relacion.proveedorId,
-                    transaction
-                );
+            const proveedor = await Proveedor.findByPk(
+                relacion.proveedorId,
+                { transaction }
+            );
 
             if (proveedor) {
                 proveedores.push(proveedor);
@@ -105,11 +101,10 @@ class ProductoProveedorRepository
 
         for (const relacion of relaciones) {
 
-            const proveedor =
-                await this.proveedorRepository.findById(
-                    relacion.proveedorId,
-                    transaction
-                );
+            const proveedor = await Proveedor.findByPk(
+                relacion.proveedorId,
+                { transaction }
+            );
 
             if (proveedor && proveedor.activo) {
                 proveedores.push(proveedor);
