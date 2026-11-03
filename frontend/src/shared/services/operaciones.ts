@@ -4,6 +4,7 @@ export type Unidad = 'KILOS' | 'UNIDADES'
 export type StockProducto = {
   id: number; codigo: string; nombre: string; stockActual: number; stockMinimo: number | null
   margenStock: number | null; unidadVenta: Unidad; estado: 'Normal' | 'Próximo al Mínimo' | 'Crítico'
+  unidadCompra?: string; factorConversion?: number
 }
 export type ProductoCaja = Omit<StockProducto, 'estado'> & { activo: boolean }
 export type Pagina<T> = { rows: T[]; count: number }
@@ -19,7 +20,7 @@ export type Movimiento = {
   motivo: string | null; usuarioId: number; ventaId: number | null
 }
 export type TipoMovimiento = 'INGRESO' | 'EGRESO' | 'AJUSTE' | 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO' | 'MERMA' | 'PERDIDA' | 'VENCIMIENTO' | 'ROTURA'
-export type MovimientoInput = { productoId: number; tipo: TipoMovimiento; cantMovimiento?: number; stockObjetivo?: number; motivo: string }
+export type MovimientoInput = { productoId: number; tipo: TipoMovimiento; cantMovimiento?: number; stockObjetivo?: number; motivo: string; unidad?: 'COMPRA' | 'VENTA' }
 export type DesposteInput = { productoOrigenId: number; cantidadOrigen: number; derivados: { productoId: number; cantidad: number }[]; merma: number; motivo: string }
 
 function consulta(path: string, params: Record<string, string | number | undefined>) {

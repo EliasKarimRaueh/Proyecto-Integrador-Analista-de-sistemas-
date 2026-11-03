@@ -163,6 +163,21 @@ describe('getProductos', () => {
 });
 
 describe('createProducto', () => {
+  it('guarda la presentación de compra y su conversión a kilos', async () => {
+    const res = crearRes();
+    await createProducto(crearReq({ body: { ...BODY_VALIDO, unidadCompra: 'CAJONES', factorConversion: 20 } }), res);
+    expect(productoRepo.create).toHaveBeenCalledWith(expect.objectContaining({ unidadCompra: 'CAJONES', unidadVenta: 'KILOS', factorConversion: 20 }));
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('rechaza factores inválidos y fracciones de unidades base', async () => {
+    for (const factorConversion of [0, -1, 'abc', true, 1000001, 1.5]) {
+      const res = crearRes();
+      await createProducto(crearReq({ body: { ...BODY_VALIDO, unit: 'unidad', unidadCompra: 'BULTOS', factorConversion } }), res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
+    expect(productoRepo.create).not.toHaveBeenCalled();
+  });
 
   it('normaliza el cuerpo y responde 201', async () => {
     const res = crearRes();
@@ -403,6 +418,19 @@ describe('reactivateProducto', () => {
 });
 
 describe('updateProducto', () => {
+  it('mantiene la unidad de compra al editar solamente los datos del catálogo', async () => {
+    const res = crearRes();
+    await updateProducto(crearReq({ params: { id: '10' }, body: BODY_VALIDO }), res);
+    const datos = productoRepo.updateById.mock.calls[0][1] as Record<string, unknown>;
+    expect(datos).not.toHaveProperty('unidadCompra');
+    expect(datos).not.toHaveProperty('factorConversion');
+  });
+
+  it('permite editar explícitamente la presentación y el factor', async () => {
+    const res = crearRes();
+    await updateProducto(crearReq({ params: { id: '10' }, body: { ...BODY_VALIDO, unidadCompra: 'BULTOS', factorConversion: 15 } }), res);
+    expect(productoRepo.updateById).toHaveBeenCalledWith(10, expect.objectContaining({ unidadCompra: 'BULTOS', factorConversion: 15 }));
+  });
 
   it('rechaza un identificador no numérico antes de leer el cuerpo', async () => {
     const res = crearRes();
@@ -476,7 +504,7 @@ describe('updateProducto', () => {
     expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese código.' });
   });
 
-  it('normaliza la unidad a UNIDADES cuando no es kg', async () => {
+  it('actualiza la unidad de venta sin sobrescribir la log?stica omitida', async () => {
     const res = crearRes();
     await updateProducto(
       crearReq({ params: { id: '10' }, body: { ...BODY_VALIDO, unit: 'unidad' } }), res,
@@ -484,7 +512,7 @@ describe('updateProducto', () => {
 
     expect(productoRepo.updateById).toHaveBeenCalledWith(
       10,
-      expect.objectContaining({ unidadCompra: 'UNIDADES', unidadVenta: 'UNIDADES' }),
+      expect.objectContaining({ unidadVenta: 'UNIDADES' }),
     );
   });
 });

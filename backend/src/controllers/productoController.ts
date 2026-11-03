@@ -8,7 +8,7 @@ const tipoProductoRepository = new TipoProductoRepository();
 const categories = ['Fresco', 'Congelado', 'Seco Almacen'] as const;
 const units = ['kg', 'unidad'] as const;
 
-type ProductInput = { code?: unknown; name?: unknown; category?: unknown; unit?: unknown; description?: unknown };
+type ProductInput = { code?: unknown; name?: unknown; category?: unknown; unit?: unknown; description?: unknown; unidadCompra?: unknown; factorConversion?: unknown };
 
 function normalize(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
@@ -38,7 +38,14 @@ function validateInput(body: ProductInput) {
   if (!category) return { error: 'La categoría no es válida.' };
   if (!unit) return { error: 'La unidad de venta no es válida.' };
   if (description.length > 300) return { error: 'La descripción admite hasta 300 caracteres.' };
-  return { value: { code, name, category, unit, description } };
+  const unidadCompra = body.unidadCompra === undefined ? undefined : String(body.unidadCompra);
+  const factorConversion = body.factorConversion === undefined ? undefined : Number(body.factorConversion);
+  if (unidadCompra !== undefined && !['KILOS', 'UNIDADES', 'CAJONES', 'CAJAS', 'BOLSAS', 'BULTOS'].includes(unidadCompra)) return { error: 'La unidad de compra no es válida.' };
+  if (factorConversion !== undefined && ((typeof body.factorConversion !== 'string' && typeof body.factorConversion !== 'number') || !Number.isFinite(factorConversion) || factorConversion <= 0 || factorConversion > 1000000 || (unit === 'unidad' && !Number.isSafeInteger(factorConversion)))) return { error: 'El factor debe ser positivo; para venta por unidad debe ser entero.' };
+  if (unidadCompra === 'KILOS' || unidadCompra === 'UNIDADES') {
+    if (unidadCompra !== (unit === 'kg' ? 'KILOS' : 'UNIDADES') || factorConversion !== undefined && factorConversion !== 1) return { error: 'La compra en kilos/unidades debe coincidir con la venta y usar factor 1. Elegí una presentación para otra equivalencia.' };
+  }
+  return { value: { code, name, category, unit, description, unidadCompra, factorConversion } };
 }
 
 async function getCategoryMap() {
@@ -115,9 +122,9 @@ export const createProducto = async (req: Request, res: Response) => {
     const type = await findOrCreateCategory(input.category);
     const product = await productoRepository.create({
       codigo: input.code, nombre: input.name, descripcion: input.description, tipoProductoId: type.id,
-      unidadCompra: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
+      unidadCompra: (input.unidadCompra ?? (input.unit === 'kg' ? 'KILOS' : 'UNIDADES')) as StoredProduct['unidadCompra'],
       unidadVenta: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
-      factorConversion: 1, stockActual: 0, costoActual: '0', activo: true, fechaBaja: null,
+      factorConversion: input.factorConversion ?? 1, stockActual: 0, costoActual: '0', activo: true, fechaBaja: null,
       tipoReposicion: 'diario', stockMinimo: null,
     });
     res.status(201).json(presentProduct(product, input.category));
@@ -134,7 +141,8 @@ export const updateProducto = async (req: Request, res: Response) => {
     const type = await findOrCreateCategory(input.category);
     const product = await productoRepository.updateById(id, {
       codigo: input.code, nombre: input.name, descripcion: input.description, tipoProductoId: type.id,
-      unidadCompra: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
+      ...(input.unidadCompra === undefined ? {} : { unidadCompra: input.unidadCompra as StoredProduct['unidadCompra'] }),
+      ...(input.factorConversion === undefined ? {} : { factorConversion: input.factorConversion }),
       unidadVenta: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
     });
     if (!product) { res.status(404).json({ message: 'Producto no encontrado.' }); return; }

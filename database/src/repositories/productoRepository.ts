@@ -1,9 +1,11 @@
-import { Op } from 'sequelize';
+import { Op, fn, col } from 'sequelize';
 import type { Transaction } from 'sequelize';
 
 import sequelize from '../config/database.js';
 import BaseRepository from './BaseRepository.js';
 import Producto from '../models/Producto.js';
+import TipoProducto from '../models/TipoProducto.js';
+import DetalleVenta from '../models/DetalleVenta.js';
 import Proveedor from '../models/Proveedor.js';
 import ProductoProveedor from '../models/ProductoProveedor.js';
 import ProductoProveedorRepository from './productoProveedorRepository.js';
@@ -45,7 +47,7 @@ class ProductoRepository extends BaseRepository<Producto> {
 
         const where = {
             activo: true,
-            ...(tipo !== undefined && { tipo })
+            ...(tipo !== undefined && { tipoProductoId: tipo.id })
         };
 
         const rows = await this.model.findAll({
@@ -274,6 +276,7 @@ class ProductoRepository extends BaseRepository<Producto> {
         opciones: {
             proveedorId?: number;
             incluirProximos?: boolean;
+            soloHabitual?: boolean;
             q?: string;
             page: number;
             limit: number;
@@ -310,6 +313,7 @@ class ProductoRepository extends BaseRepository<Producto> {
             }
 
             where.id = { [Op.in]: ids };
+            if (opciones.soloHabitual) where.proveedorHabitualId = opciones.proveedorId;
         }
 
         where[Op.and] = [

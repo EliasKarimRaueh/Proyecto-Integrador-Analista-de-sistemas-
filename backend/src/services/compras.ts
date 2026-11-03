@@ -6,7 +6,7 @@ import PedidoCompraRepository from 'polleria-database/repositories/pedidoCompraR
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import ProductoProveedorRepository from 'polleria-database/repositories/productoProveedorRepository';
 import ProveedorRepository from 'polleria-database/repositories/proveedorRepository';
-import { ErrorOperacion, estadoStock, objeto, numero, id } from './operaciones.js';
+import { ErrorOperacion, estadoStock, objeto, numero, id, validarCantidad } from './operaciones.js';
 import {
   calcularCantidadSugerida,
   calcularFaltante,
@@ -77,6 +77,7 @@ async function normalizarLineas(value: unknown, transaction: import('sequelize')
     const cantidadBase = detalle.cantidad === undefined
       ? convertirCantidadBase(numero(detalle.cantidadPresentacion, 'cantidadPresentacion'), factorConversion)
       : numero(detalle.cantidad, 'cantidad');
+    validarCantidad(producto, cantidadBase);
 
     let costoUnitario: string;
     if (detalle.costoUnitario !== undefined) {
@@ -145,6 +146,8 @@ export async function registrarCompra(body: unknown) {
       tipoComprobante,
       numeroComprobante,
       estado: 'PENDIENTE_RECEPCION',
+      formaPago: 'A CUENTA',
+      observaciones,
       fechaHora,
       total: total as unknown as number
     } as never, transaction);
@@ -183,14 +186,16 @@ export async function listarReposicion(
   limit: number,
   proveedorId?: number,
   incluirProximos = false,
-  q?: string
+  q?: string,
+  soloHabitual = false
 ) {
   const resultado = await productos.buscarParaReposicion({
     proveedorId,
     incluirProximos,
     q,
     page,
-    limit
+    limit,
+    ...(soloHabitual ? { soloHabitual: true } : {})
   });
 
   const proveedoresPorProducto = await relaciones.getProveedoresActivosPorProductos(
@@ -211,6 +216,7 @@ export async function listarReposicion(
         stockActual: producto.stockActual,
         stockMinimo: producto.stockMinimo,
         costoActual: producto.costoActual,
+        proveedorHabitualId: proveedoresPorProducto.get(producto.id)?.some(p => p.id === producto.proveedorHabitualId) ? producto.proveedorHabitualId : null,
         estado: estadoStock(producto.stockActual, producto.stockMinimo),
         faltante,
         cantidadSugerida: calcularCantidadSugerida(faltante, producto.factorConversion || 1),
@@ -231,6 +237,7 @@ export async function listarCompras(
   hasta?: Date,
   estado?: string
 ) {
+  if (estado !== undefined && !['PENDIENTE_RECEPCION', 'RECIBIDA'].includes(estado)) throw new ErrorOperacion('El estado de la compra no es válido.');
   return await compras.listarConFiltros({ proveedorId, estado, desde, hasta }, page, limit);
 }
 

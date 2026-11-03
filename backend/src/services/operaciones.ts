@@ -44,16 +44,21 @@ export async function registrarMovimiento(body: unknown) {
   const tipos = ['INGRESO', 'EGRESO', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'MERMA', 'PERDIDA', 'VENCIMIENTO', 'ROTURA', 'AJUSTE'];
   if (!tipos.includes(String(b.tipo))) throw new ErrorOperacion('Tipo de movimiento inválido.');
   const razon = motivo(b.motivo);
-  const cantidad = numero(b.tipo === 'AJUSTE' ? b.stockObjetivo : b.cantMovimiento, 'cantidad', b.tipo === 'AJUSTE');
+  const cantidadIngresada = numero(b.tipo === 'AJUSTE' ? b.stockObjetivo : b.cantMovimiento, 'cantidad', b.tipo === 'AJUSTE');
+  const unidad = b.unidad ?? 'VENTA';
+  if (unidad !== 'COMPRA' && unidad !== 'VENTA') throw new ErrorOperacion('La unidad debe ser COMPRA o VENTA.');
   return sequelize.transaction(async transaction => {
     const productos = await bloquear([productoId], transaction);
     const producto = productos.get(productoId)!;
+    const factor = unidad === 'COMPRA' ? numero(producto.factorConversion, 'factorConversion') : 1;
+    const cantidad = Number((cantidadIngresada * factor).toFixed(3));
+    if (cantidad === 0 && b.tipo !== 'AJUSTE') throw new ErrorOperacion('La cantidad es menor a la precisión de stock (0,001).');
     validarCantidad(producto, cantidad);
     const suma = b.tipo === 'INGRESO' || b.tipo === 'AJUSTE_POSITIVO';
     if (b.tipo !== 'AJUSTE' && !suma && producto.margenStock !== null && producto.stockActual - cantidad < -producto.margenStock) {
       throw new ErrorOperacion('El movimiento supera el margen de stock permitido.', 409);
     }
-    const descripcion = `${b.tipo}: ${razon}`;
+    const descripcion = `${b.tipo}: ${razon}${unidad === 'COMPRA' ? ` (${cantidadIngresada} ${producto.unidadCompra} × ${factor})` : ''}`;
     if (b.tipo === 'AJUSTE') return movimientos.ajustarStock(productoId, cantidad, usuarioId, descripcion, transaction);
     if (b.tipo === 'INGRESO' || b.tipo === 'AJUSTE_POSITIVO') return movimientos.registrarIngreso(productoId, cantidad, usuarioId, descripcion, null, transaction);
     return movimientos.registrarEgreso(productoId, cantidad, usuarioId, descripcion, null, transaction);

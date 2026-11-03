@@ -6,7 +6,7 @@ import MovimientoStockRepository from 'polleria-database/repositories/movimiento
 import PedidoCompraRepository from 'polleria-database/repositories/pedidoCompraRepository';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import RecepcionRepository from 'polleria-database/repositories/recepcionRepository';
-import { ErrorOperacion, objeto, numero, id } from './operaciones.js';
+import { ErrorOperacion, objeto, numero, id, validarCantidad } from './operaciones.js';
 import {
   convertirCantidadBase,
   convertirCostoUnitario,
@@ -117,11 +117,15 @@ export async function registrarRecepcion(body: unknown) {
       }
 
       const factorConversion = detalle.factorConversion === undefined
-        ? producto.factorConversion
+        ? (presentacion === 'KILOS' || presentacion === 'UNIDAD' ? 1 : producto.factorConversion)
         : numero(detalle.factorConversion, 'factorConversion');
 
       const cantidadPresentacion = numero(detalle.cantidadPresentacion, 'cantidadPresentacion');
       const cantidadBase = convertirCantidadBase(cantidadPresentacion, factorConversion);
+      validarCantidad(producto, cantidadBase);
+      if (cantidadBase <= 0) throw new ErrorOperacion('La cantidad recibida es menor a la precisión de stock.');
+      if ((presentacion === 'KILOS' || presentacion === 'UNIDAD') && factorConversion !== 1) throw new ErrorOperacion('La unidad base requiere factor de conversión 1.');
+      if (presentacion === 'KILOS' && producto.unidadVenta === 'UNIDADES' || presentacion === 'UNIDAD' && producto.unidadVenta === 'KILOS') throw new ErrorOperacion('La presentación no coincide con la unidad de venta.');
 
       validarDiferenciaRecepcion(Number(detalleCompra.cantidad), cantidadBase, observaciones);
 
@@ -178,7 +182,7 @@ export async function registrarRecepcion(body: unknown) {
     );
 
     const movimientosGuardados = [];
-    for (const linea of lineas) {
+    for (const linea of [...lineas].sort((a, b) => a.productoId - b.productoId)) {
       movimientosGuardados.push(
         await movimientos.registrarIngreso(
           linea.productoId,

@@ -15,6 +15,8 @@ try {
   await migrateProductCatalog();
   await migratePreciosOfertas();
   await migrateComprasSprint4();
+  await migrateProveedores();
+  await migrateCuentasProveedores();
   console.log('Conexión exitosa con la base de datos');
 
   app.listen(PORT, () => {

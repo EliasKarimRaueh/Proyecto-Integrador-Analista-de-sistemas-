@@ -7,7 +7,9 @@ const TIPOS_COMPROBANTE = ['FACTURA', 'REMITO', 'OTRO'] as const;
 
 class Compra extends Model {
     declare id: number;
-    declare numeroComprobante: string | null;
+    declare formaPago: 'PAGADO' | 'A CUENTA';
+    declare observaciones: string | null;
+
     declare claveOperacion: string | null;
     declare fechaHora: Date;
     declare total: number;
@@ -27,10 +29,7 @@ Compra.init({
         unique: true
     },
 
-    numeroComprobante: {
-        type: DataTypes.STRING(80),
-        allowNull: true
-    },
+
     
     claveOperacion: {
         type: DataTypes.UUID,
@@ -109,12 +108,15 @@ Compra.init({
         }
     },
 
+    observaciones: { type: DataTypes.STRING(300), allowNull: true },
+
     formaPago: {
         type: DataTypes.ENUM(
             'PAGADO',
             'A CUENTA',
             ),
         allowNull: false,
+        defaultValue: 'A CUENTA',
     },
 
 }, {

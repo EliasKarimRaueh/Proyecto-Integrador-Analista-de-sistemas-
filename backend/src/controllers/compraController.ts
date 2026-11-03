@@ -29,7 +29,8 @@ export const getReposicion = (req: Request, res: Response) => ejecutar(res, asyn
     limit,
     proveedorId,
     incluirProximos,
-    String(req.query.q ?? '').trim() || undefined
+    String(req.query.q ?? '').trim() || undefined,
+    ...(req.query.soloHabitual === 'true' ? [true] : [])
   );
   res.setHeader('X-Total-Count', resultado.count);
   return resultado.rows;

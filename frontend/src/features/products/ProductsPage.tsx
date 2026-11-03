@@ -6,7 +6,7 @@ import { formatearMonto } from '../../shared/lib/money'
 import { createProduct, deactivateProduct, fetchProducts, reactivateProduct, updateProduct } from '../../shared/services/api'
 import { fetchPreciosVigentes } from '../../shared/services/precios'
 import { PreciosProductoModal } from '../precios/PreciosProductoModal'
-import { categories, units, emptyDraft, validateProduct, normalize, type Product, type ProductDraft } from './products'
+import { categories, units, purchaseUnits, emptyDraft, validateProduct, normalize, type Product, type ProductDraft } from './products'
 
 type Editor = { mode: 'create' } | { mode: 'edit' | 'detail' | 'deactivate' | 'reactivate'; product: Product }
 const categorySymbols: Record<Product['category'], string> = { Fresco: 'F', Congelado: 'C', 'Seco Almacen': 'S' }
@@ -50,7 +50,7 @@ export function ProductsPage() {
   const activeCount = products.filter(p => p.active).length
 
   function open(next: Editor) {
-    setDraft(next.mode === 'create' ? { ...emptyDraft } : { ...next.product })
+    setDraft(next.mode === 'create' ? { ...emptyDraft } : { ...next.product, unidadCompra: next.product.unidadCompra ?? (next.product.unit === 'kg' ? 'KILOS' : 'UNIDADES'), factorConversion: next.product.factorConversion ?? 1 })
     setErrors({})
     setNotice('')
     setApiError('')
@@ -97,7 +97,7 @@ export function ProductsPage() {
   }
 
   function field<K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) {
-    setDraft(current => ({ ...current, [key]: value }))
+    setDraft(current => ({ ...current, [key]: value, ...(key === 'unit' && (current.unidadCompra === 'KILOS' || current.unidadCompra === 'UNIDADES') ? { unidadCompra: value === 'kg' ? 'KILOS' as const : 'UNIDADES' as const, factorConversion: 1 } : {}) }))
     setErrors(current => ({ ...current, [key]: undefined }))
   }
 
@@ -152,12 +152,14 @@ export function ProductsPage() {
             {editor.mode === 'edit' && <label>Código *<input value={draft.code} maxLength={20} onChange={e => field('code', e.target.value)} aria-invalid={!!errors.code} aria-describedby={errors.code ? 'error-code' : undefined} placeholder="Ej. COR-005" />{errors.code && <small id="error-code" className="field-error">{errors.code}</small>}</label>}
             <label>Categoría *<select value={draft.category} onChange={e => field('category', e.target.value as Product['category'])}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>
             <label>Unidad de venta *<select value={draft.unit} onChange={e => field('unit', e.target.value as Product['unit'])}>{units.map(u => <option key={u} value={u}>{u === 'kg' ? 'Kilogramo (kg)' : u}</option>)}</select></label>
+            <label>Unidad de compra *<select value={draft.unidadCompra} onChange={e => field('unidadCompra', e.target.value as Product['unidadCompra'])}>{purchaseUnits.map(u => <option key={u}>{u}</option>)}</select>{errors.unidadCompra && <small className="field-error">{errors.unidadCompra}</small>}</label>
+            <label>Factor de conversión *<input type="number" min="0.001" max="1000000" step={draft.unit === 'kg' ? '0.001' : '1'} value={draft.factorConversion ?? ''} onChange={e => field('factorConversion', Number(e.target.value))}/>{errors.factorConversion && <small className="field-error">{errors.factorConversion}</small>}<small>1 unidad de compra equivale a {draft.factorConversion || '…'} {draft.unit} de inventario.</small></label>
             <label className="full-width">Descripción<textarea value={draft.description} maxLength={300} rows={3} onChange={e => field('description', e.target.value)} placeholder="Agregá detalles para identificar el producto" /><small>{draft.description.length}/300 caracteres</small></label>
           </div>
           <div className="form-note">Los precios y las ofertas se gestionan desde el botón de precios de cada producto.</div>
           <div className="modal-footer"><button type="button" className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button type="submit" className="button primary" disabled={saving}><Icon name="check" size={18} />{saving ? 'Guardando...' : editor.mode === 'create' ? 'Registrar producto' : 'Guardar cambios'}</button></div>
         </form>}
-        {editor.mode === 'detail' && <><div className="detail-product"><span className={'product-symbol symbol-' + editor.product.category.toLowerCase()}>{categorySymbols[editor.product.category]}</span><div><h3>{editor.product.name}</h3><span className={'badge ' + (editor.product.active ? 'product-active' : 'product-inactive')}>{editor.product.active ? 'Activo' : 'Inactivo'}</span></div></div><dl className="detail-grid"><div><dt>Categoría</dt><dd>{editor.product.category}</dd></div><div><dt>Unidad de venta</dt><dd>{editor.product.unit}</dd></div><div className="full-width"><dt>Descripción</dt><dd>{editor.product.description || 'Sin descripción'}</dd></div></dl><div className="modal-footer"><button className="button" onClick={() => setEditor(null)}>Cerrar</button><button className="button primary" onClick={() => open({ mode: 'edit', product: editor.product })}><Icon name="edit" size={18} />Editar producto</button></div></>}
+        {editor.mode === 'detail' && <><div className="detail-product"><span className={'product-symbol symbol-' + editor.product.category.toLowerCase()}>{categorySymbols[editor.product.category]}</span><div><h3>{editor.product.name}</h3><span className={'badge ' + (editor.product.active ? 'product-active' : 'product-inactive')}>{editor.product.active ? 'Activo' : 'Inactivo'}</span></div></div><dl className="detail-grid"><div><dt>Categoría</dt><dd>{editor.product.category}</dd></div><div><dt>Unidad de venta</dt><dd>{editor.product.unit}</dd></div><div><dt>Unidad de compra</dt><dd>{editor.product.unidadCompra ?? (editor.product.unit === 'kg' ? 'KILOS' : 'UNIDADES')}</dd></div><div><dt>Equivalencia</dt><dd>1 presentación = {editor.product.factorConversion ?? 1} {editor.product.unit}</dd></div><div className="full-width"><dt>Descripción</dt><dd>{editor.product.description || 'Sin descripción'}</dd></div></dl><div className="modal-footer"><button className="button" onClick={() => setEditor(null)}>Cerrar</button><button className="button primary" onClick={() => open({ mode: 'edit', product: editor.product })}><Icon name="edit" size={18} />Editar producto</button></div></>}
         {editor.mode === 'deactivate' && <><div className="confirmation-icon"><Icon name="archive" size={28} /></div><p>¿Querés dar de baja <strong>{editor.product.name}</strong>?</p><p>El producto quedará inactivo. Sus datos se conservarán y podrás consultarlo usando el filtro de estado.</p><div className="modal-footer"><button autoFocus className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button className="button danger" disabled={saving} onClick={() => changeStatus(editor.product)}>{saving ? 'Procesando...' : 'Confirmar baja'}</button></div></>}
         {editor.mode === 'reactivate' && <><p>¿Querés reactivar <strong>{editor.product.name}</strong>?</p><p>El producto volverá a estar disponible conservando sus datos e historial.</p><div className="modal-footer"><button autoFocus className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button className="button primary" disabled={saving} onClick={() => changeStatus(editor.product)}>{saving ? 'Procesando...' : 'Confirmar reactivación'}</button></div></>}
       </Modal>}

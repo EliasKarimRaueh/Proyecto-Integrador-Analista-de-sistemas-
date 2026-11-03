@@ -4,6 +4,15 @@ export async function migrateComprasSprint4() {
     await sequelize.transaction(async transaction => {
         const query = (sql: string) => sequelize.query(sql, { transaction });
 
+        await query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS "proveedorHabitualId" INTEGER REFERENCES proveedores(id)');
+        await query('CREATE INDEX IF NOT EXISTS productos_proveedor_habitual ON productos ("proveedorHabitualId") WHERE "proveedorHabitualId" IS NOT NULL');
+        await query('ALTER TABLE compras ADD COLUMN IF NOT EXISTS observaciones VARCHAR(300)');
+        await query(`DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'compras' AND column_name = 'formaPago') THEN
+                ALTER TABLE compras ALTER COLUMN "formaPago" SET DEFAULT 'A CUENTA';
+            END IF;
+        END $$`);
+
         await query(`
             CREATE TABLE IF NOT EXISTS pedidos_compra (
                 id SERIAL PRIMARY KEY,

@@ -19,11 +19,13 @@ export function StockPage() {
   const [search, setSearch] = useState(''), [estado, setEstado] = useState('Todos'), [page, setPage] = useState(1)
   const [editor, setEditor] = useState<Editor | null>(null), [tipo, setTipo] = useState<TipoMovimiento>('INGRESO')
   const [cantidad, setCantidad] = useState(''), [motivo, setMotivo] = useState('')
+  const [unidad, setUnidad] = useState<'COMPRA' | 'VENTA'>('VENTA')
   const [saving, setSaving] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('')
   const productos = resource.data ?? []
   const filtered = productos.filter(p => normalize(`${p.codigo} ${p.nombre}`).includes(normalize(search)) && (estado === 'Todos' || p.estado === estado))
   const visible = filtered.slice((page - 1) * 20, page * 20)
   function abrir(producto: StockProducto, mode: Editor['mode']) {
+    setUnidad('VENTA')
     setEditor({ producto, mode }); setTipo('INGRESO'); setCantidad(mode === 'minimo' ? String(producto.stockMinimo ?? '') : ''); setMotivo(''); setError(''); setNotice('')
   }
   async function enviar(event: FormEvent) {
@@ -31,21 +33,21 @@ export function StockPage() {
     if (!editor || saving) return
     setError('')
     try {
-      const value = cantidadInput(cantidad, editor.producto.unidadVenta, editor.mode === 'minimo' || tipo === 'AJUSTE')
+      const value = cantidadInput(cantidad, editor.mode === 'movimiento' && unidad === 'COMPRA' ? 'KILOS' : editor.producto.unidadVenta, editor.mode === 'minimo' || tipo === 'AJUSTE')
       const razon = editor.mode === 'movimiento' ? validarMotivo(motivo) : ''
       setSaving(true)
       if (editor.mode === 'minimo') {
         await guardarMinimo(editor.producto.id, value)
         setNotice('Límite de reposición actualizado.')
       } else {
-        const movimiento = await guardarMovimiento({ productoId: editor.producto.id, tipo, motivo: razon, ...(tipo === 'AJUSTE' ? { stockObjetivo: value } : { cantMovimiento: value }) })
+        const movimiento = await guardarMovimiento({ productoId: editor.producto.id, tipo, motivo: razon, unidad, ...(tipo === 'AJUSTE' ? { stockObjetivo: value } : { cantMovimiento: value }) })
         setNotice(movimiento ? 'Movimiento registrado y stock actualizado.' : 'El stock contado coincide con el actual. No se generó un movimiento.')
       }
       setEditor(null); resource.refetch()
     } catch (fallo) { setError(errorMensaje(fallo)) } finally { setSaving(false) }
   }
   return <section>
-    <Encabezado title="Inventario" description="Existencias, alertas de reposición y movimientos de mercadería." actions={<><button className="button" onClick={resource.refetch}>Actualizar</button><Link className="button" to="/movimientos">Ver movimientos</Link><Link className="button primary" to="/desposte">Desposte</Link></>} />
+    <Encabezado title="Inventario" description="Existencias, alertas de reposición y movimientos de mercadería." actions={<><button className="button" onClick={resource.refetch}>Actualizar</button><Link className="button" to="/reposicion">Preparar reposición</Link><Link className="button" to="/movimientos">Ver movimientos</Link><Link className="button primary" to="/desposte">Desposte</Link></>} />
     <div className="stats-grid">
       {[['Productos activos', productos.length], ['Próximos al mínimo', productos.filter(p => p.estado === 'Próximo al Mínimo').length], ['Stock crítico', productos.filter(p => p.estado === 'Crítico').length]].map(([label, count]) => <div className="stat" key={label}><div><span>{label}</span><strong>{count}</strong></div></div>)}
     </div>
@@ -59,7 +61,9 @@ export function StockPage() {
       <p>Stock actual: <strong>{cantidadFormato(editor.producto.stockActual)} {unidadCorta(editor.producto.unidadVenta)}</strong></p>
       <form onSubmit={enviar}><ErrorCarga error={error}/><fieldset disabled={saving} className="operation-fieldset"><div className="form-grid">
         {editor.mode === 'movimiento' && <label className="full-width">Tipo de movimiento<select value={tipo} onChange={e => { setTipo(e.target.value as TipoMovimiento); setCantidad(''); setError('') }}>{tipos.map(t => <option value={t.value} key={t.value}>{t.label}</option>)}</select></label>}
-        <label className="full-width">{editor.mode === 'minimo' ? 'Stock mínimo' : tipo === 'AJUSTE' ? 'Stock contado' : 'Cantidad'} ({unidadCorta(editor.producto.unidadVenta)})<input autoFocus required inputMode={editor.producto.unidadVenta === 'KILOS' ? 'decimal' : 'numeric'} value={cantidad} onChange={e => setCantidad(e.target.value)} placeholder="Ej. 5" /></label>
+        {editor.mode === 'movimiento' && <label className="full-width">Medir en<select value={unidad} onChange={e => { setUnidad(e.target.value as 'COMPRA' | 'VENTA'); setCantidad('') }}><option value="VENTA">Venta · {unidadCorta(editor.producto.unidadVenta)}</option><option value="COMPRA">Compra · {editor.producto.unidadCompra ?? editor.producto.unidadVenta}</option></select></label>}
+        <label className="full-width">{editor.mode === 'minimo' ? 'Stock mínimo' : tipo === 'AJUSTE' ? 'Stock contado' : 'Cantidad'} ({editor.mode === 'movimiento' && unidad === 'COMPRA' ? editor.producto.unidadCompra : unidadCorta(editor.producto.unidadVenta)})<input autoFocus required inputMode="decimal" value={cantidad} onChange={e => setCantidad(e.target.value)} placeholder="Ej. 5" /></label>
+        {editor.mode === 'movimiento' && unidad === 'COMPRA' && <p className="full-width" aria-live="polite">Equivale a {cantidadFormato(Number(cantidad.replace(',', '.')) * (editor.producto.factorConversion ?? 1))} {unidadCorta(editor.producto.unidadVenta)} de inventario.</p>}
         {editor.mode === 'movimiento' && <label className="full-width">Motivo obligatorio<textarea required maxLength={250} rows={3} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Explicá el ingreso, salida, ajuste o baja"/></label>}
       </div></fieldset>
       {tipo === 'AJUSTE' && editor.mode === 'movimiento' && <p className="form-note">Ingresá el total encontrado en el conteo. El sistema registrará la diferencia.</p>}

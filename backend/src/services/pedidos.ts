@@ -4,7 +4,7 @@ import DetallePedidoCompraRepository from 'polleria-database/repositories/detall
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import ProductoProveedorRepository from 'polleria-database/repositories/productoProveedorRepository';
 import ProveedorRepository from 'polleria-database/repositories/proveedorRepository';
-import { ErrorOperacion, objeto, numero, id } from './operaciones.js';
+import { ErrorOperacion, objeto, numero, id, validarCantidad } from './operaciones.js';
 import { calcularSubtotal, calcularTotal, puedeCancelarPedido } from './comprasCalculos.js';
 
 const ESTADOS_PEDIDO = ['PENDIENTE', 'FACTURADO', 'CANCELADO', 'RECIBIDO'] as const;
@@ -82,6 +82,7 @@ export async function registrarPedido(body: unknown) {
       }
 
       const relacion = await relaciones.findByRelation(linea.productoId, proveedorId, transaction);
+      validarCantidad(producto, linea.cantidad);
       if (!relacion || !relacion.activo) {
         throw new ErrorOperacion(`El producto ${linea.productoId} no está asociado al proveedor.`);
       }
