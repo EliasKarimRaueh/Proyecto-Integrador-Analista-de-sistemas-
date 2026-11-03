@@ -4,6 +4,7 @@ import sequelize from 'polleria-database/config/database';
 import 'polleria-database/relationships/relationships'; /* <-- AGREGÁ ESTA LÍNEA AQUÍ */
 import { migrateProductCatalog } from 'polleria-database/migrations/productCatalog';
 import { migratePreciosOfertas } from 'polleria-database/migrations/preciosOfertas';
+import { migrateComprasSprint4 } from 'polleria-database/migrations/comprasSprint4';
 import { migrateProveedores } from 'polleria-database/migrations/proveedores';
 import { migrateCuentasProveedores } from 'polleria-database/migrations/cuentasProveedores';
 
@@ -13,8 +14,9 @@ try {
   await sequelize.authenticate();
   await migrateProductCatalog();
   await migratePreciosOfertas();
-  await migrateCuentasProveedores();
+  await migrateComprasSprint4();
   await migrateProveedores();
+  await migrateCuentasProveedores();
   console.log('Conexión exitosa con la base de datos');
 
   app.listen(PORT, () => {

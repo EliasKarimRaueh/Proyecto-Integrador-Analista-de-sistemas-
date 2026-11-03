@@ -1,11 +1,14 @@
+import { Op, fn, col } from 'sequelize';
+import type { Transaction } from 'sequelize';
+
+import sequelize from '../config/database.js';
 import BaseRepository from './BaseRepository.js';
 import Producto from '../models/Producto.js';
-import Proveedor from '../models/Proveedor.js';
-import DetalleVenta from '../models/DetalleVenta.js';
 import TipoProducto from '../models/TipoProducto.js';
+import DetalleVenta from '../models/DetalleVenta.js';
+import Proveedor from '../models/Proveedor.js';
+import ProductoProveedor from '../models/ProductoProveedor.js';
 import ProductoProveedorRepository from './productoProveedorRepository.js';
-import { Op, fn, col } from 'sequelize';
-import type { Transaction} from 'sequelize';
 
 class ProductoRepository extends BaseRepository<Producto> {
 
@@ -44,7 +47,7 @@ class ProductoRepository extends BaseRepository<Producto> {
 
         const where = {
             activo: true,
-            ...(tipo !== undefined && { tipo })
+            ...(tipo !== undefined && { tipoProductoId: tipo.id })
         };
 
         const rows = await this.model.findAll({
@@ -267,6 +270,73 @@ class ProductoRepository extends BaseRepository<Producto> {
             producto =>
                 producto.stockActual < 0
         );
+    }
+
+    async buscarParaReposicion(
+        opciones: {
+            proveedorId?: number;
+            incluirProximos?: boolean;
+            soloHabitual?: boolean;
+            q?: string;
+            page: number;
+            limit: number;
+        },
+        transaction?: Transaction
+    ) {
+
+        const where: any = {
+            activo: true,
+            stockMinimo: { [Op.ne]: null }
+        };
+
+        if (opciones.q) {
+            where[Op.or] = [
+                { codigo: { [Op.iLike]: `%${opciones.q}%` } },
+                { nombre: { [Op.iLike]: `%${opciones.q}%` } }
+            ];
+        }
+
+        if (opciones.proveedorId !== undefined) {
+            const relaciones = await ProductoProveedor.findAll({
+                where: {
+                    proveedorId: opciones.proveedorId,
+                    activo: true
+                },
+                attributes: ['productoId'],
+                transaction
+            });
+
+            const ids = relaciones.map(relacion => relacion.productoId);
+
+            if (ids.length === 0) {
+                return { rows: [], count: 0 };
+            }
+
+            where.id = { [Op.in]: ids };
+            if (opciones.soloHabitual) where.proveedorHabitualId = opciones.proveedorId;
+        }
+
+        where[Op.and] = [
+            opciones.incluirProximos
+                ? sequelize.where(
+                    sequelize.col('stockActual'),
+                    Op.lte,
+                    sequelize.literal('"stockMinimo" * 1.2')
+                )
+                : sequelize.where(
+                    sequelize.col('stockActual'),
+                    Op.lte,
+                    sequelize.col('stockMinimo')
+                )
+        ];
+
+        return await this.model.findAndCountAll({
+            where,
+            order: [['stockActual', 'ASC'], ['nombre', 'ASC']],
+            offset: (opciones.page - 1) * opciones.limit,
+            limit: opciones.limit,
+            transaction
+        });
     }
 
     async findAllActivos(

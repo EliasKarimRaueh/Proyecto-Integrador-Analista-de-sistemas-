@@ -47,6 +47,8 @@ const BODY_VALIDO = {
 beforeEach(() => {
   tipoProductoRepo.findAll.mockResolvedValue(CATEGORIAS);
   productoRepo.findAll.mockResolvedValue({ rows: [producto()], count: 1 });
+  productoRepo.findAllActivos.mockResolvedValue({ rows: [producto()], count: 1 });
+  productoRepo.findAllBy.mockResolvedValue({ rows: [producto()], count: 1 });
   productoRepo.findById.mockResolvedValue(producto());
   productoRepo.create.mockResolvedValue(producto());
   productoRepo.updateById.mockResolvedValue(producto());
@@ -69,8 +71,46 @@ describe('getProductos', () => {
         unit: 'kg',
         description: 'Pollo del día',
         active: true,
+        unidadCompra: 'KILOS',
+        unidadVenta: 'KILOS',
+        factorConversion: 1,
+        stockActual: 0,
+        stockMinimo: null,
+        costoActual: '0',
       },
     ]);
+  });
+
+  it('filtra productos activos', async () => {
+    const res = crearRes();
+    await getProductos(crearReq({ query: { activo: 'true' } }), res);
+
+    expect(productoRepo.findAllActivos).toHaveBeenCalledWith(1, 1000, 'id', 'ASC');
+    expect(res.json).toHaveBeenCalledWith([expect.objectContaining({ active: true })]);
+  });
+
+  it('filtra productos inactivos', async () => {
+    productoRepo.findAllBy.mockResolvedValue({
+      rows: [producto({ activo: false })], count: 1,
+    });
+    const res = crearRes();
+    await getProductos(crearReq({ query: { activo: 'false' } }), res);
+
+    expect(productoRepo.findAllBy).toHaveBeenCalledWith({ activo: false }, 1, 1000, 'id', 'ASC');
+    expect(res.json).toHaveBeenCalledWith([expect.objectContaining({ active: false })]);
+  });
+
+  it('rechaza un filtro activo inválido con 400', async () => {
+    const res = crearRes();
+    await getProductos(crearReq({ query: { activo: 'si' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El filtro activo debe ser true o false.',
+    });
+    expect(productoRepo.findAll).not.toHaveBeenCalled();
+    expect(productoRepo.findAllActivos).not.toHaveBeenCalled();
+    expect(productoRepo.findAllBy).not.toHaveBeenCalled();
   });
 
   it('devuelve la categoría en Title Case según la tabla de tipos', async () => {
@@ -123,6 +163,21 @@ describe('getProductos', () => {
 });
 
 describe('createProducto', () => {
+  it('guarda la presentación de compra y su conversión a kilos', async () => {
+    const res = crearRes();
+    await createProducto(crearReq({ body: { ...BODY_VALIDO, unidadCompra: 'CAJONES', factorConversion: 20 } }), res);
+    expect(productoRepo.create).toHaveBeenCalledWith(expect.objectContaining({ unidadCompra: 'CAJONES', unidadVenta: 'KILOS', factorConversion: 20 }));
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('rechaza factores inválidos y fracciones de unidades base', async () => {
+    for (const factorConversion of [0, -1, 'abc', true, 1000001, 1.5]) {
+      const res = crearRes();
+      await createProducto(crearReq({ body: { ...BODY_VALIDO, unit: 'unidad', unidadCompra: 'BULTOS', factorConversion } }), res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
+    expect(productoRepo.create).not.toHaveBeenCalled();
+  });
 
   it('normaliza el cuerpo y responde 201', async () => {
     const res = crearRes();
@@ -363,6 +418,19 @@ describe('reactivateProducto', () => {
 });
 
 describe('updateProducto', () => {
+  it('mantiene la unidad de compra al editar solamente los datos del catálogo', async () => {
+    const res = crearRes();
+    await updateProducto(crearReq({ params: { id: '10' }, body: BODY_VALIDO }), res);
+    const datos = productoRepo.updateById.mock.calls[0][1] as Record<string, unknown>;
+    expect(datos).not.toHaveProperty('unidadCompra');
+    expect(datos).not.toHaveProperty('factorConversion');
+  });
+
+  it('permite editar explícitamente la presentación y el factor', async () => {
+    const res = crearRes();
+    await updateProducto(crearReq({ params: { id: '10' }, body: { ...BODY_VALIDO, unidadCompra: 'BULTOS', factorConversion: 15 } }), res);
+    expect(productoRepo.updateById).toHaveBeenCalledWith(10, expect.objectContaining({ unidadCompra: 'BULTOS', factorConversion: 15 }));
+  });
 
   it('rechaza un identificador no numérico antes de leer el cuerpo', async () => {
     const res = crearRes();
@@ -436,7 +504,7 @@ describe('updateProducto', () => {
     expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese código.' });
   });
 
-  it('normaliza la unidad a UNIDADES cuando no es kg', async () => {
+  it('actualiza la unidad de venta sin sobrescribir la log?stica omitida', async () => {
     const res = crearRes();
     await updateProducto(
       crearReq({ params: { id: '10' }, body: { ...BODY_VALIDO, unit: 'unidad' } }), res,
@@ -444,7 +512,7 @@ describe('updateProducto', () => {
 
     expect(productoRepo.updateById).toHaveBeenCalledWith(
       10,
-      expect.objectContaining({ unidadCompra: 'UNIDADES', unidadVenta: 'UNIDADES' }),
+      expect.objectContaining({ unidadVenta: 'UNIDADES' }),
     );
   });
 });

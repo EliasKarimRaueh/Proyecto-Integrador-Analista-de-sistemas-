@@ -1,6 +1,8 @@
 import { type Request, type Response } from 'express';
 import Producto from 'polleria-database/models/Producto';
 import MovimientoStock from 'polleria-database/models/MovimientoStock';
+import ProductoProveedor from 'polleria-database/models/ProductoProveedor';
+import Proveedor from 'polleria-database/models/Proveedor';
 import { Op } from 'sequelize';
 import { registrarMovimiento as guardarMovimiento, fraccionar, estadoStock, id, numero, objeto, ErrorOperacion } from '../services/operaciones.js';
 import { ejecutar, paginacion, rangoFechas } from './operacionesController.js';
@@ -9,7 +11,7 @@ export const getEstadoStock = (req: Request, res: Response) => ejecutar(res, asy
   const { page, limit } = paginacion(req);
   const resultado = await Producto.findAndCountAll({ where: { activo: true }, attributes: { exclude: ['imagen'] }, order: [['id', 'ASC']], limit, offset: (page - 1) * limit });
   res.setHeader('X-Total-Count', resultado.count);
-  return resultado.rows.map(p => ({ id: p.id, codigo: p.codigo, nombre: p.nombre, stockActual: p.stockActual, stockMinimo: p.stockMinimo, margenStock: p.margenStock, unidadVenta: p.unidadVenta, estado: estadoStock(p.stockActual, p.stockMinimo) }));
+  return resultado.rows.map(p => ({ id: p.id, codigo: p.codigo, nombre: p.nombre, stockActual: p.stockActual, stockMinimo: p.stockMinimo, margenStock: p.margenStock, unidadVenta: p.unidadVenta, unidadCompra: p.unidadCompra, factorConversion: p.factorConversion, estado: estadoStock(p.stockActual, p.stockMinimo) }));
 });
 
 export const registrarMovimiento = (req: Request, res: Response) => ejecutar(res, () => guardarMovimiento(req.body), 201);
@@ -40,4 +42,17 @@ export const configurarReposicion = (req: Request, res: Response) => ejecutar(re
   if (!producto) throw new ErrorOperacion('Producto no encontrado.', 404);
   const b = objeto(req.body);
   return producto.update({ stockMinimo: numero(b.stockMinimo, 'stockMinimo', true), tipoReposicion: 'stockMinimo' });
+});
+
+export const configurarProveedorHabitual = (req: Request, res: Response) => ejecutar(res, async () => {
+  const producto = await Producto.findByPk(id(req.params.productoId));
+  if (!producto) throw new ErrorOperacion('Producto no encontrado.', 404);
+  const b = objeto(req.body);
+  const proveedorId = b.proveedorId === null ? null : id(b.proveedorId, 'proveedorId');
+  if (proveedorId !== null) {
+    const relacion = await ProductoProveedor.findOne({ where: { productoId: producto.id, proveedorId, activo: true } });
+    const proveedor = await Proveedor.findByPk(proveedorId);
+    if (!relacion || !proveedor?.activo) throw new ErrorOperacion('Elegí un proveedor activo asociado al producto.');
+  }
+  return producto.update({ proveedorHabitualId: proveedorId });
 });

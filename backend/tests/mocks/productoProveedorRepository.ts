@@ -6,6 +6,7 @@ export const instancia = {
   existsRelation: jest.fn(),
   getProveedores: jest.fn(),
   getProveedoresActivos: jest.fn(),
+  getProveedoresActivosPorProductos: jest.fn(),
   getProductos: jest.fn(),
   getProductosActivos: jest.fn(),
   create: jest.fn(),

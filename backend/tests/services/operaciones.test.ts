@@ -97,6 +97,24 @@ describe('bloquear', () => {
 });
 
 describe('registrarMovimiento', () => {
+  it('convierte cajones a kilos antes de registrar el ingreso', async () => {
+    catalogo.set(10, producto({ unidadCompra: 'CAJONES', factorConversion: 20 }));
+    await registrarMovimiento({ productoId: 10, tipo: 'INGRESO', motivo: 'Reposición', cantMovimiento: 2, unidad: 'COMPRA' });
+    expect(movimientosRepo.registrarIngreso).toHaveBeenCalledWith(10, 40, 1, expect.stringContaining('2 CAJONES'), null, transaccion);
+  });
+
+  it('convierte el conteo de bultos al stock objetivo en unidades', async () => {
+    catalogo.set(10, producto({ unidadVenta: 'UNIDADES', unidadCompra: 'BULTOS', factorConversion: 12 }));
+    await registrarMovimiento({ productoId: 10, tipo: 'AJUSTE', motivo: 'Conteo físico', stockObjetivo: 3, unidad: 'COMPRA' });
+    expect(movimientosRepo.ajustarStock).toHaveBeenCalledWith(10, 36, 1, expect.stringContaining('3 BULTOS'), transaccion);
+  });
+
+  it('rechaza conversiones a fracciones de unidades y unidades desconocidas', async () => {
+    catalogo.set(10, producto({ unidadVenta: 'UNIDADES', factorConversion: 3 }));
+    await expect(registrarMovimiento({ productoId: 10, tipo: 'INGRESO', motivo: 'Ingreso', cantMovimiento: 0.5, unidad: 'COMPRA' })).rejects.toThrow('enteras');
+    await expect(registrarMovimiento({ productoId: 10, tipo: 'INGRESO', motivo: 'Ingreso', cantMovimiento: 1, unidad: 'OTRA' })).rejects.toThrow('COMPRA o VENTA');
+    expect(movimientosRepo.registrarIngreso).not.toHaveBeenCalled();
+  });
 
   const cuerpo = (overrides: Record<string, unknown> = {}) => ({
     productoId: 10,
@@ -345,6 +363,29 @@ describe('fraccionar', () => {
 });
 
 describe('vender', () => {
+  it('cobra el combo pactado y consume el pesaje real conservando ambos valores', async () => {
+    OfertaModel.findByPk.mockResolvedValue(oferta({ fechaFin: null }) as never);
+    ofertasRepo.listarDetalleProductos.mockResolvedValue([{ producto: producto(), relacion: { cantidad: 3, precioOferta: '1000.00', activo: true } }] as never);
+    const resultado = await vender({ detalles: [{ ofertaId: 7, cantidad: 2, despacho: [{ productoId: 10, cantidadReal: 6.235 }] }] }, true);
+    expect(resultado).toMatchObject({ total: '2000.00', detalles: [{ cantidad: 2, importeUnitario: '1000.00', despacho: [{ productoId: 10, cantidadPromocional: 6, cantidadReal: 6.235 }] }] });
+    expect(VentaModel.create).not.toHaveBeenCalled();
+  });
+
+  it('valida el margen contra el peso real y rechaza componentes ajenos', async () => {
+    OfertaModel.findByPk.mockResolvedValue(oferta({ fechaFin: null }) as never);
+    ofertasRepo.listarDetalleProductos.mockResolvedValue([{ producto: producto(), relacion: { cantidad: 1, precioOferta: '100.00', activo: true } }] as never);
+    catalogo.set(10, producto({ stockActual: 2, margenStock: 0 }));
+    await expect(vender({ detalles: [{ ofertaId: 7, cantidad: 1, despacho: [{ productoId: 10, cantidadReal: 2.1 }] }] })).rejects.toThrow('Stock insuficiente');
+    await expect(vender({ detalles: [{ ofertaId: 7, cantidad: 1, despacho: [{ productoId: 99, cantidadReal: 1 }] }] })).rejects.toThrow('componentes activos');
+    expect(VentaModel.create).not.toHaveBeenCalled();
+  });
+
+  it('impide modificar unidades incluidas y pesajes fuera de precisión', async () => {
+    OfertaModel.findByPk.mockResolvedValue(oferta() as never);
+    ofertasRepo.listarDetalleProductos.mockResolvedValue([{ producto: producto({ unidadVenta: 'UNIDADES' }), relacion: { cantidad: 2, precioOferta: '100.00', activo: true } }] as never);
+    await expect(vender({ detalles: [{ ofertaId: 7, cantidad: 1, despacho: [{ productoId: 10, cantidadReal: 3 }] }] })).rejects.toThrow('cantidad promocional');
+    await expect(vender({ detalles: [{ ofertaId: 7, cantidad: 1, despacho: [{ productoId: 10, cantidadReal: 2.0001 }] }] })).rejects.toThrow('tres decimales');
+  });
 
   it('aplica un único descuento al subtotal de lista del combo y respeta la lista mayorista', async () => {
     OfertaModel.findByPk.mockResolvedValue(oferta({ descuentoPorcentaje: '10.00' }) as never);
@@ -634,7 +675,7 @@ describe('vender', () => {
       { producto: producto({ id: 10 }), relacion: { precioOferta: '10.00', cantidad: 2 } },
     ] as never);
 
-    await vender(cuerpo({ detalles: [{ ofertaId: 7, cantidad: 2 }] }));
+    await vender(cuerpo({ detalles: [{ ofertaId: 7, cantidad: 2, despacho: [{ productoId: 10, cantidadReal: 4 }] }] }));
 
     expect(detallesRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({

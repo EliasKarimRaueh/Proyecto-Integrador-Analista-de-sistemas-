@@ -3,7 +3,7 @@ import { Router } from 'express';
 import {
   actualizarPrecioEnOferta, createOferta, desactivarOferta, getOferta, getOfertas,
   getOfertasDeProducto, getOfertasVigentes, getProductosDeOferta, quitarProductoDeOferta,
-  updateOferta,
+  updateOferta, activarOferta,
 } from '../controllers/ofertaController.js';
 
 const router = Router();
@@ -23,6 +23,7 @@ router.post('/', createOferta);
 router.get('/:id', getOferta);
 router.put('/:id', updateOferta);
 router.delete('/:id', desactivarOferta);
+router.put('/:id/reactivar', activarOferta);
 
 router.get('/:id/productos', getProductosDeOferta);
 router.put('/:id/productos/:productoId', actualizarPrecioEnOferta);

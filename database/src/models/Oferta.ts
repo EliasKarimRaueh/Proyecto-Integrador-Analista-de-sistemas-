@@ -4,15 +4,17 @@ import sequelize from '../config/database.js';
 class Oferta extends Model {
     declare id: number;
     declare descuentoPorcentaje: string | null;
+    declare precioFinal: string | null;
     declare nombre: string;
     declare descripcion: string | null;
     declare fechaInicio: Date;
-    declare fechaFin: Date;
+    declare fechaFin: Date | null;
     declare activo: boolean;
     declare fechaBaja: Date | null;
 }
 
 Oferta.init({
+    precioFinal: { type: DataTypes.DECIMAL(12, 2), allowNull: true, defaultValue: null, validate: { min: 0.01, max: 99999999.99 } },
     descuentoPorcentaje: { type: DataTypes.DECIMAL(5, 2), allowNull: true, defaultValue: null, validate: { min: 0, max: 100 } },
 
     id: {
@@ -45,7 +47,8 @@ Oferta.init({
 
     fechaFin: {
         type: DataTypes.DATE,
-        allowNull: false
+        allowNull: true,
+        defaultValue: null
     },
 
     activo: {
@@ -72,9 +75,9 @@ Oferta.init({
 
     validate: {
 
-        validarVigencia(this: { fechaInicio: Date; fechaFin: Date }) {
+        validarVigencia(this: { fechaInicio: Date; fechaFin: Date | null }) {
 
-            if (this.fechaFin <= this.fechaInicio) {
+            if (this.fechaFin !== null && this.fechaFin <= this.fechaInicio) {
                 throw new Error(
                     "La fecha de fin debe ser posterior a la fecha de inicio."
                 );

@@ -14,6 +14,7 @@
     "./migrations/proveedores": "./src/migrations/proveedores.ts",
     "./migrations/cuentasProveedores": "./src/migrations/cuentasProveedores.ts",
     "./migrations/preciosOfertas": "./src/migrations/preciosOfertas.ts",
+    "./migrations/comprasSprint4": "./src/migrations/comprasSprint4.ts",
     "./repositories/productoRepository": "./src/repositories/productoRepository.ts",
     "./repositories/tipoProductoRepository": "./src/repositories/tipoProductoRepository.ts",
     "./repositories/precioRepository": "./src/repositories/precioRepository.ts",
@@ -25,7 +26,12 @@
     "./repositories/cuentaProveedorRepository": "./src/repositories/cuentaProveedorRepository.ts",
     "./repositories/pagoRepository": "./src/repositories/pagoRepository.ts",
     "./repositories/pagoPorCuentaRepository": "./src/repositories/pagoPorCuentaRepository.ts",
-    "./repositories/productoProveedorRepository": "./src/repositories/productoProveedorRepository.ts"
+    "./repositories/productoProveedorRepository": "./src/repositories/productoProveedorRepository.ts",
+    "./repositories/pedidoCompraRepository": "./src/repositories/pedidoCompraRepository.ts",
+    "./repositories/detallePedidoCompraRepository": "./src/repositories/detallePedidoCompraRepository.ts",
+    "./repositories/detalleCompraRepository": "./src/repositories/detalleCompraRepository.ts",
+    "./repositories/recepcionRepository": "./src/repositories/recepcionRepository.ts",
+    "./repositories/detalleRecepcionRepository": "./src/repositories/detalleRecepcionRepository.ts"
   },
   "scripts": {
     "build": "tsc",

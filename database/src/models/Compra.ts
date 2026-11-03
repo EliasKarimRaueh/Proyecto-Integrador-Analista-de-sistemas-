@@ -2,15 +2,22 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
+const ESTADOS = ['PENDIENTE_RECEPCION', 'RECIBIDA'] as const;
+const TIPOS_COMPROBANTE = ['FACTURA', 'REMITO', 'OTRO'] as const;
+
 class Compra extends Model {
     declare id: number;
-    declare numeroComprobante: string | null;
+    declare formaPago: 'PAGADO' | 'A CUENTA';
+    declare observaciones: string | null;
+
     declare claveOperacion: string | null;
     declare fechaHora: Date;
     declare total: number;
     declare proveedorId: number;
     declare pedidoId: number | null;
-    declare formaPago:'PAGADO'|'A CUENTA'
+    declare tipoComprobante: typeof TIPOS_COMPROBANTE[number] | null;
+    declare numeroComprobante: string | null;
+    declare estado: typeof ESTADOS[number];
 }
 
 Compra.init({
@@ -22,10 +29,7 @@ Compra.init({
         unique: true
     },
 
-    numeroComprobante: {
-        type: DataTypes.STRING(80),
-        allowNull: true
-    },
+
     
     claveOperacion: {
         type: DataTypes.UUID,
@@ -45,10 +49,40 @@ Compra.init({
     pedidoId: {
         type: DataTypes.INTEGER,
         allowNull: true,
-        unique:true,
+        defaultValue: null,
         references: {
-            model: 'pedidos',
+            model: 'pedidos_compra',
             key: 'id'
+        }
+    },
+
+    tipoComprobante: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        defaultValue: null,
+        validate: {
+            isIn: {
+                args: [TIPOS_COMPROBANTE],
+                msg: 'El tipo de comprobante no es válido.'
+            }
+        }
+    },
+
+    numeroComprobante: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        defaultValue: null
+    },
+
+    estado: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: 'PENDIENTE_RECEPCION',
+        validate: {
+            isIn: {
+                args: [ESTADOS],
+                msg: 'El estado de la compra no es válido.'
+            }
         }
     },
 
@@ -74,12 +108,15 @@ Compra.init({
         }
     },
 
+    observaciones: { type: DataTypes.STRING(300), allowNull: true },
+
     formaPago: {
         type: DataTypes.ENUM(
             'PAGADO',
             'A CUENTA',
             ),
         allowNull: false,
+        defaultValue: 'A CUENTA',
     },
 
 }, {

@@ -1,6 +1,7 @@
 
 import sequelize from '../config/database.js';
 import '../relationships/relationships.js';
+import { migrateComprasSprint4 } from '../migrations/comprasSprint4.js';
 
 import {
     describe,
@@ -17,11 +18,13 @@ import Compra from '../models/Compra.js';
 import CuentaProveedor from '../models/CuentaProveedor.js';
 import Pago from '../models/Pago.js';
 import PagoPorCuenta from '../models/PagoPorCuenta.js';
+import Proveedor from '../models/Proveedor.js';
 
 import CompraRepository from '../repositories/compraRepository.js';
 import CuentaProveedorRepository from '../repositories/cuentaProveedorRepository.js';
 import PagoRepository from '../repositories/pagoRepository.js';
 import PagoPorCuentaRepository from '../repositories/pagoPorCuentaRepository.js';
+import ProveedorRepository from '../repositories/proveedorRepository.js';
 
 jest.setTimeout(30000);
 
@@ -33,6 +36,7 @@ const compraRepository = new CompraRepository();
 const cuentaProveedorRepository = new CuentaProveedorRepository();
 const pagoRepository = new PagoRepository();
 const pagoPorCuentaRepository = new PagoPorCuentaRepository();
+const proveedorRepository = new ProveedorRepository();
 
 const PROVEEDOR_ID = 1;
 
@@ -103,6 +107,7 @@ beforeAll(async () => {
     console.log('✅ Conexión a la base de datos establecida.');
 
     await sequelize.sync();
+    await migrateComprasSprint4();
 
     console.log('✅ Tablas verificadas.');
 
@@ -164,6 +169,48 @@ afterAll(async () => {
     await sequelize.close();
 
     console.log('✅ Limpieza finalizada y conexión cerrada.');
+});
+
+// ============================================================
+// PROVEEDOR
+// ============================================================
+
+describe('PROVEEDOR', () => {
+    test('Filtra proveedores por estado sin paginación', async () => {
+        logTest('Filtrar proveedores por estado');
+
+        await ejecutarConRollback(async (transaction) => {
+            const inactivo = await Proveedor.create({
+                nombre: 'Proveedor inactivo de prueba',
+                ctaCte: false,
+                activo: false,
+                fechaBaja: new Date()
+            }, { transaction });
+
+            const activos = await proveedorRepository.buscarTodosPorEstado(
+                true,
+                'nombre',
+                'ASC',
+                transaction
+            );
+
+            const inactivos = await proveedorRepository.buscarTodosPorEstado(
+                false,
+                'nombre',
+                'ASC',
+                transaction
+            );
+
+            expect(activos.length).toBeGreaterThan(0);
+            expect(activos.every(proveedor => proveedor.activo)).toBe(true);
+            expect(activos.some(proveedor => proveedor.id === PROVEEDOR_ID)).toBe(true);
+
+            expect(inactivos.every(proveedor => !proveedor.activo)).toBe(true);
+            expect(inactivos.some(proveedor => proveedor.id === inactivo.id)).toBe(true);
+        });
+
+        logOk('Los proveedores se filtraron correctamente por estado.');
+    });
 });
 
 // ============================================================

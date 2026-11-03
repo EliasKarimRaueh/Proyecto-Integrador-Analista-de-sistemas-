@@ -10,6 +10,10 @@ const navigation: { to: string; label: string; icon: IconName }[] = [
   { to: '/proveedores', label: 'Proveedores', icon: 'users' },
   { to: '/ofertas', label: 'Ofertas', icon: 'tag' },
   { to: '/stock', label: 'Inventario', icon: 'archive' },
+  { to: '/reposicion', label: 'Reposición', icon: 'box' },
+  { to: '/pedidos', label: 'Pedidos a proveedores', icon: 'bag' },
+  { to: '/compras', label: 'Compras', icon: 'calendar' },
+  { to: '/recepciones', label: 'Recepciones', icon: 'archive' },
   { to: '/desposte', label: 'Desposte', icon: 'box' },
   { to: '/ventas', label: 'Ventas', icon: 'calendar' },
   { to: '/movimientos', label: 'Movimientos', icon: 'arrow' },
@@ -66,7 +70,7 @@ export function AppLayout() {
         </nav>
         <div className="sidebar-bottom">
           <div className="sprint-label">
-            <span />AvixSoft · Sprint 3<small>Gestión de proveedores</small>
+            <span />AvixSoft · Sprint 4<small>Compras y reposición</small>
           </div>
         </div>
       </aside>

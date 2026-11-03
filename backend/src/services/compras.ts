@@ -1,43 +1,232 @@
 import sequelize from 'polleria-database/config/database';
 import CompraRepository from 'polleria-database/repositories/compraRepository';
 import CuentaProveedorRepository from 'polleria-database/repositories/cuentaProveedorRepository';
+import DetalleCompraRepository from 'polleria-database/repositories/detalleCompraRepository';
+import PedidoCompraRepository from 'polleria-database/repositories/pedidoCompraRepository';
+import ProductoRepository from 'polleria-database/repositories/productoRepository';
+import ProductoProveedorRepository from 'polleria-database/repositories/productoProveedorRepository';
 import ProveedorRepository from 'polleria-database/repositories/proveedorRepository';
-import { ErrorOperacion, objeto, numero, id } from './operaciones.js';
+import { ErrorOperacion, estadoStock, objeto, numero, id, validarCantidad } from './operaciones.js';
+import {
+  calcularCantidadSugerida,
+  calcularFaltante,
+  calcularSubtotal,
+  calcularTotal,
+  convertirCantidadBase,
+  convertirCostoUnitario
+} from './comprasCalculos.js';
 
 const compras = new CompraRepository();
 const cuentas = new CuentaProveedorRepository();
+const detallesCompras = new DetalleCompraRepository();
+const pedidos = new PedidoCompraRepository();
+const productos = new ProductoRepository();
+const relaciones = new ProductoProveedorRepository();
 const proveedores = new ProveedorRepository();
+
+const TIPOS_COMPROBANTE = ['FACTURA', 'REMITO', 'OTRO'] as const;
+
+function textoOpcional(value: unknown, campo: string, maximo: number): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string') throw new ErrorOperacion(`${campo} debe ser texto.`);
+  const texto = value.trim();
+  if (texto.length > maximo) throw new ErrorOperacion(`${campo} admite hasta ${maximo} caracteres.`);
+  return texto || null;
+}
+
+function fecha(value: unknown): Date {
+  if (value === undefined) return new Date();
+  const resultado = new Date(String(value));
+  if (Number.isNaN(resultado.getTime())) throw new ErrorOperacion('La fecha de la compra no es válida.');
+  return resultado;
+}
+
+type LineaCompra = {
+  productoId: number;
+  cantidadBase: number;
+  costoUnitario: string;
+  subtotal: string;
+  presentacion: string | null;
+  cantidadPresentacion: number | null;
+  factorConversion: number | null;
+};
+
+async function normalizarLineas(value: unknown, transaction: import('sequelize').Transaction) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 100) {
+    throw new ErrorOperacion('Debe indicar entre 1 y 100 detalles.');
+  }
+
+  const lineas: LineaCompra[] = [];
+
+  for (const item of value) {
+    const detalle = objeto(item);
+    const productoId = id(detalle.productoId, 'productoId');
+    const producto = await productos.findById(productoId, transaction);
+    if (!producto || !producto.activo) {
+      throw new ErrorOperacion(`Producto ${productoId} no encontrado o inactivo.`, 404);
+    }
+
+    if (lineas.some(linea => linea.productoId === productoId)) {
+      throw new ErrorOperacion('No se puede repetir el mismo producto en la compra.');
+    }
+
+    const factorConversion = detalle.factorConversion === undefined
+      ? producto.factorConversion
+      : numero(detalle.factorConversion, 'factorConversion');
+
+    const cantidadBase = detalle.cantidad === undefined
+      ? convertirCantidadBase(numero(detalle.cantidadPresentacion, 'cantidadPresentacion'), factorConversion)
+      : numero(detalle.cantidad, 'cantidad');
+    validarCantidad(producto, cantidadBase);
+
+    let costoUnitario: string;
+    if (detalle.costoUnitario !== undefined) {
+      costoUnitario = numero(detalle.costoUnitario, 'costoUnitario', true).toFixed(2);
+    } else if (detalle.costoPresentacion !== undefined) {
+      costoUnitario = convertirCostoUnitario(
+        numero(detalle.costoPresentacion, 'costoPresentacion', true),
+        factorConversion
+      );
+    } else {
+      throw new ErrorOperacion('Cada detalle requiere costoUnitario o costoPresentacion.');
+    }
+
+    lineas.push({
+      productoId,
+      cantidadBase,
+      costoUnitario,
+      subtotal: calcularSubtotal(cantidadBase, costoUnitario),
+      presentacion: textoOpcional(detalle.presentacion, 'presentacion', 20),
+      cantidadPresentacion: detalle.cantidadPresentacion === undefined
+        ? null
+        : numero(detalle.cantidadPresentacion, 'cantidadPresentacion'),
+      factorConversion: detalle.cantidadPresentacion === undefined
+        ? null
+        : factorConversion
+    });
+  }
+
+  return lineas;
+}
 
 export async function registrarCompra(body: unknown) {
   const b = objeto(body);
   const proveedorId = id(b.proveedorId, 'proveedorId');
-  const total = numero(b.total, 'total', true);
-  const monto = total.toFixed(2);
+  const tipoComprobante = String(b.tipoComprobante ?? '').toUpperCase();
+  if (!TIPOS_COMPROBANTE.includes(tipoComprobante as never)) {
+    throw new ErrorOperacion('El tipo de comprobante no es válido.');
+  }
+  const numeroComprobante = textoOpcional(b.numeroComprobante, 'numeroComprobante', 50);
+  const pedidoId = b.pedidoId === undefined ? undefined : id(b.pedidoId, 'pedidoId');
+  const fechaHora = fecha(b.fechaHora);
+  const observaciones = textoOpcional(b.observaciones, 'observaciones', 300);
 
   const proveedor = await proveedores.buscarPorId(proveedorId);
   if (!proveedor) throw new ErrorOperacion('Proveedor no encontrado.', 404);
-
-  const fechaHora = b.fechaHora === undefined ? new Date() : new Date(String(b.fechaHora));
-  if (Number.isNaN(fechaHora.getTime())) throw new ErrorOperacion('La fecha de la compra no es válida.');
+  if (!proveedor.activo) throw new ErrorOperacion('El proveedor está inactivo.');
 
   return await sequelize.transaction(async transaction => {
-    const compra = await compras.crear(
-      { proveedorId, total: monto as unknown as number, fechaHora } as never,
-      transaction
-    );
+    if (pedidoId !== undefined) {
+      const pedido = await pedidos.buscarPorIdConBloqueo(pedidoId, transaction);
+      if (!pedido) throw new ErrorOperacion('Pedido no encontrado.', 404);
+      if (pedido.proveedorId !== proveedorId) {
+        throw new ErrorOperacion('El pedido pertenece a otro proveedor.');
+      }
+      if (pedido.estado !== 'PENDIENTE') {
+        throw new ErrorOperacion('El pedido ya no está pendiente.', 409);
+      }
+    }
 
-    const cuenta = await cuentas.crear(
-      {
-        proveedorId,
+    const lineas = await normalizarLineas(b.detalles, transaction);
+    const total = calcularTotal(lineas.map(linea => linea.subtotal));
+
+    const compra = await compras.crear({
+      proveedorId,
+      pedidoId: pedidoId ?? null,
+      tipoComprobante,
+      numeroComprobante,
+      estado: 'PENDIENTE_RECEPCION',
+      formaPago: 'A CUENTA',
+      observaciones,
+      fechaHora,
+      total: total as unknown as number
+    } as never, transaction);
+
+    const detalles = await detallesCompras.crearMuchos(
+      lineas.map(linea => ({
         compraId: compra.id,
-        importePendiente: monto as unknown as number,
-        estado: 'PAGO PENDIENTE'
-      } as never,
+        productoId: linea.productoId,
+        cantidad: linea.cantidadBase,
+        costoUnitario: linea.costoUnitario as unknown as string,
+        subtotal: linea.subtotal as unknown as string,
+        presentacion: linea.presentacion,
+        cantidadPresentacion: linea.cantidadPresentacion,
+        factorConversion: linea.factorConversion
+      })) as never[],
       transaction
     );
 
-    return { compra, cuenta };
+    const cuenta = await cuentas.crear({
+      proveedorId,
+      compraId: compra.id,
+      importePendiente: total as unknown as number,
+      estado: 'PAGO PENDIENTE'
+    } as never, transaction);
+
+    if (pedidoId !== undefined) {
+      await pedidos.actualizarEstado(pedidoId, 'FACTURADO', transaction);
+    }
+
+    return { compra, detalles, cuenta, observaciones };
   });
+}
+
+export async function listarReposicion(
+  page: number,
+  limit: number,
+  proveedorId?: number,
+  incluirProximos = false,
+  q?: string,
+  soloHabitual = false
+) {
+  const resultado = await productos.buscarParaReposicion({
+    proveedorId,
+    incluirProximos,
+    q,
+    page,
+    limit,
+    ...(soloHabitual ? { soloHabitual: true } : {})
+  });
+
+  const proveedoresPorProducto = await relaciones.getProveedoresActivosPorProductos(
+    resultado.rows.map(producto => producto.id)
+  );
+
+  return {
+    count: resultado.count,
+    rows: resultado.rows.map(producto => {
+      const faltante = calcularFaltante(producto.stockActual, producto.stockMinimo);
+      return {
+        id: producto.id,
+        codigo: producto.codigo,
+        nombre: producto.nombre,
+        unidadCompra: producto.unidadCompra,
+        unidadVenta: producto.unidadVenta,
+        factorConversion: producto.factorConversion,
+        stockActual: producto.stockActual,
+        stockMinimo: producto.stockMinimo,
+        costoActual: producto.costoActual,
+        proveedorHabitualId: proveedoresPorProducto.get(producto.id)?.some(p => p.id === producto.proveedorHabitualId) ? producto.proveedorHabitualId : null,
+        estado: estadoStock(producto.stockActual, producto.stockMinimo),
+        faltante,
+        cantidadSugerida: calcularCantidadSugerida(faltante, producto.factorConversion || 1),
+        proveedores: (proveedoresPorProducto.get(producto.id) ?? []).map(proveedor => ({
+          id: proveedor.id,
+          nombre: proveedor.nombre
+        }))
+      };
+    })
+  };
 }
 
 export async function listarCompras(
@@ -45,24 +234,16 @@ export async function listarCompras(
   limit: number,
   proveedorId?: number,
   desde?: Date,
-  hasta?: Date
+  hasta?: Date,
+  estado?: string
 ) {
-  if (proveedorId !== undefined && desde && hasta) {
-    return await compras.buscarPorProveedorYFechas(proveedorId, desde, hasta, page, limit);
-  }
-  if (proveedorId !== undefined) {
-    return await compras.buscarPorProveedor(proveedorId, page, limit);
-  }
-  if (desde && hasta) {
-    return await compras.buscarPorFechas(desde, hasta, page, limit);
-  }
-  const filas = await compras.buscarTodas();
-  return { count: filas.length, rows: filas.slice((page - 1) * limit, (page - 1) * limit + limit) };
+  if (estado !== undefined && !['PENDIENTE_RECEPCION', 'RECIBIDA'].includes(estado)) throw new ErrorOperacion('El estado de la compra no es válido.');
+  return await compras.listarConFiltros({ proveedorId, estado, desde, hasta }, page, limit);
 }
 
 export async function detalleCompra(compraId: number) {
-  const compra = await compras.buscarPorId(compraId);
+  const compra = await compras.buscarDetalleCompleto(compraId);
   if (!compra) throw new ErrorOperacion('Compra no encontrada.', 404);
-  const cuenta = await cuentas.buscarPorCompra(compraId);
-  return { compra, cuenta };
+  const detalle = compra as unknown as { cuentaProveedor?: unknown };
+  return { compra, cuenta: detalle.cuentaProveedor ?? null };
 }

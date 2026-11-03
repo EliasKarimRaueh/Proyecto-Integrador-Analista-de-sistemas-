@@ -6,6 +6,7 @@ import { fetchStock, fetchVentas } from '../../shared/services/operaciones'
 import { rangoDelDia, cantidadFormato, unidadCorta } from '../../shared/lib/operaciones'
 
 const modules: { to: string; title: string; description: string; icon: IconName }[] = [
+  { to: '/reposicion', title: 'Abastecimiento', description: 'Prepará pedidos, registrá compras y recibí mercadería.', icon: 'bag' },
   { to: '/caja', title: 'Caja y mostrador', description: 'Vendé por kilos o unidades con precios y ofertas vigentes.', icon: 'bag' },
   { to: '/stock', title: 'Inventario', description: 'Controlá existencias, ingresos, ajustes y bajas justificadas.', icon: 'archive' },
   { to: '/desposte', title: 'Desposte', description: 'Transformá pollo entero en cortes y registrá la merma.', icon: 'box' },

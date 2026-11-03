@@ -2091,7 +2091,7 @@ async function test8() {
 
         if (
             ajustada.fechaInicio.getTime() !== nuevoInicio.getTime() ||
-            ajustada.fechaFin.getTime() !== nuevoFin.getTime()
+            ajustada.fechaFin?.getTime() !== nuevoFin.getTime()
         ) {
 
             throw new Error(

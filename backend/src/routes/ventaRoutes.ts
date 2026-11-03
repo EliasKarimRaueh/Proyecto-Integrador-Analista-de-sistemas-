@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { crearVenta, cotizarVenta, productosMostrador, historialVentas, detalleVenta } from '../controllers/operacionesController.js';
+import { crearVenta, cotizarVenta, productosMostrador, categoriasMostrador, historialVentas, detalleVenta } from '../controllers/operacionesController.js';
 const router = Router();
 router.get('/productos', productosMostrador);
+router.get('/categorias', categoriasMostrador);
 router.post('/cotizacion', cotizarVenta);
 router.get('/', historialVentas);
 router.get('/:id', detalleVenta);

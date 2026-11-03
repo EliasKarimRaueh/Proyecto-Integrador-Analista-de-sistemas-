@@ -1,6 +1,6 @@
-import { ModulePage } from '../../shared/components/ModulePage'
+import { HistorialAbastecimientoPage } from '../abastecimiento/HistorialAbastecimientoPage'
 
 export function OrdersPage() {
-  return <ModulePage title="Pedidos" description="Sección preparada para registrar y consultar pedidos. Funcionalidad pendiente de implementación." />
+  return <HistorialAbastecimientoPage tipo="pedidos" />
 }
 

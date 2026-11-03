@@ -119,7 +119,9 @@ export async function registrarComprobante(proveedorId: number, body: unknown) {
     }
     if (!proveedor.activo || !proveedor.ctaCte) throw new ErrorOperacion('El proveedor debe estar activo y tener cuenta corriente habilitada.', 409);
     if (await Compra.findOne({ where: { proveedorId, numeroComprobante: numero }, transaction })) throw new ErrorOperacion('El comprobante ya está registrado para este proveedor.', 409);
-    const compra = await Compra.create({ proveedorId, total, numeroComprobante: numero, claveOperacion: clave, fechaHora: fecha }, { transaction });
+    // Los comprobantes históricos de cuenta corriente no tienen mercadería
+    // pendiente: el circuito de recepción corresponde a las compras con detalle.
+    const compra = await Compra.create({ proveedorId, total, numeroComprobante: numero, claveOperacion: clave, fechaHora: fecha, estado: 'RECIBIDA', tipoComprobante: 'OTRO', formaPago: 'A CUENTA' }, { transaction });
     await CuentaProveedor.create({ proveedorId, compraId: compra.id, importePendiente: total, estado: 'PAGO PENDIENTE' }, { transaction });
     return compra;
   });

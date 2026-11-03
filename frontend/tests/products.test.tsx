@@ -77,7 +77,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('Catálogo de productos conectado a la API', () => {
-  it('oculta el código en la consulta y conserva el campo para edición', async () => {
+  it('oculta el código también al editar y conserva su valor interno', async () => {
     const user = userEvent.setup()
     render(<ProductsPage />)
     await screen.findByRole('button', { name: 'Suprema' })
@@ -86,7 +86,8 @@ describe('Catálogo de productos conectado a la API', () => {
     await user.click(screen.getByRole('button', { name: 'Ver Suprema' }))
     expect(screen.queryByText('POL-001')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Editar producto' }))
-    expect((screen.getByLabelText('Código *') as HTMLInputElement).value).toBe('POL-001')
+    expect(screen.queryByLabelText('Código *')).toBeNull()
+    expect(screen.queryByText('POL-001')).toBeNull()
   })
 
   it('reactiva un producto inactivo usando el endpoint existente', async () => {
@@ -140,7 +141,7 @@ describe('Catálogo de productos conectado a la API', () => {
     const user = userEvent.setup()
     render(<ProductsPage />)
     await screen.findByRole('button', { name: 'Suprema' })
-    await user.type(screen.getByRole('textbox', { name: 'Buscar por nombre o código' }), 'patitas')
+    await user.type(screen.getByRole('textbox', { name: 'Buscar por nombre' }), 'patitas')
     expect(screen.getByRole('button', { name: 'Patitas' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Suprema' })).toBeNull()
   })

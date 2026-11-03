@@ -1,5 +1,6 @@
 export const categories = ['Fresco', 'Congelado', 'Seco Almacen'] as const
 export const units = ['kg', 'unidad'] as const
+export const purchaseUnits = ['KILOS', 'UNIDADES', 'CAJONES', 'CAJAS', 'BOLSAS', 'BULTOS'] as const
 
 export type Product = {
   id: string
@@ -9,6 +10,9 @@ export type Product = {
   unit: typeof units[number]
   description: string
   active: boolean
+  unidadCompra?: typeof purchaseUnits[number]
+  factorConversion?: number
+  costoActual?: string
 }
 
 export type ProductDraft = Omit<Product, 'id' | 'active'>
@@ -19,6 +23,8 @@ export const emptyDraft: ProductDraft = {
   category: 'Fresco',
   unit: 'kg',
   description: '',
+  unidadCompra: 'KILOS',
+  factorConversion: 1,
 }
 
 export function normalize(value: string) {
@@ -33,5 +39,8 @@ export function validateProduct(draft: ProductDraft, products: Product[], editin
   if (!categories.includes(draft.category)) errors.category = 'Seleccioná una categoría válida.'
   if (!units.includes(draft.unit)) errors.unit = 'Seleccioná una unidad válida.'
   if (draft.description.length > 300) errors.description = 'La descripción admite hasta 300 caracteres.'
+  if (draft.unidadCompra !== undefined && !purchaseUnits.includes(draft.unidadCompra)) errors.unidadCompra = 'Seleccioná una unidad de compra válida.'
+  if (draft.factorConversion !== undefined && (!Number.isFinite(draft.factorConversion) || draft.factorConversion <= 0 || draft.factorConversion > 1000000 || draft.unit === 'unidad' && !Number.isSafeInteger(draft.factorConversion))) errors.factorConversion = 'Ingresá un factor positivo; para venta por unidad debe ser entero.'
+  if ((draft.unidadCompra === 'KILOS' || draft.unidadCompra === 'UNIDADES') && (draft.unidadCompra !== (draft.unit === 'kg' ? 'KILOS' : 'UNIDADES') || (draft.factorConversion ?? 1) !== 1)) errors.unidadCompra = 'La compra en kilos/unidades debe coincidir con la venta y usar factor 1. Elegí cajones o bultos para otra equivalencia.'
   return errors
 }

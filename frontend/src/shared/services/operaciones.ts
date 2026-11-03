@@ -4,12 +4,14 @@ export type Unidad = 'KILOS' | 'UNIDADES'
 export type StockProducto = {
   id: number; codigo: string; nombre: string; stockActual: number; stockMinimo: number | null
   margenStock: number | null; unidadVenta: Unidad; estado: 'Normal' | 'Próximo al Mínimo' | 'Crítico'
+  unidadCompra?: string; factorConversion?: number
 }
 export type ProductoCaja = Omit<StockProducto, 'estado'> & { activo: boolean }
 export type Pagina<T> = { rows: T[]; count: number }
 export type ListaPrecio = 'MINORISTA' | 'MAYORISTA'
-export type LineaVenta = { productoId?: number; ofertaId?: number; cantidad: number; tipoPrecio?: ListaPrecio }
-export type DetalleVenta = LineaVenta & { numeroItem?: number; nombre: string; importeUnitario: string | number; subtotal: string | number }
+export type DespachoVenta = { productoId: number; nombre: string; unidadVenta: Unidad; cantidadPromocional: number; cantidadReal: number }
+export type LineaVenta = { productoId?: number; ofertaId?: number; cantidad: number; tipoPrecio?: ListaPrecio; despacho?: { productoId: number; cantidadReal: number }[] }
+export type DetalleVenta = Omit<LineaVenta, 'despacho'> & { numeroItem?: number; nombre: string; importeUnitario: string | number; subtotal: string | number; despacho?: DespachoVenta[] | null }
 export type Venta = { id: number; fechaHora: string; total: string | number }
 export type VentaCompleta = { venta: Venta; detalles: DetalleVenta[] }
 export type Cotizacion = { total: string; detalles: DetalleVenta[] }
@@ -19,7 +21,7 @@ export type Movimiento = {
   motivo: string | null; usuarioId: number; ventaId: number | null
 }
 export type TipoMovimiento = 'INGRESO' | 'EGRESO' | 'AJUSTE' | 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO' | 'MERMA' | 'PERDIDA' | 'VENCIMIENTO' | 'ROTURA'
-export type MovimientoInput = { productoId: number; tipo: TipoMovimiento; cantMovimiento?: number; stockObjetivo?: number; motivo: string }
+export type MovimientoInput = { productoId: number; tipo: TipoMovimiento; cantMovimiento?: number; stockObjetivo?: number; motivo: string; unidad?: 'COMPRA' | 'VENTA' }
 export type DesposteInput = { productoOrigenId: number; cantidadOrigen: number; derivados: { productoId: number; cantidad: number }[]; merma: number; motivo: string }
 
 function consulta(path: string, params: Record<string, string | number | undefined>) {
@@ -36,7 +38,8 @@ export async function fetchStock(): Promise<StockProducto[]> {
     if (parte.length < 1000) return productos
   }
 }
-export const buscarProductosCaja = (q: string, page = 1, signal?: AbortSignal) => apiRequest<Pagina<ProductoCaja>>(consulta('ventas/productos', { q, page, limite: 20 }), { signal })
+export const buscarProductosCaja = (q: string, page = 1, signal?: AbortSignal, filtros: { categoria?: string; orden?: string } = {}) => apiRequest<Pagina<ProductoCaja>>(consulta('ventas/productos', { q, page, limite: 20, ...filtros }), { signal })
+export const fetchCategoriasCaja = () => apiRequest<{ id: number; nombre: string }[]>('ventas/categorias')
 export const cotizar = (detalles: LineaVenta[], signal?: AbortSignal) => apiRequest<Cotizacion>('ventas/cotizacion', { method: 'POST', body: JSON.stringify({ detalles }), signal })
 export const confirmarVenta = (detalles: LineaVenta[]) => apiRequest<VentaCompleta>('ventas', { method: 'POST', body: JSON.stringify({ detalles }) })
 export const guardarMovimiento = (input: MovimientoInput) => apiRequest<Movimiento | null>('stock/movimientos', { method: 'POST', body: JSON.stringify(input) })

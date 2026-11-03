@@ -43,6 +43,7 @@ export class ApiError extends Error {
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
+  metadata?: { total?: number },
 ): Promise<T> {
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
@@ -61,6 +62,11 @@ export async function apiRequest<T>(
       payload?.message || `Error en la API: ${response.status} ${response.statusText}`,
       response.status
     )
+  }
+
+  if (metadata) {
+    const total = response.headers.get('X-Total-Count')
+    metadata.total = total === null ? undefined : Number(total)
   }
 
   if (response.status === 204) {

@@ -86,7 +86,7 @@ test('Sprint 2 sobre PostgreSQL: ventas, ofertas, rollback, ajustes y desposte',
       const oferta = await Oferta.create({ nombre: 'TEST combo', fechaInicio: new Date(Date.now() - 60000), fechaFin: new Date(Date.now() + 60000), activo: true }, opciones);
       await OfertaProducto.create({ ofertaId: oferta.id, productoId: pollo.id, cantidad: 1, precioOferta: '7.00', activo: true }, opciones);
       await OfertaProducto.create({ ofertaId: oferta.id, productoId: suprema.id, cantidad: 1, precioOferta: '100.00', activo: false }, opciones);
-      const resultado = await vender({ detalles: [{ ofertaId: oferta.id, cantidad: 2 }] });
+      const resultado = await vender({ detalles: [{ ofertaId: oferta.id, cantidad: 2, despacho: [{ productoId: pollo.id, cantidadReal: 2 }] }] });
       assert.ok(resultado.venta);
       assert.equal(Number(resultado.venta.total), 14);
       assert.equal(await stock(pollo), 16.5);
@@ -153,13 +153,13 @@ test('Sprint 2 sobre PostgreSQL: ventas, ofertas, rollback, ajustes y desposte',
     await t.test('Alta de ofertas persiste cantidad explícita y valor predeterminado', async () => {
       const { default: OfertaProductoRepository } = await import('polleria-database/repositories/ofertaProductoRepository');
       const repository = new OfertaProductoRepository();
-      const datos = { nombre: 'TEST oferta creada', descripcion: '', fechaInicio: new Date(Date.now() - 60000), fechaFin: new Date(Date.now() + 60000) };
+      const datos = { nombre: 'TEST oferta creada', descripcion: '', fechaInicio: new Date(), fechaFin: new Date(Date.now() + 60000) };
       const creada = await repository.crearOfertaConProductos(datos, [{ productoId: pollo.id, precioOferta: '5.00', cantidad: 2.5 }], transaction);
       assert.equal(creada.relaciones[0]!.cantidad, 2.5);
       const cotizacion = await vender({ detalles: [{ ofertaId: creada.oferta.id, cantidad: 2 }] }, true);
       assert.equal(cotizacion.total, '10.00');
       const anterior = await stock(pollo);
-      await vender({ detalles: [{ ofertaId: creada.oferta.id, cantidad: 2 }] });
+      await vender({ detalles: [{ ofertaId: creada.oferta.id, cantidad: 2, despacho: [{ productoId: pollo.id, cantidadReal: 5 }] }] });
       assert.equal(await stock(pollo), anterior - 5);
       const predeterminada = await repository.crearOfertaConProductos(datos, [{ productoId: suprema.id, precioOferta: '7.00' }], transaction);
       assert.equal(predeterminada.relaciones[0]!.cantidad, 1);

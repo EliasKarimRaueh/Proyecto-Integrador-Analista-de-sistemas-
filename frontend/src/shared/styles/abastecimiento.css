@@ -1,0 +1,17 @@
+.supply-nav { margin-bottom: 1.25rem; flex-wrap: wrap; }
+.supply-nav a { color: inherit; padding: .7rem 1rem; text-decoration: none; border-radius: .5rem; }
+.supply-nav a.selected { background: var(--primary, #f5c842); color: #29251b; font-weight: 700; }
+.supply-filters { flex-wrap: wrap; align-items: end; gap: 1rem; }
+.supply-filters label { display: flex; flex-direction: column; gap: .4rem; min-width: 140px; }
+.supply-filters .supply-check { flex-direction: row; align-items: center; }
+.supply-check input, .table-scroll input[type="checkbox"] { width: 18px; height: 18px; accent-color: #9a7610; }
+.supply-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 1.25rem 1rem; }
+.supply-toolbar p { max-width: 650px; color: #676b73; }
+.supply-lines { margin: 1rem 0; display: grid; gap: 1rem; }
+.supply-line { padding: 1rem; border: 1px solid #e3e5e9; border-radius: 10px; background: #fafbfc; }
+.supply-line h3 { margin: 0 0 .5rem; }
+.supply-line .operation-actions { justify-content: space-between; margin-top: .8rem; }
+.supply-amount { display: block; margin-top: .35rem; }
+.supply-observations { display: grid; gap: .5rem; margin-top: 1rem; }
+.sidebar nav { overflow-y: auto; min-height: 0; }
+@media (max-width: 700px) { .supply-toolbar { flex-direction: column; align-items: stretch; } .supply-filters label { width: 100%; } }

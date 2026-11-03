@@ -2,109 +2,217 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 jest.mock('polleria-database/repositories/compraRepository', () => require('../mocks/compraRepository.js'));
 jest.mock('polleria-database/repositories/cuentaProveedorRepository', () => require('../mocks/cuentaProveedorRepository.js'));
+jest.mock('polleria-database/repositories/detalleCompraRepository', () => require('../mocks/detalleCompraRepository.js'));
+jest.mock('polleria-database/repositories/pedidoCompraRepository', () => require('../mocks/pedidoCompraRepository.js'));
+jest.mock('polleria-database/repositories/productoRepository', () => require('../mocks/productoRepository.js'));
+jest.mock('polleria-database/repositories/productoProveedorRepository', () => require('../mocks/productoProveedorRepository.js'));
 jest.mock('polleria-database/repositories/proveedorRepository', () => require('../mocks/proveedorRepository.js'));
 
 import {
   getCompras,
   getCompraById,
+  getReposicion,
   postCompra,
 } from '../../src/controllers/compraController.js';
 import { instancia as compraRepo } from '../mocks/compraRepository.js';
 import { instancia as cuentaRepo } from '../mocks/cuentaProveedorRepository.js';
+import { instancia as detalleCompraRepo } from '../mocks/detalleCompraRepository.js';
+import { instancia as pedidoRepo } from '../mocks/pedidoCompraRepository.js';
+import { instancia as productoRepo } from '../mocks/productoRepository.js';
+import { instancia as relacionRepo } from '../mocks/productoProveedorRepository.js';
 import { instancia as proveedorRepo } from '../mocks/proveedorRepository.js';
 import { crearReq, crearRes } from '../helpers/http.js';
 import { usarTransaccionFalsa } from '../helpers/transaccion.js';
 
 function compra(overrides: Record<string, unknown> = {}) {
-  return { id: 7, proveedorId: 5, total: '1500.00', fechaHora: new Date('2026-03-01T00:00:00Z'), ...overrides };
+  return {
+    id: 7,
+    proveedorId: 5,
+    pedidoId: null,
+    tipoComprobante: 'FACTURA',
+    numeroComprobante: 'A-1',
+    estado: 'PENDIENTE_RECEPCION',
+    total: '200.00',
+    fechaHora: new Date('2026-03-01T00:00:00Z'),
+    ...overrides,
+  };
 }
 
+function producto(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 10,
+    codigo: 'P-001',
+    nombre: 'Pollo entero',
+    unidadCompra: 'KILOS',
+    unidadVenta: 'KILOS',
+    factorConversion: 1,
+    stockActual: 2,
+    stockMinimo: 5,
+    costoActual: '100.00',
+    activo: true,
+    ...overrides,
+  };
+}
+
+const DETALLE_VALIDO = [{ productoId: 10, cantidad: 2, costoUnitario: 100 }];
+
 beforeEach(() => {
-  proveedorRepo.buscarPorId.mockResolvedValue({ id: 5, nombre: 'Distribuidora Sur' });
+  usarTransaccionFalsa();
+  proveedorRepo.buscarPorId.mockResolvedValue({ id: 5, nombre: 'Distribuidora Sur', activo: true });
+  productoRepo.findById.mockResolvedValue(producto());
   compraRepo.crear.mockResolvedValue(compra());
+  compraRepo.listarConFiltros.mockResolvedValue({ rows: [compra()], count: 1 });
+  compraRepo.buscarDetalleCompleto.mockResolvedValue(compra({ cuentaProveedor: { id: 1, compraId: 7 } }));
   compraRepo.buscarPorId.mockResolvedValue(compra());
-  compraRepo.buscarPorProveedor.mockResolvedValue({ rows: [compra()], count: 1 });
-  compraRepo.buscarPorFechas.mockResolvedValue({ rows: [compra()], count: 1 });
-  compraRepo.buscarPorProveedorYFechas.mockResolvedValue({ rows: [compra()], count: 1 });
-  compraRepo.buscarTodas.mockResolvedValue([compra()]);
-  cuentaRepo.crear.mockResolvedValue({ id: 1, proveedorId: 5, compraId: 7, importePendiente: '1500.00', estado: 'PAGO PENDIENTE' });
-  cuentaRepo.buscarPorCompra.mockResolvedValue({ id: 1, proveedorId: 5, compraId: 7 });
+  detalleCompraRepo.crearMuchos.mockResolvedValue([{ id: 1, compraId: 7, productoId: 10 }]);
+  cuentaRepo.crear.mockResolvedValue({ id: 1, proveedorId: 5, compraId: 7, importePendiente: '200.00' });
+  pedidoRepo.buscarPorIdConBloqueo.mockResolvedValue({ id: 3, proveedorId: 5, estado: 'PENDIENTE' });
+  pedidoRepo.actualizarEstado.mockResolvedValue({ id: 3, estado: 'FACTURADO' });
+  productoRepo.buscarParaReposicion.mockResolvedValue({ rows: [producto()], count: 1 });
+  relacionRepo.getProveedoresActivosPorProductos.mockResolvedValue(new Map([
+    [10, [{ id: 5, nombre: 'Distribuidora Sur' }]],
+  ]));
 });
 
 describe('postCompra', () => {
-
-  it('crea la compra y su cuenta en una transacción, responde 201', async () => {
+  it('calcula el total en el servidor y crea compra, detalles y cuenta', async () => {
     const transaccion = usarTransaccionFalsa();
     const res = crearRes();
-    await postCompra(crearReq({ body: { proveedorId: 5, total: 1500 } }), res);
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-1',
+        total: 999,
+        detalles: DETALLE_VALIDO,
+      },
+    }), res);
 
     expect(compraRepo.crear).toHaveBeenCalledWith(
-      expect.objectContaining({ proveedorId: 5, total: '1500.00' }),
+      expect.objectContaining({
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        estado: 'PENDIENTE_RECEPCION',
+        total: '200.00',
+      }),
+      transaccion,
+    );
+    expect(detalleCompraRepo.crearMuchos).toHaveBeenCalledWith(
+      [expect.objectContaining({ compraId: 7, productoId: 10, cantidad: 2, subtotal: '200.00' })],
       transaccion,
     );
     expect(cuentaRepo.crear).toHaveBeenCalledWith(
-      expect.objectContaining({ proveedorId: 5, compraId: 7, importePendiente: '1500.00', estado: 'PAGO PENDIENTE' }),
+      expect.objectContaining({ compraId: 7, importePendiente: '200.00' }),
       transaccion,
     );
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  it('marca el pedido como facturado', async () => {
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        pedidoId: 3,
+        detalles: DETALLE_VALIDO,
+      },
+    }), res);
+
+    expect(pedidoRepo.buscarPorIdConBloqueo).toHaveBeenCalledWith(3, expect.anything());
+    expect(pedidoRepo.actualizarEstado).toHaveBeenCalledWith(3, 'FACTURADO', expect.anything());
+  });
+
   it('responde 404 si el proveedor no existe', async () => {
     proveedorRepo.buscarPorId.mockResolvedValue(null);
     const res = crearRes();
-    await postCompra(crearReq({ body: { proveedorId: 5, total: 1500 } }), res);
+
+    await postCompra(crearReq({
+      body: { proveedorId: 5, tipoComprobante: 'FACTURA', detalles: DETALLE_VALIDO },
+    }), res);
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ message: 'Proveedor no encontrado.' });
   });
 
-  it('rechaza un total no numérico', async () => {
+  it('rechaza un tipo de comprobante inválido', async () => {
     const res = crearRes();
-    await postCompra(crearReq({ body: { proveedorId: 5, total: 'abc' } }), res);
+    await postCompra(crearReq({ body: { proveedorId: 5, tipoComprobante: 'TICKET', detalles: DETALLE_VALIDO } }), res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ message: 'total no es válido.' });
+    expect(res.json).toHaveBeenCalledWith({ message: 'El tipo de comprobante no es válido.' });
   });
 
   it('rechaza una fecha inválida', async () => {
     const res = crearRes();
-    await postCompra(crearReq({ body: { proveedorId: 5, total: 1500, fechaHora: 'no-es-fecha' } }), res);
+    await postCompra(crearReq({
+      body: { proveedorId: 5, tipoComprobante: 'FACTURA', fechaHora: 'no-es-fecha', detalles: DETALLE_VALIDO },
+    }), res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ message: 'La fecha de la compra no es válida.' });
   });
+
+  it('exige detalles', async () => {
+    const res = crearRes();
+    await postCompra(crearReq({ body: { proveedorId: 5, tipoComprobante: 'FACTURA' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Debe indicar entre 1 y 100 detalles.' });
+  });
+
+  it('rechaza productos repetidos', async () => {
+    const res = crearRes();
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        detalles: [DETALLE_VALIDO[0], DETALLE_VALIDO[0]],
+      },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'No se puede repetir el mismo producto en la compra.' });
+  });
+
+  it('rechaza un pedido de otro proveedor', async () => {
+    pedidoRepo.buscarPorIdConBloqueo.mockResolvedValue({ id: 3, proveedorId: 9, estado: 'PENDIENTE' });
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: { proveedorId: 5, tipoComprobante: 'FACTURA', pedidoId: 3, detalles: DETALLE_VALIDO },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'El pedido pertenece a otro proveedor.' });
+  });
+
+  it('rechaza un pedido que ya no está pendiente', async () => {
+    pedidoRepo.buscarPorIdConBloqueo.mockResolvedValue({ id: 3, proveedorId: 5, estado: 'FACTURADO' });
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: { proveedorId: 5, tipoComprobante: 'FACTURA', pedidoId: 3, detalles: DETALLE_VALIDO },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+  });
 });
 
 describe('getCompras', () => {
-
-  it('usa buscarTodas y pagina en memoria sin filtros', async () => {
+  it('lista con filtros y cabecera de total', async () => {
     const res = crearRes();
-    await getCompras(crearReq(), res);
+    await getCompras(crearReq({ query: { proveedorId: '5', estado: 'RECIBIDA' } }), res);
 
-    expect(compraRepo.buscarTodas).toHaveBeenCalled();
+    expect(compraRepo.listarConFiltros).toHaveBeenCalledWith(
+      expect.objectContaining({ proveedorId: 5, estado: 'RECIBIDA' }),
+      1,
+      50,
+    );
     expect(res.setHeader).toHaveBeenCalledWith('X-Total-Count', 1);
     expect(res.json).toHaveBeenCalledWith([compra()]);
-  });
-
-  it('filtra por proveedor', async () => {
-    const res = crearRes();
-    await getCompras(crearReq({ query: { proveedorId: '5' } }), res);
-
-    expect(compraRepo.buscarPorProveedor).toHaveBeenCalledWith(5, 1, 50);
-  });
-
-  it('filtra por rango de fechas', async () => {
-    const res = crearRes();
-    await getCompras(crearReq({ query: { fechaDesde: '2026-01-01', fechaHasta: '2026-12-31' } }), res);
-
-    expect(compraRepo.buscarPorFechas).toHaveBeenCalled();
-  });
-
-  it('filtra por proveedor y rango de fechas a la vez', async () => {
-    const res = crearRes();
-    await getCompras(crearReq({ query: { proveedorId: '5', fechaDesde: '2026-01-01', fechaHasta: '2026-12-31' } }), res);
-
-    expect(compraRepo.buscarPorProveedorYFechas).toHaveBeenCalled();
   });
 
   it('responde 400 con un rango de fechas inválido', async () => {
@@ -117,16 +225,18 @@ describe('getCompras', () => {
 });
 
 describe('getCompraById', () => {
-
   it('devuelve la compra con su cuenta', async () => {
     const res = crearRes();
     await getCompraById(crearReq({ params: { id: '7' } }), res);
 
-    expect(res.json).toHaveBeenCalledWith({ compra: compra(), cuenta: { id: 1, proveedorId: 5, compraId: 7 } });
+    expect(res.json).toHaveBeenCalledWith({
+      compra: compra({ cuentaProveedor: { id: 1, compraId: 7 } }),
+      cuenta: { id: 1, compraId: 7 },
+    });
   });
 
   it('responde 404 si la compra no existe', async () => {
-    compraRepo.buscarPorId.mockResolvedValue(null);
+    compraRepo.buscarDetalleCompleto.mockResolvedValue(null);
     const res = crearRes();
     await getCompraById(crearReq({ params: { id: '7' } }), res);
 
@@ -137,6 +247,51 @@ describe('getCompraById', () => {
   it('rechaza un id inválido', async () => {
     const res = crearRes();
     await getCompraById(crearReq({ params: { id: '0' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+});
+
+describe('getReposicion', () => {
+  it('devuelve productos con faltante y proveedores', async () => {
+    const res = crearRes();
+    await getReposicion(crearReq(), res);
+
+    expect(productoRepo.buscarParaReposicion).toHaveBeenCalledWith({
+      proveedorId: undefined,
+      incluirProximos: false,
+      q: undefined,
+      page: 1,
+      limit: 50,
+    });
+    expect(res.setHeader).toHaveBeenCalledWith('X-Total-Count', 1);
+    expect(res.json).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: 10,
+        faltante: 3,
+        cantidadSugerida: 3,
+        estado: 'Crítico',
+        proveedores: [{ id: 5, nombre: 'Distribuidora Sur' }],
+      }),
+    ]);
+  });
+
+  it('respeta incluirProximos, q y proveedorId', async () => {
+    const res = crearRes();
+    await getReposicion(crearReq({ query: { proveedorId: '5', incluirProximos: 'true', q: 'pollo' } }), res);
+
+    expect(productoRepo.buscarParaReposicion).toHaveBeenCalledWith({
+      proveedorId: 5,
+      incluirProximos: true,
+      q: 'pollo',
+      page: 1,
+      limit: 50,
+    });
+  });
+
+  it('rechaza q no textual', async () => {
+    const res = crearRes();
+    await getReposicion(crearReq({ query: { q: ['pollo'] } }), res);
 
     expect(res.status).toHaveBeenCalledWith(400);
   });

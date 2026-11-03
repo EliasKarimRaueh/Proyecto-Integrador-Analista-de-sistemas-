@@ -2,6 +2,7 @@ import sequelize from 'polleria-database/config/database';
 import { Op, type Transaction } from 'sequelize';
 import Producto from 'polleria-database/models/Producto';
 import Oferta from 'polleria-database/models/Oferta';
+import TipoProducto from 'polleria-database/models/TipoProducto';
 import Venta from 'polleria-database/models/Venta';
 import DetalleVentaRepository from 'polleria-database/repositories/detalleVentaRepository';
 import MovimientoStockRepository from 'polleria-database/repositories/movimientoStockRepository';
@@ -44,16 +45,21 @@ export async function registrarMovimiento(body: unknown) {
   const tipos = ['INGRESO', 'EGRESO', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'MERMA', 'PERDIDA', 'VENCIMIENTO', 'ROTURA', 'AJUSTE'];
   if (!tipos.includes(String(b.tipo))) throw new ErrorOperacion('Tipo de movimiento inválido.');
   const razon = motivo(b.motivo);
-  const cantidad = numero(b.tipo === 'AJUSTE' ? b.stockObjetivo : b.cantMovimiento, 'cantidad', b.tipo === 'AJUSTE');
+  const cantidadIngresada = numero(b.tipo === 'AJUSTE' ? b.stockObjetivo : b.cantMovimiento, 'cantidad', b.tipo === 'AJUSTE');
+  const unidad = b.unidad ?? 'VENTA';
+  if (unidad !== 'COMPRA' && unidad !== 'VENTA') throw new ErrorOperacion('La unidad debe ser COMPRA o VENTA.');
   return sequelize.transaction(async transaction => {
     const productos = await bloquear([productoId], transaction);
     const producto = productos.get(productoId)!;
+    const factor = unidad === 'COMPRA' ? numero(producto.factorConversion, 'factorConversion') : 1;
+    const cantidad = Number((cantidadIngresada * factor).toFixed(3));
+    if (cantidad === 0 && b.tipo !== 'AJUSTE') throw new ErrorOperacion('La cantidad es menor a la precisión de stock (0,001).');
     validarCantidad(producto, cantidad);
     const suma = b.tipo === 'INGRESO' || b.tipo === 'AJUSTE_POSITIVO';
     if (b.tipo !== 'AJUSTE' && !suma && producto.margenStock !== null && producto.stockActual - cantidad < -producto.margenStock) {
       throw new ErrorOperacion('El movimiento supera el margen de stock permitido.', 409);
     }
-    const descripcion = `${b.tipo}: ${razon}`;
+    const descripcion = `${b.tipo}: ${razon}${unidad === 'COMPRA' ? ` (${cantidadIngresada} ${producto.unidadCompra} × ${factor})` : ''}`;
     if (b.tipo === 'AJUSTE') return movimientos.ajustarStock(productoId, cantidad, usuarioId, descripcion, transaction);
     if (b.tipo === 'INGRESO' || b.tipo === 'AJUSTE_POSITIVO') return movimientos.registrarIngreso(productoId, cantidad, usuarioId, descripcion, null, transaction);
     return movimientos.registrarEgreso(productoId, cantidad, usuarioId, descripcion, null, transaction);
@@ -98,29 +104,40 @@ export async function vender(body: unknown, cotizacion = false) {
     if ((d.productoId != null) === (d.ofertaId != null)) throw new ErrorOperacion('Cada detalle requiere producto u oferta.');
     const tipoPrecio = d.tipoPrecio ?? b.tipoPrecio ?? 'MINORISTA';
     if (tipoPrecio !== 'MINORISTA' && tipoPrecio !== 'MAYORISTA') throw new ErrorOperacion('Lista de precios inválida.');
-    return { productoId: d.productoId == null ? undefined : id(d.productoId), ofertaId: d.ofertaId == null ? undefined : id(d.ofertaId), cantidad: numero(d.cantidad, 'cantidad'), tipoPrecio };
+    if (d.despacho !== undefined && (d.ofertaId == null || !Array.isArray(d.despacho) || !d.despacho.length || d.despacho.length > 200)) throw new ErrorOperacion('El despacho requiere una oferta y entre 1 y 200 componentes.');
+    const despachoEntrada = d.despacho === undefined ? undefined : (d.despacho as unknown[]).map(valor => { const p = objeto(valor); return { productoId: id(p.productoId), cantidadReal: numero(p.cantidadReal, 'cantidadReal') }; });
+    if (despachoEntrada && new Set(despachoEntrada.map(p => p.productoId)).size !== despachoEntrada.length) throw new ErrorOperacion('No repitas productos en el despacho.');
+    return { productoId: d.productoId == null ? undefined : id(d.productoId), ofertaId: d.ofertaId == null ? undefined : id(d.ofertaId), cantidad: numero(d.cantidad, 'cantidad'), tipoPrecio, despachoEntrada };
   });
   return sequelize.transaction(async transaction => {
     const consumos = new Map<number, number>();
     const componentes = new Map<number, Awaited<ReturnType<typeof ofertas.listarDetalleProductos>>>();
     const ofertasPorId = new Map<number, Oferta>();
+    const despachos = new Map<typeof lineas[number], NonNullable<import('polleria-database/models/DetalleVenta').default['despacho']>>();
     for (const l of lineas) {
       if (l.productoId !== undefined) consumos.set(l.productoId, (consumos.get(l.productoId) ?? 0) + l.cantidad);
       else {
         if (!Number.isSafeInteger(l.cantidad)) throw new ErrorOperacion('La cantidad de ofertas debe ser entera.');
         const oferta = await Oferta.findByPk(l.ofertaId!, { transaction, lock: transaction.LOCK.SHARE });
         const ahora = new Date();
-        if (!oferta || !oferta.activo || oferta.fechaInicio > ahora || oferta.fechaFin < ahora) throw new ErrorOperacion('La oferta no está vigente.');
+        if (!oferta || !oferta.activo || oferta.fechaInicio > ahora || oferta.fechaFin !== null && oferta.fechaFin < ahora) throw new ErrorOperacion('La oferta no está vigente.');
         ofertasPorId.set(oferta.id, oferta);
         const items = await ofertas.listarDetalleProductos(l.ofertaId!, true, transaction);
         if (!items.length) throw new ErrorOperacion('La oferta no tiene productos activos.');
         componentes.set(l.ofertaId!, items);
+        if (l.despachoEntrada && (l.despachoEntrada.length !== items.length || l.despachoEntrada.some(p => !items.some(i => i.producto.id === p.productoId)))) throw new ErrorOperacion('El despacho debe incluir todos los componentes activos de la oferta.');
+        const despacho = [];
         for (const item of items) {
-          const cantidad = l.cantidad * numero(item.relacion.cantidad, 'cantidad del componente');
+          const cantidadPromocional = l.cantidad * numero(item.relacion.cantidad, 'cantidad del componente');
+          const cantidad = numero(l.despachoEntrada?.find(p => p.productoId === item.producto.id)?.cantidadReal ?? Number(cantidadPromocional.toFixed(3)), 'cantidadReal');
+          if (cantidad > 1000000 || Math.abs(cantidad * 1000 - Math.round(cantidad * 1000)) > 1e-6) throw new ErrorOperacion('El despacho admite hasta tres decimales y un máximo de 1000000.');
+          if (item.producto.unidadVenta === 'UNIDADES' && cantidad !== cantidadPromocional) throw new ErrorOperacion('Los componentes por unidad deben coincidir con la cantidad promocional.');
           numero(item.relacion.precioOferta, 'precio del componente', true);
           validarCantidad(item.producto, cantidad);
           consumos.set(item.producto.id, (consumos.get(item.producto.id) ?? 0) + cantidad);
+          despacho.push({ productoId: item.producto.id, nombre: item.producto.nombre, unidadVenta: item.producto.unidadVenta, cantidadPromocional, cantidadReal: cantidad });
         }
+        despachos.set(l, despacho);
       }
     }
     const productos = await bloquear([...consumos.keys()], transaction);
@@ -143,7 +160,7 @@ export async function vender(body: unknown, cotizacion = false) {
         importeUnitario = Number(importe); nombre = productos.get(l.productoId)!.nombre;
       } else {
         const oferta = ofertasPorId.get(l.ofertaId!)!;
-        importeUnitario = oferta.descuentoPorcentaje == null
+        importeUnitario = oferta.precioFinal != null ? Number(oferta.precioFinal) : oferta.descuentoPorcentaje == null
           ? componentes.get(l.ofertaId!)!.reduce((s, i) => s + Number(i.relacion.precioOferta), 0)
           : Number((await precioCombo(componentes.get(l.ofertaId!)!.map(i => ({ productoId: i.producto.id, cantidad: i.relacion.cantidad })), oferta.descuentoPorcentaje, l.tipoPrecio, transaction)).resumen.total);
         nombre = (await Oferta.findByPk(l.ofertaId!, { transaction }))!.nombre;
@@ -152,20 +169,24 @@ export async function vender(body: unknown, cotizacion = false) {
       const precioRedondeado = formatearImporte(centavos(1, importeUnitario));
       const subtotalCentavos = centavos(l.cantidad, precioRedondeado);
       if (subtotalCentavos > 9999999999n) throw new ErrorOperacion('El subtotal supera el máximo permitido.');
-      calculados.push({ ...l, nombre, importeUnitario: precioRedondeado, subtotal: formatearImporte(subtotalCentavos) });
+      calculados.push({ productoId: l.productoId, ofertaId: l.ofertaId, cantidad: l.cantidad, tipoPrecio: l.tipoPrecio, nombre, importeUnitario: precioRedondeado, subtotal: formatearImporte(subtotalCentavos), ...(l.ofertaId === undefined ? {} : { despacho: despachos.get(l) }) });
     }
     const totalCentavos = calculados.reduce((s, l) => s + centavos(1, l.subtotal), 0n);
     if (totalCentavos > 9999999999n) throw new ErrorOperacion('El total supera el máximo permitido.');
     const total = formatearImporte(totalCentavos);
     if (cotizacion) return { total, detalles: calculados };
+    if (lineas.some(l => !l.despachoEntrada && despachos.get(l)?.some(p => p.unidadVenta === 'KILOS'))) throw new ErrorOperacion('La venta de una promoción por peso requiere el despacho real de sus componentes.');
     const venta = await Venta.create({ fechaHora: new Date(), total }, { transaction });
     const guardados = [];
-    for (const [indice, l] of calculados.entries()) guardados.push(await detalles.create({ ventaId: venta.id, numeroItem: indice + 1, cantidad: l.cantidad, productoId: l.productoId ?? null, ofertaId: l.ofertaId ?? null, nombre: l.nombre, importeUnitario: Number(l.importeUnitario), subtotal: Number(l.subtotal) }, { transaction }));
+    for (const [indice, l] of calculados.entries()) guardados.push(await detalles.create({ ventaId: venta.id, numeroItem: indice + 1, cantidad: l.cantidad, productoId: l.productoId ?? null, ofertaId: l.ofertaId ?? null, nombre: l.nombre, importeUnitario: Number(l.importeUnitario), subtotal: Number(l.subtotal), ...(l.despacho ? { despacho: l.despacho } : {}) }, { transaction }));
     for (const [productoId, cantidad] of consumos) await movimientos.registrarEgreso(productoId, cantidad, usuarioId, null, venta.id, transaction);
     return { venta, detalles: guardados };
   });
 }
 
-export async function buscarProductos(q: string, page: number, limit: number) {
-  return Producto.findAndCountAll({ where: { activo: true, ...(q ? { [Op.or]: [{ codigo: { [Op.iLike]: `%${q}%` } }, { nombre: { [Op.iLike]: `%${q}%` } }] } : {}) }, attributes: { exclude: ['imagen'] }, order: [['nombre', 'ASC']], offset: (page - 1) * limit, limit });
+export async function buscarProductos(q: string, page: number, limit: number, filtros: { categoria?: string; orden?: string } = {}) {
+  const orden = filtros.orden ?? 'nombre_asc';
+  if (!['nombre_asc', 'nombre_desc', 'mas_vendido'].includes(orden)) throw new ErrorOperacion('Orden de productos inválido.');
+  const ranking = orden === 'mas_vendido' ? sequelize.literal(`(SELECT COUNT(DISTINCT dv."ventaId") FROM "detallesVenta" dv WHERE dv."productoId" = "Producto"."id" OR EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(dv.despacho, '[]'::jsonb)) componente WHERE (componente->>'productoId')::integer = "Producto"."id"))`) : undefined;
+  return Producto.findAndCountAll({ where: { activo: true, ...(q ? { [Op.or]: [{ codigo: { [Op.iLike]: `%${q}%` } }, { nombre: { [Op.iLike]: `%${q}%` } }] } : {}) }, attributes: { exclude: ['imagen'] }, ...(filtros.categoria ? { include: [{ model: TipoProducto, as: 'tipoProducto', attributes: [], required: true, where: { nombre: { [Op.iLike]: `%${filtros.categoria}%` } } }] } : {}), order: ranking ? [[ranking, 'DESC'], ['nombre', 'ASC'], ['id', 'ASC']] : [['nombre', orden === 'nombre_desc' ? 'DESC' : 'ASC']], offset: (page - 1) * limit, limit });
 }

@@ -4,11 +4,49 @@ import type { Transaction} from 'sequelize';
 
 import BaseRepository from './BaseRepository.js';
 import Oferta from '../models/Oferta.js';
+import OfertaProducto from '../models/OfertaProducto.js';
+import sequelize from '../config/database.js';
 
 class OfertaRepository extends BaseRepository<Oferta> {
 
     constructor() {
         super(Oferta);
+    }
+
+    async bloquearVigencias(transaction: Transaction) {
+        await sequelize.query('SELECT pg_advisory_xact_lock(4182402)', { transaction });
+    }
+
+    async validarSuperposicion(productoIds: number[], inicio: Date, fin: Date | null, excluirId: number | undefined, transaction: Transaction) {
+        await this.bloquearVigencias(transaction);
+        if (!productoIds.length) return;
+        const relaciones = await OfertaProducto.findAll({ where: { activo: true, productoId: { [Op.in]: productoIds } }, transaction });
+        const ids = [...new Set(relaciones.map(r => r.ofertaId))].filter(id => id !== excluirId);
+        if (!ids.length) return;
+        const conflicto = await Oferta.findOne({ where: {
+            id: { [Op.in]: ids }, activo: true,
+            ...(fin ? { fechaInicio: { [Op.lte]: fin } } : {}),
+            [Op.or]: [{ fechaFin: null }, { fechaFin: { [Op.gte]: inicio } }]
+        }, transaction });
+        if (conflicto) {
+            const error = new Error(`La vigencia se superpone con la oferta «${conflicto.nombre}» para un producto compartido.`);
+            error.name = 'ConflictoOferta';
+            throw error;
+        }
+    }
+
+    override async updateById(id: number, datos: Partial<Oferta>, transaction?: Transaction): Promise<Oferta | null> {
+        const guardar = async (tx: Transaction) => {
+            await this.bloquearVigencias(tx);
+            const actual = await Oferta.findByPk(id, { transaction: tx, lock: tx.LOCK.UPDATE });
+            if (!actual) return null;
+            if (datos.activo ?? actual.activo) {
+                const productos = await OfertaProducto.findAll({ where: { ofertaId: id, activo: true }, transaction: tx });
+                await this.validarSuperposicion(productos.map(p => p.productoId), datos.fechaInicio ?? actual.fechaInicio, datos.fechaFin === undefined ? actual.fechaFin : datos.fechaFin, id, tx);
+            }
+            return actual.update(datos, { transaction: tx });
+        };
+        return transaction ? guardar(transaction) : sequelize.transaction(guardar);
     }
 
     // =========================
@@ -150,7 +188,7 @@ class OfertaRepository extends BaseRepository<Oferta> {
             activo: true,
             [Op.and]: [
                 { fechaInicio: { [Op.lte]: fecha } },
-                { fechaFin: { [Op.gte]: fecha } }
+                { [Op.or]: [{ fechaFin: null }, { fechaFin: { [Op.gte]: fecha } }] }
             ]
         };
 
@@ -174,7 +212,7 @@ class OfertaRepository extends BaseRepository<Oferta> {
                 activo: true,
                 [Op.and]: [
                     { fechaInicio: { [Op.lte]: fecha } },
-                    { fechaFin: { [Op.gte]: fecha } }
+                    { [Op.or]: [{ fechaFin: null }, { fechaFin: { [Op.gte]: fecha } }] }
                 ]
             },
             order: [['fechaInicio', 'DESC']],
@@ -213,7 +251,7 @@ class OfertaRepository extends BaseRepository<Oferta> {
     async updateVigencia(
         id: number,
         fechaInicio: Date,
-        fechaFin: Date,
+        fechaFin: Date | null,
         transaction?: Transaction
     ): Promise<Oferta | null> {
         return await this.updateById(

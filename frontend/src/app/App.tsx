@@ -13,6 +13,8 @@ import { SalesHistoryPage } from '../features/sales/SalesHistoryPage'
 import { DespostePage } from '../features/stock/DespostePage'
 import { MovementsPage } from '../features/stock/MovementsPage'
 import { ProveedoresPage } from '../features/proveedores/ProveedoresPage'
+import { ReposicionPage } from '../features/abastecimiento/ReposicionPage'
+import { HistorialAbastecimientoPage } from '../features/abastecimiento/HistorialAbastecimientoPage'
 
 export default function App() {
   return (
@@ -24,6 +26,9 @@ export default function App() {
           <Route path="proveedores" element={<ProveedoresPage />} />
           <Route path="ofertas" element={<OfertasPage />} />
           <Route path="pedidos" element={<OrdersPage />} />
+          <Route path="reposicion" element={<ReposicionPage />} />
+          <Route path="compras" element={<HistorialAbastecimientoPage key="compras" tipo="compras" />} />
+          <Route path="recepciones" element={<HistorialAbastecimientoPage key="recepciones" tipo="recepciones" />} />
           <Route path="stock" element={<StockPage />} />
           <Route path="caja" element={<SalesPage />} />
           <Route path="ventas" element={<SalesHistoryPage />} />

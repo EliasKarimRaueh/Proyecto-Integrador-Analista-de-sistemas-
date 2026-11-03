@@ -89,6 +89,24 @@ class ProveedorRepository extends BaseRepository<Proveedor> {
     }
 
     /**
+     * Busca todos los proveedores filtrando por estado de actividad,
+     * sin paginación.
+     */
+    async buscarTodosPorEstado(
+        activo: boolean,
+        orderBy = 'id',
+        orderDirection: 'ASC' | 'DESC' = 'ASC',
+        transaction?: Transaction
+    ): Promise<Proveedor[]> {
+
+        return await Proveedor.findAll({
+            where: { activo },
+            order: [[orderBy, orderDirection]],
+            transaction
+        });
+    }
+
+    /**
      * Busca proveedores con paginación.
      */
     async listarPaginados(

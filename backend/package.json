@@ -10,6 +10,8 @@
     "test": "tsx --test test/operaciones.test.ts",
     "test:integration": "tsx --test test/integration.test.ts",
     "test:integration:sprint3": "tsx --test test/sprint3.integration.test.ts",
+    "test:integration:sprint4": "tsx --test test/sprint4.integration.test.ts",
+    "test:integration:bloque2": "tsx --test test/bloque2.integration.test.ts",
     "test:jest": "jest",
     "test:jest:watch": "jest --watch",
     "test:jest:coverage": "jest --coverage",

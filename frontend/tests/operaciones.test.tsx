@@ -20,6 +20,8 @@ function respuesta(path: string, options?: RequestInit) {
   const url = new URL(path, 'http://localhost'), method = options?.method ?? 'GET'
   const b = options?.body ? JSON.parse(String(options.body)) : undefined
   if (url.pathname === '/api/stock' && method === 'GET') return json(stock)
+  if (url.pathname === '/api/ventas/categorias') return json([{ id: 1, nombre: 'Fresco' }])
+  if (url.pathname === '/api/ofertas/10') return json({ id: '10', nombre: 'Combo del día', vigente: true, activo: true, descripcion: 'Pollo y suprema', fechaInicio: '2026-01-01', fechaFin: null, productos: [{ productoId: '1', nombre: 'Pollo entero', codigo: 'POL-001', unidadVenta: 'KILOS', cantidad: 1, precioOferta: '300.00', activo: true }] })
   if (url.pathname === '/api/productos') return json(stock.map(p => ({ id: String(p.id), name: p.nombre, code: p.codigo, unit: p.unidadVenta === 'KILOS' ? 'kg' : 'unidad', active: true, category: 'Fresco', description: '' })))
   if (url.pathname === '/api/ventas/productos') return json({ rows: stock.filter(p => `${p.nombre} ${p.codigo}`.toLowerCase().includes((url.searchParams.get('q') ?? '').toLowerCase())), count: stock.length })
   if (url.pathname === '/api/precios') return json(stock.map(p => ({ id: String(p.id), productoId: p.id, precioMinorista: '100.00', precioMayorista: '80.00', activo: true, vigente: true, fechaDesde: '2026-01-01', fechaHasta: null, fechaBaja: null })))
