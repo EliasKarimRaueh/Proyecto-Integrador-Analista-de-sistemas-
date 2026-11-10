@@ -26,8 +26,8 @@ DetalleCompra.init(
     {
         id: {
             type: DataTypes.INTEGER,
-            primaryKey: true,
-            autoIncrement: true
+            allowNull: true,
+            defaultValue: null
         },
         
         compraId: {
