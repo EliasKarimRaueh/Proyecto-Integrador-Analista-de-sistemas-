@@ -17,7 +17,7 @@ export async function migrateComprasSprint4() {
         END $$`);
 
         await query(`
-            CREATE TABLE IF NOT EXISTS pedidos_compra (
+            CREATE TABLE IF NOT EXISTS pedidos (
                 id SERIAL PRIMARY KEY,
                 "proveedorId" INTEGER NOT NULL REFERENCES proveedores(id),
                 "fechaHora" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -28,9 +28,9 @@ export async function migrateComprasSprint4() {
         `);
 
         await query(`
-            CREATE TABLE IF NOT EXISTS detalles_pedido_compra (
+            CREATE TABLE IF NOT EXISTS "detallesPedido" (
                 id SERIAL PRIMARY KEY,
-                "pedidoId" INTEGER NOT NULL REFERENCES pedidos_compra(id),
+                "pedidoId" INTEGER NOT NULL REFERENCES pedidos(id),
                 "productoId" INTEGER NOT NULL REFERENCES productos(id),
                 cantidad FLOAT NOT NULL,
                 "costoEstimado" DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -40,7 +40,7 @@ export async function migrateComprasSprint4() {
         `);
 
         await query(`
-            CREATE TABLE IF NOT EXISTS detalles_compra (
+            CREATE TABLE IF NOT EXISTS "detallesCompra" (
                 id SERIAL PRIMARY KEY,
                 "compraId" INTEGER NOT NULL REFERENCES compras(id),
                 "productoId" INTEGER NOT NULL REFERENCES productos(id),
@@ -58,7 +58,7 @@ export async function migrateComprasSprint4() {
             CREATE TABLE IF NOT EXISTS recepciones (
                 id SERIAL PRIMARY KEY,
                 "compraId" INTEGER NOT NULL UNIQUE REFERENCES compras(id),
-                "pedidoId" INTEGER REFERENCES pedidos_compra(id),
+                "pedidoId" INTEGER REFERENCES pedidos(id),
                 "proveedorId" INTEGER NOT NULL REFERENCES proveedores(id),
                 "fechaHora" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
                 observaciones VARCHAR(300),
@@ -88,7 +88,7 @@ export async function migrateComprasSprint4() {
         await query("ALTER TABLE compras ALTER COLUMN estado SET DEFAULT 'PENDIENTE_RECEPCION'");
         await query('ALTER TABLE compras ALTER COLUMN estado SET NOT NULL');
 
-        // 1. Elimina cualquier clave foránea previa sobre compras.pedidoId que no apunte a pedidos_compra
+        // 1. Elimina cualquier clave foránea previa sobre compras.pedidoId que no apunte a pedidos
         await query(`
             DO $$
             DECLARE
@@ -104,22 +104,22 @@ export async function migrateComprasSprint4() {
                     WHERE tc.constraint_type = 'FOREIGN KEY'
                       AND tc.table_name = 'compras'
                       AND kcu.column_name = 'pedidoId'
-                      AND ccu.table_name <> 'pedidos_compra'
+                      AND ccu.table_name <> 'pedidos'
                 ) LOOP
                     EXECUTE 'ALTER TABLE compras DROP CONSTRAINT ' || quote_ident(r.constraint_name);
                 END LOOP;
             END $$;
         `);
 
-        // 2. Limpia los pedidoId huérfanos que no existen en pedidos_compra
+        // 2. Limpia los pedidoId huérfanos que no existen en pedidos
         await query(`
             UPDATE compras
             SET "pedidoId" = NULL
             WHERE "pedidoId" IS NOT NULL
-              AND "pedidoId" NOT IN (SELECT id FROM pedidos_compra);
+              AND "pedidoId" NOT IN (SELECT id FROM pedidos);
         `);
 
-        // 3. Aplica la clave foránea hacia pedidos_compra
+        // 3. Aplica la clave foránea hacia pedidos
         await query(`
             DO $$
             BEGIN
@@ -128,7 +128,7 @@ export async function migrateComprasSprint4() {
                 ) THEN
                     ALTER TABLE compras
                     ADD CONSTRAINT compras_pedido_fk
-                    FOREIGN KEY ("pedidoId") REFERENCES pedidos_compra(id);
+                    FOREIGN KEY ("pedidoId") REFERENCES pedidos(id);
                 END IF;
             END $$;
         `);

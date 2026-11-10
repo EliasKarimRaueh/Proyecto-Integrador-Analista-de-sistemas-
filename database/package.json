@@ -27,8 +27,8 @@
     "./repositories/pagoRepository": "./src/repositories/pagoRepository.ts",
     "./repositories/pagoPorCuentaRepository": "./src/repositories/pagoPorCuentaRepository.ts",
     "./repositories/productoProveedorRepository": "./src/repositories/productoProveedorRepository.ts",
-    "./repositories/pedidoCompraRepository": "./src/repositories/pedidoCompraRepository.ts",
-    "./repositories/detallePedidoCompraRepository": "./src/repositories/detallePedidoCompraRepository.ts",
+    "./repositories/pedidosRepository": "./src/repositories/pedidoRepository.ts",
+    "./repositories/detallePedidoRepository": "./src/repositories/detallePedidoRepository.ts",
     "./repositories/detalleCompraRepository": "./src/repositories/detalleCompraRepository.ts",
     "./repositories/recepcionRepository": "./src/repositories/recepcionRepository.ts",
     "./repositories/detalleRecepcionRepository": "./src/repositories/detalleRecepcionRepository.ts"
@@ -40,8 +40,8 @@
     "test:connection": "tsx src/test/test-connection.ts",
     "test:repositories": "tsx src/test/test-repositories.ts",
     "test:repositories2": "npx jest src/test/test-repositories2.test.ts",
-    "seed:productos": "tsx src/seeders/seederProductos.ts",
     "db:seed": "tsx src/seeders/seedDatabase.ts",
+    "seed:productos": "tsx src/seeders/seederProductos.ts",
     "seed:proveedores": "tsx src/seeders/seederProveedores.ts",
     "seed:ventas": "tsx src/seeders/seederVentas.ts"
   },

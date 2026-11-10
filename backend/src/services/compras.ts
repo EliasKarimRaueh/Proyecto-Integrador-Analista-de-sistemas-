@@ -2,10 +2,12 @@ import sequelize from 'polleria-database/config/database';
 import CompraRepository from 'polleria-database/repositories/compraRepository';
 import CuentaProveedorRepository from 'polleria-database/repositories/cuentaProveedorRepository';
 import DetalleCompraRepository from 'polleria-database/repositories/detalleCompraRepository';
-import PedidoCompraRepository from 'polleria-database/repositories/pedidoCompraRepository';
+import PedidoRepository from '../../../database/src/repositories/pedidoRepository.js';
+import DetallePedidoRepository from '../../../database/src/repositories/detallePedidoRepository.js';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import ProductoProveedorRepository from 'polleria-database/repositories/productoProveedorRepository';
 import ProveedorRepository from 'polleria-database/repositories/proveedorRepository';
+import MovimientoStockRepository from 'polleria-database/repositories/movimientoStockRepository';
 import { ErrorOperacion, estadoStock, objeto, numero, id, validarCantidad } from './operaciones.js';
 import {
   calcularCantidadSugerida,
@@ -16,13 +18,39 @@ import {
   convertirCostoUnitario
 } from './comprasCalculos.js';
 
-const compras = new CompraRepository();
-const cuentas = new CuentaProveedorRepository();
-const detallesCompras = new DetalleCompraRepository();
-const pedidos = new PedidoCompraRepository();
+// Repositorio base de productos
 const productos = new ProductoRepository();
+
+// Repositorios de detalles
+const detallesCompras = new DetalleCompraRepository(productos);
+const detallesPedidos = new DetallePedidoRepository(productos);
+
+
+// Repositorios independientes
+const movimientosStock = new MovimientoStockRepository();
+const cuentas = new CuentaProveedorRepository();
+
+// CompraRepository
+const compras = new CompraRepository(
+  detallesCompras,
+  movimientosStock,
+  cuentas,
+  productos
+);
+
+// PedidoRepository
+const pedidos = new PedidoRepository(
+  detallesPedidos,
+  compras
+);
+
+// Otros repositorios
 const relaciones = new ProductoProveedorRepository();
 const proveedores = new ProveedorRepository();
+
+// Resolver dependencia circular
+compras.setPedidoRepository(pedidos);
+
 
 const TIPOS_COMPROBANTE = ['FACTURA', 'REMITO', 'OTRO'] as const;
 

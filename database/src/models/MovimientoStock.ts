@@ -75,16 +75,6 @@ MovimientoStock.init({
         }*/
     },
 
-    recepcionId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        defaultValue: null,
-        references: {
-            model: 'recepciones',
-            key: 'id'
-        }
-    },
-
     tipo: {
         type: DataTypes.ENUM(
             'INGRESO',
@@ -158,7 +148,17 @@ MovimientoStock.init({
         type: DataTypes.STRING(300),
         allowNull: true,
         defaultValue: null
-    }
+    },
+
+    recepcionId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null,
+        references: {
+            model: 'recepciones',
+            key: 'id'
+        }
+    },
 
 }, {
 

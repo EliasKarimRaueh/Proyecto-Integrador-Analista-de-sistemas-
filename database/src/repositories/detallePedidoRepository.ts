@@ -8,6 +8,8 @@ import ProductoProveedorRepository from './productoProveedorRepository.js';
 
 import type { Transaction } from 'sequelize';
 
+import Producto from '../models/Producto.js';
+
 class DetallePedidoRepository extends BaseRepository<DetallePedido> {
 
     private productoRepository: ProductoRepository;
@@ -472,6 +474,43 @@ class DetallePedidoRepository extends BaseRepository<DetallePedido> {
         );
 
         return totalCalculado;
+    }
+
+    async crear(
+        datos: Partial<DetallePedido>,
+        transaction?: Transaction
+    ): Promise<DetallePedido> {
+
+        return await this.create(
+            datos,
+            { transaction }
+        );
+    }
+
+    async crearMuchos(
+        datos: Partial<DetallePedido>[],
+        transaction?: Transaction
+    ): Promise<DetallePedido[]> {
+
+        return await this.model.bulkCreate(
+            datos as never[],
+            { transaction }
+        );
+    }
+
+    async buscarPorPedido(
+        pedidoId: number,
+        transaction?: Transaction
+    ): Promise<DetallePedido[]> {
+
+        return await this.model.findAll({
+            where: { pedidoId },
+            include: [
+                { model: Producto, as: 'producto' }
+            ],
+            order: [['id', 'ASC']],
+            transaction
+        });
     }
 }
 

@@ -34,7 +34,15 @@ class Producto extends Model {
 }
 
 Producto.init({
-    proveedorHabitualId: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null, references: { model: 'proveedores', key: 'id' } },
+    proveedorHabitualId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null,
+        references: {
+                model: 'proveedores',
+                key: 'id'
+            }
+    },
 
     id: {
         type: DataTypes.INTEGER,

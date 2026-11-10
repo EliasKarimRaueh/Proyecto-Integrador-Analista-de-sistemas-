@@ -3,9 +3,11 @@ import CompraRepository from 'polleria-database/repositories/compraRepository';
 import DetalleCompraRepository from 'polleria-database/repositories/detalleCompraRepository';
 import DetalleRecepcionRepository from 'polleria-database/repositories/detalleRecepcionRepository';
 import MovimientoStockRepository from 'polleria-database/repositories/movimientoStockRepository';
-import PedidoCompraRepository from 'polleria-database/repositories/pedidoCompraRepository';
+import PedidoRepository from '../../../database/src/repositories/pedidoRepository.js';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import RecepcionRepository from 'polleria-database/repositories/recepcionRepository';
+import DetallePedidoRepository from '../../../database/src/repositories/detallePedidoRepository.js';
+import CuentaProveedorRepository from 'polleria-database/repositories/cuentaProveedorRepository';
 import { ErrorOperacion, objeto, numero, id, validarCantidad } from './operaciones.js';
 import {
   convertirCantidadBase,
@@ -15,12 +17,29 @@ import {
 
 const PRESENTACIONES = ['UNIDAD', 'KILOS', 'CAJON', 'CAJA', 'BOLSA', 'BULTO'] as const;
 
-const compras = new CompraRepository();
-const detallesCompras = new DetalleCompraRepository();
-const detallesRecepciones = new DetalleRecepcionRepository();
-const movimientos = new MovimientoStockRepository();
-const pedidos = new PedidoCompraRepository();
 const productos = new ProductoRepository();
+
+const detallesCompras = new DetalleCompraRepository(productos);
+const detallesPedidos = new DetallePedidoRepository(productos);
+
+const movimientos = new MovimientoStockRepository();
+const cuentas = new CuentaProveedorRepository();
+
+const compras = new CompraRepository(
+  detallesCompras,
+  movimientos,
+  cuentas,
+  productos
+);
+
+const pedidos = new PedidoRepository(
+  detallesPedidos,
+  compras
+);
+
+compras.setPedidoRepository(pedidos);
+
+const detallesRecepciones = new DetalleRecepcionRepository();
 const recepciones = new RecepcionRepository();
 
 function textoOpcional(value: unknown, campo: string, maximo: number): string | null {
@@ -138,7 +157,7 @@ export async function registrarRecepcion(body: unknown) {
           factorConversion
         );
       } else {
-        costoUnitario = String(detalleCompra.costoUnitario);
+        costoUnitario = String(detalleCompra.importeUnitario);
       }
 
       lineas.push({

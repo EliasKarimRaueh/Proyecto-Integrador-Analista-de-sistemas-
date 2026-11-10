@@ -95,8 +95,8 @@ describe('COMPRAS SPRINT 4', () => {
                 compraId: compra.id,
                 productoId: PRODUCTO_ID,
                 cantidad: 2,
-                costoUnitario: '50.00',
-                subtotal: '100.00'
+                costoUnitario: 50.00,
+                subtotal: 100.00
             }], transaction);
 
             await pedidos.actualizarEstado(pedido.id, 'FACTURADO', transaction);

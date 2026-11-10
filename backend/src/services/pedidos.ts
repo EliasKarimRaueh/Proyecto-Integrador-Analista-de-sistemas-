@@ -1,17 +1,37 @@
 import sequelize from 'polleria-database/config/database';
-import PedidoCompraRepository from 'polleria-database/repositories/pedidoCompraRepository';
-import DetallePedidoCompraRepository from 'polleria-database/repositories/detallePedidoCompraRepository';
+import PedidoRepository from '../../../database/src/repositories/pedidoRepository.js';
+import DetallePedidoRepository from '../../../database/src/repositories/detallePedidoRepository.js';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import ProductoProveedorRepository from 'polleria-database/repositories/productoProveedorRepository';
 import ProveedorRepository from 'polleria-database/repositories/proveedorRepository';
 import { ErrorOperacion, objeto, numero, id, validarCantidad } from './operaciones.js';
 import { calcularSubtotal, calcularTotal, puedeCancelarPedido } from './comprasCalculos.js';
+import DetalleCompraRepository from 'polleria-database/repositories/detalleCompraRepository';
+import MovimientoStockRepository from 'polleria-database/repositories/movimientoStockRepository';
+import CuentaProveedorRepository from 'polleria-database/repositories/cuentaProveedorRepository';
+import CompraRepository from 'polleria-database/repositories/compraRepository';
 
 const ESTADOS_PEDIDO = ['PENDIENTE', 'FACTURADO', 'CANCELADO', 'RECIBIDO'] as const;
 
-const pedidos = new PedidoCompraRepository();
-const detalles = new DetallePedidoCompraRepository();
 const productos = new ProductoRepository();
+
+const detalles = new DetallePedidoRepository(productos);
+
+const detallesCompras = new DetalleCompraRepository(productos);
+const movimientosStock = new MovimientoStockRepository();
+const cuentas = new CuentaProveedorRepository();
+
+const compras = new CompraRepository(
+    detallesCompras,
+    movimientosStock,
+    cuentas,
+    productos
+);
+
+const pedidos = new PedidoRepository(detalles, compras);
+
+compras.setPedidoRepository(pedidos);
+
 const relaciones = new ProductoProveedorRepository();
 const proveedores = new ProveedorRepository();
 

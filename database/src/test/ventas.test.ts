@@ -1,6 +1,13 @@
 import sequelize from '../config/database.js';
 import '../relationships/relationships.js';
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
 import { migrateComprasSprint4 } from '../migrations/comprasSprint4.js';
+>>>>>>> snapshot-version-github
+=======
+import { migrateComprasSprint4 } from '../migrations/comprasSprint4.js';
+>>>>>>> snapshot-github
 
 import {
     describe,
@@ -76,9 +83,21 @@ function logError(mensaje: string, error: unknown): void {
 /**
  * Obtiene el stock actual de un producto.
  */
+<<<<<<< HEAD
+<<<<<<< HEAD
+async function obtenerStock(productoId: number): Promise<number> {
+
+    const producto = await Producto.findByPk(productoId);
+=======
 async function obtenerStock(productoId: number, transaction?: Transaction): Promise<number> {
 
     const producto = await Producto.findByPk(productoId, { transaction });
+>>>>>>> snapshot-version-github
+=======
+async function obtenerStock(productoId: number, transaction?: Transaction): Promise<number> {
+
+    const producto = await Producto.findByPk(productoId, { transaction });
+>>>>>>> snapshot-github
 
     if (!producto) {
         throw new Error(
@@ -107,7 +126,14 @@ beforeAll(async () => {
     // Nos aseguramos de que las tablas existan.
     // NO utilizamos force: true porque no queremos borrar los datos.
     await sequelize.sync();
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
     await migrateComprasSprint4();
+>>>>>>> snapshot-version-github
+=======
+    await migrateComprasSprint4();
+>>>>>>> snapshot-github
 
     console.log('✅ Tablas verificadas.');
 });
@@ -180,7 +206,15 @@ describe('MOVIMIENTO STOCK', () => {
                 .toBe(stockInicial + 5);
 
             const stockDurante =
+<<<<<<< HEAD
+<<<<<<< HEAD
+                await obtenerStock(PRODUCTO_ID);
+=======
                 await obtenerStock(PRODUCTO_ID, transaction);
+>>>>>>> snapshot-version-github
+=======
+                await obtenerStock(PRODUCTO_ID, transaction);
+>>>>>>> snapshot-github
 
             expect(stockDurante)
                 .toBe(stockInicial + 5);
@@ -254,7 +288,15 @@ describe('MOVIMIENTO STOCK', () => {
                 .toBe(stockInicial - 2);
 
             const stockDurante =
+<<<<<<< HEAD
+<<<<<<< HEAD
+                await obtenerStock(PRODUCTO_ID);
+=======
                 await obtenerStock(PRODUCTO_ID, transaction);
+>>>>>>> snapshot-version-github
+=======
+                await obtenerStock(PRODUCTO_ID, transaction);
+>>>>>>> snapshot-github
 
             expect(stockDurante)
                 .toBe(stockInicial - 2);

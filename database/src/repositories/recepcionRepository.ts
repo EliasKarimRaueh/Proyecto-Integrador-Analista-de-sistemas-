@@ -4,7 +4,7 @@ import type { Transaction, WhereOptions } from 'sequelize';
 import BaseRepository from './BaseRepository.js';
 import Recepcion from '../models/Recepcion.js';
 import Compra from '../models/Compra.js';
-import PedidoCompra from '../models/PedidoCompra.js';
+import Pedido from '../models/Pedido.js';
 import Proveedor from '../models/Proveedor.js';
 import DetalleRecepcion from '../models/DetalleRecepcion.js';
 import MovimientoStock from '../models/MovimientoStock.js';
@@ -55,7 +55,7 @@ class RecepcionRepository extends BaseRepository<Recepcion> {
             include: [
                 { model: Compra, as: 'compra' },
                 { model: Proveedor, as: 'proveedor' },
-                { model: PedidoCompra, as: 'pedido' },
+                { model: Pedido, as: 'pedido' },
                 {
                     model: DetalleRecepcion,
                     as: 'detalles',

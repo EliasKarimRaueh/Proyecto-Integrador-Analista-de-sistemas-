@@ -2,6 +2,7 @@ import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
 class DetallePedido extends Model {
+    declare id: number;
     declare pedidoId: number;
 
     declare numeroItem: number;
@@ -12,11 +13,18 @@ class DetallePedido extends Model {
     declare nombre: string;
 
     declare importeUnitario: number;
+    declare costoEstimado: string;
     declare subtotal: number;
 }
 
 DetallePedido.init(
     {
+        id: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true
+        },
+        
         pedidoId: {
             type: DataTypes.INTEGER,
             primaryKey: true,
@@ -84,6 +92,19 @@ DetallePedido.init(
             allowNull: false,
         },
 
+        costoEstimado: {
+            type: DataTypes.DECIMAL(12, 2),
+            allowNull: false,
+            defaultValue: 0,
+            validate: {
+                isNonNegative(value: string | number) {
+                    if (Number(value) < 0) {
+                        throw new Error('El costo estimado no puede ser negativo.');
+                    }
+                }
+            }
+        },
+        
         importeUnitario: {
             type: DataTypes.DECIMAL,
             allowNull: false,

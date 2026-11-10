@@ -8,7 +8,7 @@ import TipoProducto from 'polleria-database/models/TipoProducto';
 import Proveedor from 'polleria-database/models/Proveedor';
 import Producto from 'polleria-database/models/Producto';
 import Compra from 'polleria-database/models/Compra';
-import PedidoCompra from 'polleria-database/models/PedidoCompra';
+import Pedido from 'polleria-database/models/Pedido';
 import Recepcion from 'polleria-database/models/Recepcion';
 import MovimientoStock from 'polleria-database/models/MovimientoStock';
 import CuentaProveedor from 'polleria-database/models/CuentaProveedor';
@@ -54,7 +54,7 @@ test('Sprint 4 sobre PostgreSQL aislado: abastecimiento, diferencias y rollback 
     assert.equal(Number(compraRes.body.compra.total), 21000);
     assert.equal(Number((await CuentaProveedor.findOne({ where: { compraId } }))!.importePendiente), 21000);
     assert.equal((await Producto.findByPk(productoId))!.stockActual, 5);
-    assert.equal((await PedidoCompra.findByPk(pedidoId))!.estado, 'FACTURADO');
+    assert.equal((await Pedido.findByPk(pedidoId))!.estado, 'FACTURADO');
     const consulta = await request(app).get(`/api/compras/${compraId}`).expect(200);
     assert.equal(consulta.body.compra.observaciones, 'Compra de prueba');
     assert.equal(consulta.body.compra.detalles.find((d: { productoId: number }) => d.productoId === productoId).producto.nombre, 'Pollo de prueba');
@@ -76,7 +76,7 @@ test('Sprint 4 sobre PostgreSQL aislado: abastecimiento, diferencias y rollback 
       assert.equal((await Producto.findByPk(productoId))!.stockActual, 5);
       assert.equal(Number((await Producto.findByPk(segundo.id))!.costoActual), 7);
       assert.equal((await Compra.findByPk(compraId))!.estado, 'PENDIENTE_RECEPCION');
-      assert.equal((await PedidoCompra.findByPk(pedidoId))!.estado, 'FACTURADO');
+      assert.equal((await Pedido.findByPk(pedidoId))!.estado, 'FACTURADO');
     } finally {
       await sequelize.query('DROP TRIGGER sprint4_falla ON movimientos_stock');
       await sequelize.query('DROP FUNCTION sprint4_falla_ingreso()');
@@ -89,7 +89,7 @@ test('Sprint 4 sobre PostgreSQL aislado: abastecimiento, diferencias y rollback 
     assert.equal((await Producto.findByPk(segundo.id))!.stockActual, 15);
     assert.equal(Number((await Producto.findByPk(segundo.id))!.costoActual), 100);
     assert.equal((await Compra.findByPk(compraId))!.estado, 'RECIBIDA');
-    assert.equal((await PedidoCompra.findByPk(pedidoId))!.estado, 'RECIBIDO');
+    assert.equal((await Pedido.findByPk(pedidoId))!.estado, 'RECIBIDO');
     await request(app).post('/api/recepciones').send(recepcion).expect(409);
     assert.equal((await Producto.findByPk(productoId))!.stockActual, 24.5);
     const detalle = await request(app).get(`/api/recepciones/${res.body.recepcion.id}`).expect(200);

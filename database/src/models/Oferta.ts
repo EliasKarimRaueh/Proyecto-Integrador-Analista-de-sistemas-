@@ -14,8 +14,19 @@ class Oferta extends Model {
 }
 
 Oferta.init({
-    precioFinal: { type: DataTypes.DECIMAL(12, 2), allowNull: true, defaultValue: null, validate: { min: 0.01, max: 99999999.99 } },
-    descuentoPorcentaje: { type: DataTypes.DECIMAL(5, 2), allowNull: true, defaultValue: null, validate: { min: 0, max: 100 } },
+    precioFinal: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        defaultValue: null,
+        validate: { min: 0.01, max: 99999999.99 }
+    },
+
+    descuentoPorcentaje: {
+        type: DataTypes.DECIMAL(5, 2),
+        allowNull: true,
+        defaultValue: null,
+        validate: { min: 0, max: 100 }
+    },
 
     id: {
         type: DataTypes.INTEGER,

@@ -1,6 +1,6 @@
 
 import { Op } from 'sequelize';
-import type { Transaction } from 'sequelize';
+import type { Transaction, WhereOptions } from 'sequelize';
 
 import sequelize from '../config/database.js';
 
@@ -16,6 +16,15 @@ import Pedido from '../models/Pedido.js';
 import DetallePedido from '../models/DetallePedido.js';
 import Proveedor from '../models/Proveedor.js';
 import Compra from '../models/Compra.js';
+
+
+type FiltrosPedido = {
+    proveedorId?: number;
+    estado?: string;
+    desde?: Date;
+    hasta?: Date;
+};
+
 type MotivoNecesidadReposicion =
     | 'DIA_PEDIDO'
     | 'STOCK_MINIMO';
@@ -491,6 +500,114 @@ class PedidoRepository extends BaseRepository<Pedido> {
 
         return Array.from(resultado.values());
     }
+
+    async crear(
+        datos: Partial<Pedido>,
+        transaction?: Transaction
+    ): Promise<Pedido> {
+
+        return await this.create(
+            datos,
+            { transaction }
+        );
+    }
+
+    async buscarPorId(
+        id: number,
+        transaction?: Transaction
+    ): Promise<Pedido | null> {
+
+        return await this.model.findByPk(id, {
+            transaction,
+            include: [
+                { model: Proveedor, as: 'proveedor' }
+            ]
+        });
+    }
+
+    async buscarPorIdConBloqueo(
+        id: number,
+        transaction: Transaction
+    ): Promise<Pedido | null> {
+
+        return await this.model.findByPk(id, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+    }
+
+    async buscarDetalle(
+        id: number,
+        transaction?: Transaction
+    ): Promise<Pedido | null> {
+
+        return await this.model.findByPk(id, {
+            transaction,
+            include: [
+                { model: Proveedor, as: 'proveedor' },
+                {
+                    model: DetallePedido,
+                    as: 'detalles',
+                    include: [
+                        { model: Producto, as: 'producto' }
+                    ]
+                }
+            ]
+        });
+    }
+
+    async listar(
+        filtros: FiltrosPedido,
+        page = 1,
+        limit = 50,
+        transaction?: Transaction
+    ) {
+
+        const where: WhereOptions<Pedido> = {};
+
+        if (filtros.proveedorId !== undefined) {
+            where.proveedorId = filtros.proveedorId;
+        }
+
+        if (filtros.estado !== undefined) {
+            where.estado = filtros.estado as Pedido['estado'];
+        }
+
+        if (filtros.desde && filtros.hasta) {
+            where.fechaHora = {
+                [Op.between]: [filtros.desde, filtros.hasta]
+            };
+        } else if (filtros.desde) {
+            where.fechaHora = { [Op.gte]: filtros.desde };
+        } else if (filtros.hasta) {
+            where.fechaHora = { [Op.lte]: filtros.hasta };
+        }
+
+        return await this.model.findAndCountAll({
+            where,
+            include: [
+                { model: Proveedor, as: 'proveedor' }
+            ],
+            order: [['fechaHora', 'DESC']],
+            offset: (page - 1) * limit,
+            limit,
+            transaction
+        });
+    }
+
+    async actualizarEstado(
+        id: number,
+        estado: Pedido['estado'],
+        transaction?: Transaction
+    ): Promise<Pedido | null> {
+
+        return await this.updateById(
+            id,
+            { estado },
+            transaction
+        );
+    }
+
 }
 
 export default PedidoRepository;

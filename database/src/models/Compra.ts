@@ -1,22 +1,19 @@
-
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
 const ESTADOS = ['PENDIENTE_RECEPCION', 'RECIBIDA'] as const;
-const TIPOS_COMPROBANTE = ['FACTURA', 'REMITO', 'OTRO'] as const;
-
+const TIPOS_COMPROBANTE = ['FACTURA', 'REMITO', 'OTRO'] as const
 class Compra extends Model {
     declare id: number;
-    declare formaPago: 'PAGADO' | 'A CUENTA';
-    declare observaciones: string | null;
-
+    declare tipoComprobante: typeof TIPOS_COMPROBANTE[number] | null;
+    declare numeroComprobante: string | null;
     declare claveOperacion: string | null;
     declare fechaHora: Date;
     declare total: number;
     declare proveedorId: number;
     declare pedidoId: number | null;
-    declare tipoComprobante: typeof TIPOS_COMPROBANTE[number] | null;
-    declare numeroComprobante: string | null;
+    declare formaPago:'PAGADO'|'A CUENTA';
+    declare observaciones: string | null;
     declare estado: typeof ESTADOS[number];
 }
 
@@ -29,8 +26,25 @@ Compra.init({
         unique: true
     },
 
+    tipoComprobante: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        defaultValue: null,
+        validate: {
+            isIn: {
+                args: [TIPOS_COMPROBANTE],
+                msg: 'El tipo de comprobante no es válido.'
+            }
+        }
+    },
 
-    
+    numeroComprobante: {
+        type: DataTypes.STRING(80),
+        allowNull: true,
+        defaultValue: null,
+    },
+
+
     claveOperacion: {
         type: DataTypes.UUID,
         allowNull: true,
@@ -50,28 +64,11 @@ Compra.init({
         type: DataTypes.INTEGER,
         allowNull: true,
         defaultValue: null,
+        unique:true,
         references: {
-            model: 'pedidos_compra',
+            model: 'pedidos',
             key: 'id'
         }
-    },
-
-    tipoComprobante: {
-        type: DataTypes.STRING(20),
-        allowNull: true,
-        defaultValue: null,
-        validate: {
-            isIn: {
-                args: [TIPOS_COMPROBANTE],
-                msg: 'El tipo de comprobante no es válido.'
-            }
-        }
-    },
-
-    numeroComprobante: {
-        type: DataTypes.STRING(50),
-        allowNull: true,
-        defaultValue: null
     },
 
     estado: {
@@ -108,7 +105,11 @@ Compra.init({
         }
     },
 
-    observaciones: { type: DataTypes.STRING(300), allowNull: true },
+    observaciones: {
+        type: DataTypes.STRING(300),
+        allowNull: true,
+        defaultValue: null,
+    },
 
     formaPago: {
         type: DataTypes.ENUM(

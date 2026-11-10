@@ -18,13 +18,17 @@ import Compra from '../models/Compra.js';
 import CuentaProveedor from '../models/CuentaProveedor.js';
 import Pago from '../models/Pago.js';
 import PagoPorCuenta from '../models/PagoPorCuenta.js';
+
 import Proveedor from '../models/Proveedor.js';
+
 
 import CompraRepository from '../repositories/compraRepository.js';
 import CuentaProveedorRepository from '../repositories/cuentaProveedorRepository.js';
 import PagoRepository from '../repositories/pagoRepository.js';
 import PagoPorCuentaRepository from '../repositories/pagoPorCuentaRepository.js';
+
 import ProveedorRepository from '../repositories/proveedorRepository.js';
+
 
 jest.setTimeout(30000);
 
@@ -107,6 +111,7 @@ beforeAll(async () => {
     console.log('✅ Conexión a la base de datos establecida.');
 
     await sequelize.sync();
+
     await migrateComprasSprint4();
 
     console.log('✅ Tablas verificadas.');
@@ -172,6 +177,7 @@ afterAll(async () => {
 });
 
 // ============================================================
+
 // PROVEEDOR
 // ============================================================
 
@@ -214,6 +220,7 @@ describe('PROVEEDOR', () => {
 });
 
 // ============================================================
+
 // COMPRA
 // ============================================================
 
