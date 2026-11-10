@@ -95,11 +95,18 @@ export async function registrarPedido(body: unknown) {
   if (!proveedor.activo) throw new ErrorOperacion('El proveedor está inactivo.');
 
   return await sequelize.transaction(async transaction => {
+    const datosProductos = new Map<number, { nombre: string; unidadVenta: string }>();
+
     for (const linea of lineas) {
       const producto = await productos.findById(linea.productoId, transaction);
       if (!producto || !producto.activo) {
         throw new ErrorOperacion(`Producto ${linea.productoId} no encontrado o inactivo.`, 404);
       }
+
+      datosProductos.set(linea.productoId, {
+        nombre: producto.nombre,
+        unidadVenta: producto.unidadVenta
+      });
 
       const relacion = await relaciones.findByRelation(linea.productoId, proveedorId, transaction);
       validarCantidad(producto, linea.cantidad);
@@ -117,13 +124,20 @@ export async function registrarPedido(body: unknown) {
     } as never, transaction);
 
     const guardados = await detalles.crearMuchos(
-      lineas.map(linea => ({
-        pedidoId: pedido.id,
-        productoId: linea.productoId,
-        cantidad: linea.cantidad,
-        costoEstimado: linea.costoEstimado as unknown as string,
-        subtotal: linea.subtotal as unknown as string
-      })) as never[],
+      lineas.map((linea, indice) => {
+        const producto = datosProductos.get(linea.productoId)!;
+        return {
+          pedidoId: pedido.id,
+          numeroItem: indice + 1,
+          productoId: linea.productoId,
+          nombre: producto.nombre,
+          unidadPedido: producto.unidadVenta,
+          cantidad: linea.cantidad,
+          importeUnitario: linea.costoEstimado as unknown as string,
+          costoEstimado: linea.costoEstimado as unknown as string,
+          subtotal: linea.subtotal as unknown as string
+        };
+      }) as never[],
       transaction
     );
 
