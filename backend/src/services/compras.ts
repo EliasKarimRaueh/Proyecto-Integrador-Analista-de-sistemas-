@@ -71,6 +71,8 @@ function fecha(value: unknown): Date {
 
 type LineaCompra = {
   productoId: number;
+  nombre: string;
+  unidadVenta: string;
   cantidadBase: number;
   costoUnitario: string;
   subtotal: string;
@@ -121,6 +123,8 @@ async function normalizarLineas(value: unknown, transaction: import('sequelize')
 
     lineas.push({
       productoId,
+      nombre: producto.nombre,
+      unidadVenta: producto.unidadVenta,
       cantidadBase,
       costoUnitario,
       subtotal: calcularSubtotal(cantidadBase, costoUnitario),
@@ -181,11 +185,14 @@ export async function registrarCompra(body: unknown) {
     } as never, transaction);
 
     const detalles = await detallesCompras.crearMuchos(
-      lineas.map(linea => ({
+      lineas.map((linea, indice) => ({
         compraId: compra.id,
+        numeroItem: indice + 1,
         productoId: linea.productoId,
+        nombre: linea.nombre,
+        unidadCompra: linea.unidadVenta,
         cantidad: linea.cantidadBase,
-        costoUnitario: linea.costoUnitario as unknown as string,
+        importeUnitario: linea.costoUnitario as unknown as string,
         subtotal: linea.subtotal as unknown as string,
         presentacion: linea.presentacion,
         cantidadPresentacion: linea.cantidadPresentacion,
