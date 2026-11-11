@@ -15,7 +15,7 @@ export type DetalleAbastecimiento = {
 }
 export type PedidoCompra = {
   id: number; proveedorId: number; proveedor?: { nombre: string }; fechaHora: string
-  estado: 'PENDIENTE' | 'FACTURADO' | 'CANCELADO' | 'RECIBIDO'; totalEstimado: string; observaciones: string | null; detalles: DetalleAbastecimiento[]
+  estado: 'REALIZADO' | 'CANCELADO' | 'RECIBIDO'; totalEstimado: string; observaciones: string | null; compra?: { id: number } | null; detalles: DetalleAbastecimiento[]
 }
 export type Compra = {
   id: number; proveedorId: number; proveedor?: { nombre: string }; pedidoId: number | null; fechaHora: string
