@@ -1,7 +1,7 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
-const ESTADOS = ['REALIZADO','PENDIENTE', 'FACTURADO', 'CANCELADO', 'RECIBIDO'] as const;
+const ESTADOS = ['REALIZADO', 'RECIBIDO', 'CANCELADO'] as const;
 class Pedido extends Model {
     declare id: number;
     declare proveedorId: number;
@@ -9,7 +9,7 @@ class Pedido extends Model {
     declare total: number;
     declare totalEstimado: string;
     declare estado: typeof ESTADOS[number];
-    declare usuarioRecepcion: string | null;
+    declare usuarioRecepcion: string | number | null;
     declare fechaHoraRecepcion: Date | null;
     declare observaciones: string | null;
 }
@@ -70,7 +70,7 @@ Pedido.init(
         estado: {
                 type: DataTypes.STRING(20),
                 allowNull: false,
-                defaultValue: 'PENDIENTE',
+                defaultValue: 'REALIZADO',
                 validate: {
                     isIn: {
                         args: [ESTADOS],
@@ -86,7 +86,7 @@ Pedido.init(
         },
 
         usuarioRecepcion: {
-            type: DataTypes.STRING,
+            type: DataTypes.BIGINT,
             allowNull: true,
             defaultValue: null,
         },

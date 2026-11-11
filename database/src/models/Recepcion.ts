@@ -34,7 +34,7 @@ Recepcion.init({
         allowNull: true,
         defaultValue: null,
         references: {
-            model: 'pedidos_compra',
+            model: 'pedidos',
             key: 'id'
         }
     },
