@@ -586,7 +586,8 @@ class PedidoRepository extends BaseRepository<Pedido> {
         return await this.model.findAndCountAll({
             where,
             include: [
-                { model: Proveedor, as: 'proveedor' }
+                { model: Proveedor, as: 'proveedor' },
+                { model: Compra, as: 'compra' }
             ],
             order: [['fechaHora', 'DESC']],
             offset: (page - 1) * limit,

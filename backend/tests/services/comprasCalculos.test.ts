@@ -47,9 +47,10 @@ describe('cálculos de compras', () => {
     expect(() => validarDiferenciaRecepcion(10, 9, null)).toThrow(ErrorOperacion);
   });
 
-  it('solo permite cancelar pedidos pendientes', () => {
-    expect(puedeCancelarPedido('PENDIENTE')).toBe(true);
-    expect(puedeCancelarPedido('FACTURADO')).toBe(false);
+  it('solo permite cancelar pedidos realizados', () => {
+    expect(puedeCancelarPedido('REALIZADO')).toBe(true);
+    expect(puedeCancelarPedido('RECIBIDO')).toBe(false);
+    expect(puedeCancelarPedido('CANCELADO')).toBe(false);
   });
 
   it('rechaza factores y cantidades inválidas', () => {

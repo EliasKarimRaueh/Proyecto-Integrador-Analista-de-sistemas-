@@ -218,7 +218,15 @@ export async function registrarRecepcion(body: unknown) {
 
     await compras.actualizar(compraId, { estado: 'RECIBIDA' }, transaction);
     if (compra.pedidoId !== null) {
-      await pedidos.actualizarEstado(compra.pedidoId, 'RECIBIDO', transaction);
+      await pedidos.updateById(
+        compra.pedidoId,
+        {
+          estado: 'RECIBIDO',
+          fechaHoraRecepcion: fechaHora,
+          usuarioRecepcion: usuarioId
+        },
+        transaction
+      );
     }
 
     return { recepcion, detalles: guardados, movimientos: movimientosGuardados };

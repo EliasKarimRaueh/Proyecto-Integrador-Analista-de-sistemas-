@@ -54,7 +54,7 @@ export function convertirCostoUnitario(costoPresentacion: number, factorConversi
 }
 
 export function puedeCancelarPedido(estado: string): boolean {
-  return estado === 'PENDIENTE';
+  return estado === 'REALIZADO';
 }
 
 export function validarDiferenciaRecepcion(

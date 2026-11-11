@@ -71,6 +71,8 @@ function fecha(value: unknown): Date {
 
 type LineaCompra = {
   productoId: number;
+  nombre: string;
+  unidadVenta: string;
   cantidadBase: number;
   costoUnitario: string;
   subtotal: string;
@@ -121,6 +123,8 @@ async function normalizarLineas(value: unknown, transaction: import('sequelize')
 
     lineas.push({
       productoId,
+      nombre: producto.nombre,
+      unidadVenta: producto.unidadVenta,
       cantidadBase,
       costoUnitario,
       subtotal: calcularSubtotal(cantidadBase, costoUnitario),
@@ -160,8 +164,13 @@ export async function registrarCompra(body: unknown) {
       if (pedido.proveedorId !== proveedorId) {
         throw new ErrorOperacion('El pedido pertenece a otro proveedor.');
       }
-      if (pedido.estado !== 'PENDIENTE') {
-        throw new ErrorOperacion('El pedido ya no está pendiente.', 409);
+      if (pedido.estado !== 'REALIZADO') {
+        throw new ErrorOperacion('El pedido ya no está disponible para registrar una compra.', 409);
+      }
+
+      const compraExistente = await compras.findBy({ pedidoId }, transaction);
+      if (compraExistente) {
+        throw new ErrorOperacion('El pedido ya tiene una compra registrada.', 409);
       }
     }
 
@@ -181,11 +190,14 @@ export async function registrarCompra(body: unknown) {
     } as never, transaction);
 
     const detalles = await detallesCompras.crearMuchos(
-      lineas.map(linea => ({
+      lineas.map((linea, indice) => ({
         compraId: compra.id,
+        numeroItem: indice + 1,
         productoId: linea.productoId,
+        nombre: linea.nombre,
+        unidadCompra: linea.unidadVenta,
         cantidad: linea.cantidadBase,
-        costoUnitario: linea.costoUnitario as unknown as string,
+        importeUnitario: linea.costoUnitario as unknown as string,
         subtotal: linea.subtotal as unknown as string,
         presentacion: linea.presentacion,
         cantidadPresentacion: linea.cantidadPresentacion,
@@ -200,10 +212,6 @@ export async function registrarCompra(body: unknown) {
       importePendiente: total as unknown as number,
       estado: 'PAGO PENDIENTE'
     } as never, transaction);
-
-    if (pedidoId !== undefined) {
-      await pedidos.actualizarEstado(pedidoId, 'FACTURADO', transaction);
-    }
 
     return { compra, detalles, cuenta, observaciones };
   });

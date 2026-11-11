@@ -1,7 +1,7 @@
 import type { Product } from '../products/products'
 
 export function estadoTexto(estado: string) {
-  return ({ PENDIENTE: 'Pendiente', FACTURADO: 'Facturado', CANCELADO: 'Cancelado', RECIBIDO: 'Recibido', PENDIENTE_RECEPCION: 'Pendiente de recepción', RECIBIDA: 'Recibida' } as Record<string, string>)[estado] ?? estado
+  return ({ REALIZADO: 'Realizado', CANCELADO: 'Cancelado', RECIBIDO: 'Recibido', PENDIENTE_RECEPCION: 'Pendiente de recepción', RECIBIDA: 'Recibida' } as Record<string, string>)[estado] ?? estado
 }
 export const fechaTexto = (fecha: string) => new Date(fecha).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'short', timeStyle: 'short' })
 
