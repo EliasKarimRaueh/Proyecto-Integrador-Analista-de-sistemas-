@@ -11,7 +11,7 @@ import MovimientoStockRepository from 'polleria-database/repositories/movimiento
 import CuentaProveedorRepository from 'polleria-database/repositories/cuentaProveedorRepository';
 import CompraRepository from 'polleria-database/repositories/compraRepository';
 
-const ESTADOS_PEDIDO = ['PENDIENTE', 'FACTURADO', 'CANCELADO', 'RECIBIDO'] as const;
+const ESTADOS_PEDIDO = ['REALIZADO', 'RECIBIDO', 'CANCELADO'] as const;
 
 const productos = new ProductoRepository();
 
@@ -118,7 +118,7 @@ export async function registrarPedido(body: unknown) {
     const pedido = await pedidos.crear({
       proveedorId,
       fechaHora,
-      estado: 'PENDIENTE',
+      estado: 'REALIZADO',
       totalEstimado: totalEstimado as unknown as string,
       observaciones
     } as never, transaction);
@@ -171,7 +171,7 @@ export async function cancelarPedido(pedidoId: number) {
     const pedido = await pedidos.buscarPorIdConBloqueo(pedidoId, transaction);
     if (!pedido) throw new ErrorOperacion('Pedido no encontrado.', 404);
     if (!puedeCancelarPedido(pedido.estado)) {
-      throw new ErrorOperacion('Solo se puede cancelar un pedido pendiente.', 409);
+      throw new ErrorOperacion('Solo se puede cancelar un pedido realizado.', 409);
     }
 
     return await pedidos.actualizarEstado(pedidoId, 'CANCELADO', transaction);

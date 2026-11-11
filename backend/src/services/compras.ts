@@ -164,8 +164,13 @@ export async function registrarCompra(body: unknown) {
       if (pedido.proveedorId !== proveedorId) {
         throw new ErrorOperacion('El pedido pertenece a otro proveedor.');
       }
-      if (pedido.estado !== 'PENDIENTE') {
-        throw new ErrorOperacion('El pedido ya no está pendiente.', 409);
+      if (pedido.estado !== 'REALIZADO') {
+        throw new ErrorOperacion('El pedido ya no está disponible para registrar una compra.', 409);
+      }
+
+      const compraExistente = await compras.findBy({ pedidoId }, transaction);
+      if (compraExistente) {
+        throw new ErrorOperacion('El pedido ya tiene una compra registrada.', 409);
       }
     }
 
@@ -207,10 +212,6 @@ export async function registrarCompra(body: unknown) {
       importePendiente: total as unknown as number,
       estado: 'PAGO PENDIENTE'
     } as never, transaction);
-
-    if (pedidoId !== undefined) {
-      await pedidos.actualizarEstado(pedidoId, 'FACTURADO', transaction);
-    }
 
     return { compra, detalles, cuenta, observaciones };
   });
