@@ -306,7 +306,10 @@ class DetalleCompraRepository extends BaseRepository<DetalleCompra> {
                 importeUnitario: precio,
                 subtotal,
                 pedidoId: detallePedido.pedidoId,
-                numeroItemPedido: detallePedido.numeroItem
+                numeroItemPedido: detallePedido.numeroItem,
+                presentacion: detallePedido.presentacion ?? null,
+                cantidadPresentacion: detallePedido.cantidadPresentacion ?? null,
+                factorConversion: detallePedido.factorConversion ?? null
             },
             { transaction }
         );

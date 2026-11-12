@@ -59,7 +59,7 @@ export function FormularioAbastecimiento({ modo, inicio, proveedores, onClose, o
         const d = datosLinea(l, productos.data ?? [])
         return <div className="supply-line" key={i}><div className="form-grid"><label className="full-width">Producto {i + 1}<select required aria-label={`Producto ${i + 1}`} value={l.productoId} onChange={e => {
           const p = disponibles.find(p => p.id === e.target.value)
-          patch(i, { productoId: e.target.value, cantidad: '1', unidad: 'VENTA', costo: Number(p?.costoActual ?? 0).toFixed(2) })
+          patch(i, { productoId: e.target.value, cantidad: '1', unidad: 'VENTA', costo: Number(p?.costoActual ?? 0).toFixed(2), factorConversion: undefined, presentacion: undefined })
         }}><option value="">Seleccionar producto</option>{disponibles.filter(p => p.id === l.productoId || !lineas.some(otra => otra.productoId === p.id)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
           <label>Medir en<select aria-label={`Medir producto ${i + 1} en`} value={l.unidad} onChange={e => { const unidad = e.target.value as LineaEditor['unidad']; patch(i, { unidad, cantidad: '1', costo: ((Number(d.producto?.costoActual ?? 0)) * (unidad === 'COMPRA' ? d.producto?.factorConversion ?? 1 : 1)).toFixed(2) }) }}><option value="VENTA">Venta · {d.producto?.unit ?? 'kg/un.'}</option><option value="COMPRA">Compra · {d.producto?.unidadCompra ?? 'presentación'}</option></select></label>
           <label>Cantidad<input aria-label={`Cantidad producto ${i + 1}`} required inputMode="decimal" value={l.cantidad} onChange={e => patch(i, { cantidad: e.target.value })}/></label>

@@ -41,6 +41,9 @@ export async function migrateComprasSprint4() {
                 "importeUnitario" DECIMAL(12,2) NOT NULL,
                 "costoEstimado" DECIMAL(12,2) NOT NULL DEFAULT 0,
                 subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
+                presentacion VARCHAR(20),
+                "cantidadPresentacion" FLOAT,
+                "factorConversion" FLOAT,
                 PRIMARY KEY ("pedidoId", "numeroItem")
             )
         `);
