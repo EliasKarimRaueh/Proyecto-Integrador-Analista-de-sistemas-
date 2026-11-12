@@ -14,6 +14,10 @@ class DetallePedido extends Model {
     declare importeUnitario: number;
     declare costoEstimado: string;
     declare subtotal: number;
+
+    declare presentacion: string | null;
+    declare cantidadPresentacion: number | null;
+    declare factorConversion: number | null;
 }
 
 DetallePedido.init(
@@ -136,6 +140,24 @@ DetallePedido.init(
                     }
                 }
             }
+        },
+
+        presentacion: {
+            type: DataTypes.STRING(20),
+            allowNull: true,
+            defaultValue: null
+        },
+
+        cantidadPresentacion: {
+            type: DataTypes.FLOAT,
+            allowNull: true,
+            defaultValue: null
+        },
+
+        factorConversion: {
+            type: DataTypes.FLOAT,
+            allowNull: true,
+            defaultValue: null
         }
     },
     {

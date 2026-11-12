@@ -32,7 +32,11 @@ export function HistorialAbastecimientoPage({ tipo }: { tipo: Tipo }) {
     try {
       if (tipo === 'pedidos') {
         const pedido = await fetchPedido(id)
-        if (accion === 'comprar') navigate('/compras', { state: { nuevaCompra: { proveedorId: pedido.proveedorId, pedidoId: pedido.id, lineas: pedido.detalles.map(d => ({ productoId: String(d.productoId), cantidad: String(d.cantidad), costo: String(d.costoEstimado ?? 0), unidad: 'VENTA' })) } } })
+        if (accion === 'comprar') navigate('/compras', { state: { nuevaCompra: { proveedorId: pedido.proveedorId, pedidoId: pedido.id, lineas: pedido.detalles.map(d => {
+          if (d.cantidadPresentacion == null) return { productoId: String(d.productoId), cantidad: String(d.cantidad), costo: String(d.costoEstimado ?? 0), unidad: 'VENTA' }
+          const factor = d.factorConversion ?? d.producto?.factorConversion ?? 1
+          return { productoId: String(d.productoId), cantidad: String(d.cantidadPresentacion), costo: (Number(d.costoEstimado ?? 0) * factor).toFixed(2), unidad: 'COMPRA', factorConversion: String(factor), presentacion: d.presentacion ?? d.producto?.unidadCompra }
+        }) } } })
         else setDetalle({ registro: pedido })
       } else if (tipo === 'compras') {
         const resultado = await fetchCompra(id)

@@ -55,6 +55,9 @@ type LineaPedido = {
   cantidad: number;
   costoEstimado: string;
   subtotal: string;
+  presentacion: string | null;
+  cantidadPresentacion: number | null;
+  factorConversion: number | null;
 };
 
 function lineasPedido(value: unknown): LineaPedido[] {
@@ -71,7 +74,14 @@ function lineasPedido(value: unknown): LineaPedido[] {
       productoId,
       cantidad,
       costoEstimado,
-      subtotal: calcularSubtotal(cantidad, costoEstimado)
+      subtotal: calcularSubtotal(cantidad, costoEstimado),
+      presentacion: textoOpcional(detalle.presentacion, 'presentacion', 20),
+      cantidadPresentacion: detalle.cantidadPresentacion === undefined || detalle.cantidadPresentacion === null
+        ? null
+        : numero(detalle.cantidadPresentacion, 'cantidadPresentacion'),
+      factorConversion: detalle.factorConversion === undefined || detalle.factorConversion === null
+        ? null
+        : numero(detalle.factorConversion, 'factorConversion')
     };
   });
 
@@ -135,7 +145,10 @@ export async function registrarPedido(body: unknown) {
           cantidad: linea.cantidad,
           importeUnitario: linea.costoEstimado as unknown as string,
           costoEstimado: linea.costoEstimado as unknown as string,
-          subtotal: linea.subtotal as unknown as string
+          subtotal: linea.subtotal as unknown as string,
+          presentacion: linea.presentacion,
+          cantidadPresentacion: linea.cantidadPresentacion,
+          factorConversion: linea.factorConversion
         };
       }) as never[],
       transaction

@@ -36,7 +36,7 @@ function pedido(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   usarTransaccionFalsa();
   proveedorRepo.buscarPorId.mockResolvedValue({ id: 5, nombre: 'Distribuidora Sur', activo: true });
-  productoRepo.findById.mockResolvedValue({ id: 10, nombre: 'Pollo', activo: true });
+  productoRepo.findById.mockResolvedValue({ id: 10, nombre: 'Pollo', activo: true, unidadVenta: 'KILOS' });
   relacionRepo.findByRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: true });
   pedidoRepo.crear.mockResolvedValue(pedido());
   pedidoRepo.buscarDetalle.mockResolvedValue(pedido({ detalles: [] }));
@@ -68,6 +68,59 @@ describe('postPedido', () => {
       transaccion,
     );
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('guarda la presentación de cada detalle', async () => {
+    const transaccion = usarTransaccionFalsa();
+    const res = crearRes();
+
+    await postPedido(crearReq({
+      body: {
+        proveedorId: 5,
+        detalles: [{
+          productoId: 10,
+          cantidad: 30,
+          costoEstimado: 100,
+          presentacion: 'CAJONES',
+          cantidadPresentacion: 3,
+          factorConversion: 10,
+        }],
+      },
+    }), res);
+
+    expect(detalleRepo.crearMuchos).toHaveBeenCalledWith(
+      [expect.objectContaining({
+        pedidoId: 3,
+        productoId: 10,
+        cantidad: 30,
+        presentacion: 'CAJONES',
+        cantidadPresentacion: 3,
+        factorConversion: 10,
+      })],
+      transaccion,
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('rechaza una presentación con factor inválido', async () => {
+    const res = crearRes();
+
+    await postPedido(crearReq({
+      body: {
+        proveedorId: 5,
+        detalles: [{
+          productoId: 10,
+          cantidad: 30,
+          costoEstimado: 100,
+          presentacion: 'CAJONES',
+          cantidadPresentacion: 3,
+          factorConversion: 0,
+        }],
+      },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(detalleRepo.crearMuchos).not.toHaveBeenCalled();
   });
 
   it('exige que el producto esté asociado al proveedor', async () => {
