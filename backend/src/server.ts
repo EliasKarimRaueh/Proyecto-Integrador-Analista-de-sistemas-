@@ -7,6 +7,7 @@ import { migratePreciosOfertas } from 'polleria-database/migrations/preciosOfert
 import { migrateComprasSprint4 } from 'polleria-database/migrations/comprasSprint4';
 import { migrateProveedores } from 'polleria-database/migrations/proveedores';
 import { migrateCuentasProveedores } from 'polleria-database/migrations/cuentasProveedores';
+import { migrateZonaHorariaRecepcion } from 'polleria-database/migrations/zonaHorariaRecepcion';
 
 const PORT = process.env.PORT || 3000;
 
@@ -17,6 +18,7 @@ try {
   await migrateComprasSprint4();
   await migrateProveedores();
   await migrateCuentasProveedores();
+  await migrateZonaHorariaRecepcion();
   console.log('Conexión exitosa con la base de datos');
 
   app.listen(PORT, () => {
