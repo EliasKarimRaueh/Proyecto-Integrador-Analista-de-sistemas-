@@ -222,7 +222,7 @@ export async function registrarRecepcion(body: unknown) {
         compra.pedidoId,
         {
           estado: 'RECIBIDO',
-          fechaHoraRecepcion: fechaHora,
+          fechaHoraRecepcion: recepcion.fechaHora,
           usuarioRecepcion: usuarioId
         },
         transaction
