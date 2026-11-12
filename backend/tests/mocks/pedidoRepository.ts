@@ -5,8 +5,9 @@ export const instancia = {
   buscarDetalle: jest.fn(),
   listar: jest.fn(),
   actualizarEstado: jest.fn(),
+  updateById: jest.fn(),
 };
 
-const PedidoCompraRepository = jest.fn(() => instancia);
+const PedidoRepository = jest.fn(() => instancia);
 
-export default PedidoCompraRepository;
+export default PedidoRepository;

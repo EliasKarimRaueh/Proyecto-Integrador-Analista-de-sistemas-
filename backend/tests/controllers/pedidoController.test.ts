@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
-jest.mock('polleria-database/repositories/pedidoCompraRepository', () => require('../mocks/pedidoCompraRepository.js'));
-jest.mock('polleria-database/repositories/detallePedidoCompraRepository', () => require('../mocks/detallePedidoCompraRepository.js'));
+jest.mock('../../../database/src/repositories/pedidoRepository.js', () => require('../mocks/pedidoRepository.js'));
+jest.mock('../../../database/src/repositories/detallePedidoRepository.js', () => require('../mocks/detallePedidoRepository.js'));
+jest.mock('polleria-database/repositories/compraRepository', () => require('../mocks/compraRepository.js'));
 jest.mock('polleria-database/repositories/productoRepository', () => require('../mocks/productoRepository.js'));
 jest.mock('polleria-database/repositories/productoProveedorRepository', () => require('../mocks/productoProveedorRepository.js'));
 jest.mock('polleria-database/repositories/proveedorRepository', () => require('../mocks/proveedorRepository.js'));
@@ -12,8 +13,9 @@ import {
   postPedido,
   postCancelarPedido,
 } from '../../src/controllers/pedidoController.js';
-import { instancia as pedidoRepo } from '../mocks/pedidoCompraRepository.js';
-import { instancia as detalleRepo } from '../mocks/detallePedidoCompraRepository.js';
+import { instancia as pedidoRepo } from '../mocks/pedidoRepository.js';
+import { instancia as detalleRepo } from '../mocks/detallePedidoRepository.js';
+import { instancia as compraRepo } from '../mocks/compraRepository.js';
 import { instancia as productoRepo } from '../mocks/productoRepository.js';
 import { instancia as relacionRepo } from '../mocks/productoProveedorRepository.js';
 import { instancia as proveedorRepo } from '../mocks/proveedorRepository.js';
@@ -24,7 +26,7 @@ function pedido(overrides: Record<string, unknown> = {}) {
   return {
     id: 3,
     proveedorId: 5,
-    estado: 'PENDIENTE',
+    estado: 'REALIZADO',
     totalEstimado: '200.00',
     fechaHora: new Date('2026-03-01T00:00:00Z'),
     ...overrides,
@@ -41,6 +43,7 @@ beforeEach(() => {
   pedidoRepo.buscarPorIdConBloqueo.mockResolvedValue(pedido());
   pedidoRepo.listar.mockResolvedValue({ rows: [pedido()], count: 1 });
   pedidoRepo.actualizarEstado.mockResolvedValue(pedido({ estado: 'CANCELADO' }));
+  compraRepo.findBy.mockResolvedValue(null);
   detalleRepo.crearMuchos.mockResolvedValue([{ id: 1, pedidoId: 3, productoId: 10 }]);
 });
 
@@ -57,7 +60,7 @@ describe('postPedido', () => {
     }), res);
 
     expect(pedidoRepo.crear).toHaveBeenCalledWith(
-      expect.objectContaining({ proveedorId: 5, estado: 'PENDIENTE', totalEstimado: '200.00' }),
+      expect.objectContaining({ proveedorId: 5, estado: 'REALIZADO', totalEstimado: '200.00' }),
       transaccion,
     );
     expect(detalleRepo.crearMuchos).toHaveBeenCalledWith(
@@ -108,10 +111,10 @@ describe('postPedido', () => {
 describe('getPedidos', () => {
   it('lista pedidos con filtros', async () => {
     const res = crearRes();
-    await getPedidos(crearReq({ query: { proveedorId: '5', estado: 'PENDIENTE' } }), res);
+    await getPedidos(crearReq({ query: { proveedorId: '5', estado: 'REALIZADO' } }), res);
 
     expect(pedidoRepo.listar).toHaveBeenCalledWith(
-      expect.objectContaining({ proveedorId: 5, estado: 'PENDIENTE' }),
+      expect.objectContaining({ proveedorId: 5, estado: 'REALIZADO' }),
       1,
       50,
     );
@@ -144,7 +147,7 @@ describe('getPedidoById', () => {
 });
 
 describe('postCancelarPedido', () => {
-  it('cancela un pedido pendiente', async () => {
+  it('cancela un pedido realizado', async () => {
     const res = crearRes();
     await postCancelarPedido(crearReq({ params: { id: '3' } }), res);
 
@@ -152,12 +155,12 @@ describe('postCancelarPedido', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it('responde 409 si el pedido no está pendiente', async () => {
+  it('responde 409 si el pedido no está realizado', async () => {
     pedidoRepo.buscarPorIdConBloqueo.mockResolvedValue(pedido({ estado: 'FACTURADO' }));
     const res = crearRes();
     await postCancelarPedido(crearReq({ params: { id: '3' } }), res);
 
     expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith({ message: 'Solo se puede cancelar un pedido pendiente.' });
+    expect(res.json).toHaveBeenCalledWith({ message: 'Solo se puede cancelar un pedido realizado.' });
   });
 });

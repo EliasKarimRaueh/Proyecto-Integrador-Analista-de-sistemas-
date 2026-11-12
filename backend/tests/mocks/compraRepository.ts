@@ -9,6 +9,8 @@ export const instancia = {
   listarConFiltros: jest.fn(),
   crear: jest.fn(),
   actualizar: jest.fn(),
+  findBy: jest.fn(),
+  setPedidoRepository: jest.fn(),
 };
 
 const CompraRepository = jest.fn(() => instancia);

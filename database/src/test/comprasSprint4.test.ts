@@ -13,10 +13,11 @@ import {
 
 import type { Transaction } from 'sequelize';
 
-import PedidoCompraRepository from '../repositories/pedidoCompraRepository.js';
-import DetallePedidoCompraRepository from '../repositories/detallePedidoCompraRepository.js';
+import PedidoRepository from '../repositories/pedidoRepository.js';
+import DetallePedidoRepository from '../repositories/detallePedidoRepository.js';
 import CompraRepository from '../repositories/compraRepository.js';
 import DetalleCompraRepository from '../repositories/detalleCompraRepository.js';
+import CuentaProveedorRepository from '../repositories/cuentaProveedorRepository.js';
 import RecepcionRepository from '../repositories/recepcionRepository.js';
 import DetalleRecepcionRepository from '../repositories/detalleRecepcionRepository.js';
 import MovimientoStockRepository from '../repositories/movimientoStockRepository.js';
@@ -24,17 +25,30 @@ import ProductoRepository from '../repositories/productoRepository.js';
 
 jest.setTimeout(30000);
 
+// Guardia: estos tests escriben en la base apuntada por DATABASE_URL.
+// Solo se ejecutan cuando RUN_DB_TESTS=true, para no tocar la base compartida.
+const RUN_DB_TESTS = process.env.RUN_DB_TESTS === 'true';
+const describeDb = RUN_DB_TESTS ? describe : describe.skip;
+const testDb = RUN_DB_TESTS ? test : test.skip;
+
 const PROVEEDOR_ID = 1;
 const PRODUCTO_ID = 1;
 
-const pedidos = new PedidoCompraRepository();
-const detallesPedido = new DetallePedidoCompraRepository();
-const compras = new CompraRepository();
-const detallesCompra = new DetalleCompraRepository();
+const productos = new ProductoRepository();
+const detallesPedido = new DetallePedidoRepository(productos);
+const detallesCompra = new DetalleCompraRepository(productos);
+const movimientos = new MovimientoStockRepository();
+const cuentas = new CuentaProveedorRepository();
+const compras = new CompraRepository(
+    detallesCompra,
+    movimientos,
+    cuentas,
+    productos
+);
+const pedidos = new PedidoRepository(detallesPedido, compras);
+compras.setPedidoRepository(pedidos);
 const recepciones = new RecepcionRepository();
 const detallesRecepcion = new DetalleRecepcionRepository();
-const movimientos = new MovimientoStockRepository();
-const productos = new ProductoRepository();
 
 async function conRollback(
     callback: (transaction: Transaction) => Promise<void>
@@ -50,36 +64,44 @@ async function conRollback(
 }
 
 beforeAll(async () => {
+    if (!RUN_DB_TESTS) return;
+
     await sequelize.authenticate();
     await sequelize.sync();
     await migrateComprasSprint4();
 });
 
 afterAll(async () => {
+    if (!RUN_DB_TESTS) return;
+
     await sequelize.close();
 });
 
-describe('COMPRAS SPRINT 4', () => {
+describeDb('COMPRAS SPRINT 4', () => {
 
-    test('la migración es idempotente', async () => {
+    testDb('la migración es idempotente', async () => {
         await expect(migrateComprasSprint4()).resolves.toBeUndefined();
     });
 
-    test('registra pedido, compra y recepción con stock en una transacción', async () => {
+    testDb('registra pedido, compra y recepción con stock en una transacción', async () => {
         await conRollback(async transaction => {
 
             const pedido = await pedidos.crear({
                 proveedorId: PROVEEDOR_ID,
-                estado: 'PENDIENTE',
+                estado: 'REALIZADO',
                 totalEstimado: '100.00'
             }, transaction);
 
             await detallesPedido.crearMuchos([{
                 pedidoId: pedido.id,
+                numeroItem: 1,
                 productoId: PRODUCTO_ID,
+                nombre: 'Producto de prueba',
+                unidadPedido: 'KILOS',
                 cantidad: 2,
+                importeUnitario: 50,
                 costoEstimado: '50.00',
-                subtotal: '100.00'
+                subtotal: 100
             }], transaction);
 
             const compra = await compras.crear({
@@ -95,11 +117,11 @@ describe('COMPRAS SPRINT 4', () => {
                 compraId: compra.id,
                 productoId: PRODUCTO_ID,
                 cantidad: 2,
-                costoUnitario: 50.00,
-                subtotal: 100.00
+                importeUnitario: 50,
+                subtotal: 100
             }], transaction);
 
-            await pedidos.actualizarEstado(pedido.id, 'FACTURADO', transaction);
+            await pedidos.actualizarEstado(pedido.id, 'REALIZADO', transaction);
 
             const existente = await recepciones.buscarPorCompra(compra.id, transaction);
             expect(existente).toBeNull();
@@ -163,12 +185,12 @@ describe('COMPRAS SPRINT 4', () => {
         });
     });
 
-    test('lista pedidos y recepciones con filtros', async () => {
+    testDb('lista pedidos y recepciones con filtros', async () => {
         await conRollback(async transaction => {
 
             const pedido = await pedidos.crear({
                 proveedorId: PROVEEDOR_ID,
-                estado: 'PENDIENTE',
+                estado: 'REALIZADO',
                 totalEstimado: '10.00'
             }, transaction);
 
@@ -185,7 +207,7 @@ describe('COMPRAS SPRINT 4', () => {
             }, transaction);
 
             const pedidosFiltrados = await pedidos.listar(
-                { proveedorId: PROVEEDOR_ID, estado: 'PENDIENTE' },
+                { proveedorId: PROVEEDOR_ID, estado: 'REALIZADO' },
                 1,
                 50,
                 transaction

@@ -156,11 +156,7 @@ class CompraRepository extends BaseRepository<Compra> {
     }
 
     /**
-<<<<<<< HEAD
-     * Busca todas las compras sin aplicar paginacion.
-=======
-     * Busca todas las compras sin aplicar paginaciï¿½ï¿½n.
->>>>>>> snapshot-github
+     * Busca todas las compras sin aplicar paginación.
      */
     async buscarTodas(
         orderBy = 'fechaHora',

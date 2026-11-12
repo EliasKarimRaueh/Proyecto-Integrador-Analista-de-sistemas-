@@ -1,13 +1,6 @@
 import sequelize from '../config/database.js';
 import '../relationships/relationships.js';
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 import { migrateComprasSprint4 } from '../migrations/comprasSprint4.js';
->>>>>>> snapshot-version-github
-=======
-import { migrateComprasSprint4 } from '../migrations/comprasSprint4.js';
->>>>>>> snapshot-github
 
 import {
     describe,
@@ -30,6 +23,12 @@ import MovimientoStockRepository from '../repositories/movimientoStockRepository
 import type { Transaction } from 'sequelize';
 
 jest.setTimeout(30000);
+
+// Guardia: estos tests escriben en la base apuntada por DATABASE_URL.
+// Solo se ejecutan cuando RUN_DB_TESTS=true, para no tocar la base compartida.
+const RUN_DB_TESTS = process.env.RUN_DB_TESTS === 'true';
+const describeDb = RUN_DB_TESTS ? describe : describe.skip;
+const testDb = RUN_DB_TESTS ? test : test.skip;
 
 // ============================================================
 // CONFIGURACIÓN
@@ -83,21 +82,9 @@ function logError(mensaje: string, error: unknown): void {
 /**
  * Obtiene el stock actual de un producto.
  */
-<<<<<<< HEAD
-<<<<<<< HEAD
-async function obtenerStock(productoId: number): Promise<number> {
-
-    const producto = await Producto.findByPk(productoId);
-=======
 async function obtenerStock(productoId: number, transaction?: Transaction): Promise<number> {
 
     const producto = await Producto.findByPk(productoId, { transaction });
->>>>>>> snapshot-version-github
-=======
-async function obtenerStock(productoId: number, transaction?: Transaction): Promise<number> {
-
-    const producto = await Producto.findByPk(productoId, { transaction });
->>>>>>> snapshot-github
 
     if (!producto) {
         throw new Error(
@@ -113,6 +100,7 @@ async function obtenerStock(productoId: number, transaction?: Transaction): Prom
 // ============================================================
 
 beforeAll(async () => {
+    if (!RUN_DB_TESTS) return;
 
     console.log('\n');
     console.log('############################################################');
@@ -126,14 +114,8 @@ beforeAll(async () => {
     // Nos aseguramos de que las tablas existan.
     // NO utilizamos force: true porque no queremos borrar los datos.
     await sequelize.sync();
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
+
     await migrateComprasSprint4();
->>>>>>> snapshot-version-github
-=======
-    await migrateComprasSprint4();
->>>>>>> snapshot-github
 
     console.log('✅ Tablas verificadas.');
 });
@@ -143,6 +125,7 @@ beforeAll(async () => {
 // ============================================================
 
 afterAll(async () => {
+    if (!RUN_DB_TESTS) return;
 
     console.log('\n');
     console.log('############################################################');
@@ -158,9 +141,9 @@ afterAll(async () => {
 // MOVIMIENTO STOCK
 // ============================================================
 
-describe('MOVIMIENTO STOCK', () => {
+describeDb('MOVIMIENTO STOCK', () => {
 
-    test('Registrar ingreso', async () => {
+    testDb('Registrar ingreso', async () => {
 
         logTest('Registrar ingreso');
 
@@ -206,15 +189,7 @@ describe('MOVIMIENTO STOCK', () => {
                 .toBe(stockInicial + 5);
 
             const stockDurante =
-<<<<<<< HEAD
-<<<<<<< HEAD
-                await obtenerStock(PRODUCTO_ID);
-=======
                 await obtenerStock(PRODUCTO_ID, transaction);
->>>>>>> snapshot-version-github
-=======
-                await obtenerStock(PRODUCTO_ID, transaction);
->>>>>>> snapshot-github
 
             expect(stockDurante)
                 .toBe(stockInicial + 5);
@@ -249,7 +224,7 @@ describe('MOVIMIENTO STOCK', () => {
     // EGRESO
     // ------------------------------------------------------------
 
-    test('Registrar egreso', async () => {
+    testDb('Registrar egreso', async () => {
 
         logTest('Registrar egreso');
 
@@ -288,15 +263,7 @@ describe('MOVIMIENTO STOCK', () => {
                 .toBe(stockInicial - 2);
 
             const stockDurante =
-<<<<<<< HEAD
-<<<<<<< HEAD
-                await obtenerStock(PRODUCTO_ID);
-=======
                 await obtenerStock(PRODUCTO_ID, transaction);
->>>>>>> snapshot-version-github
-=======
-                await obtenerStock(PRODUCTO_ID, transaction);
->>>>>>> snapshot-github
 
             expect(stockDurante)
                 .toBe(stockInicial - 2);
@@ -327,7 +294,7 @@ describe('MOVIMIENTO STOCK', () => {
     // CANTIDAD CERO / NEGATIVA
     // ------------------------------------------------------------
 
-    test('No permite registrar un movimiento con cantidad cero', async () => {
+    testDb('No permite registrar un movimiento con cantidad cero', async () => {
 
         logTest('Validación de cantidad cero');
 
@@ -346,7 +313,7 @@ describe('MOVIMIENTO STOCK', () => {
         );
     });
 
-    test('No permite registrar un movimiento con cantidad negativa', async () => {
+    testDb('No permite registrar un movimiento con cantidad negativa', async () => {
 
         logTest('Validación de cantidad negativa');
 
@@ -369,7 +336,7 @@ describe('MOVIMIENTO STOCK', () => {
     // MERMA
     // ------------------------------------------------------------
 
-    test('Registrar merma', async () => {
+    testDb('Registrar merma', async () => {
 
         logTest('Registrar merma');
 
@@ -426,7 +393,7 @@ describe('MOVIMIENTO STOCK', () => {
     // PÉRDIDA
     // ------------------------------------------------------------
 
-    test('Registrar pérdida de mercadería', async () => {
+    testDb('Registrar pérdida de mercadería', async () => {
 
         logTest('Registrar pérdida de mercadería');
 
@@ -483,7 +450,7 @@ describe('MOVIMIENTO STOCK', () => {
     // AJUSTE DE STOCK - INGRESO
     // ------------------------------------------------------------
 
-    test('Ajustar stock hacia arriba genera un ingreso', async () => {
+    testDb('Ajustar stock hacia arriba genera un ingreso', async () => {
 
         logTest('Ajuste de stock hacia arriba');
 
@@ -543,7 +510,7 @@ describe('MOVIMIENTO STOCK', () => {
     // AJUSTE DE STOCK - EGRESO
     // ------------------------------------------------------------
 
-    test('Ajustar stock hacia abajo genera un egreso', async () => {
+    testDb('Ajustar stock hacia abajo genera un egreso', async () => {
 
         logTest('Ajuste de stock hacia abajo');
 
@@ -603,7 +570,7 @@ describe('MOVIMIENTO STOCK', () => {
     // AJUSTE SIN CAMBIO
     // ------------------------------------------------------------
 
-    test('Ajustar stock al mismo valor no genera movimiento', async () => {
+    testDb('Ajustar stock al mismo valor no genera movimiento', async () => {
 
         logTest('Ajuste sin cambio de stock');
 
@@ -636,7 +603,7 @@ describe('MOVIMIENTO STOCK', () => {
     // BÚSQUEDA
     // ------------------------------------------------------------
 
-    test('Buscar último movimiento de un producto', async () => {
+    testDb('Buscar último movimiento de un producto', async () => {
 
         logTest('Buscar último movimiento');
 
@@ -663,7 +630,7 @@ describe('MOVIMIENTO STOCK', () => {
     // BÚSQUEDA POR PRODUCTO Y NÚMERO
     // ------------------------------------------------------------
 
-    test('Buscar movimiento por producto y número', async () => {
+    testDb('Buscar movimiento por producto y número', async () => {
 
         logTest('Buscar movimiento específico');
 
@@ -694,7 +661,7 @@ describe('MOVIMIENTO STOCK', () => {
     // PAGINACIÓN
     // ------------------------------------------------------------
 
-    test('Consultar movimientos de forma paginada', async () => {
+    testDb('Consultar movimientos de forma paginada', async () => {
 
         logTest('Consulta paginada de movimientos');
 
@@ -728,9 +695,9 @@ describe('MOVIMIENTO STOCK', () => {
 // DETALLE DE VENTA
 // ============================================================
 
-describe('DETALLE DE VENTA', () => {
+describeDb('DETALLE DE VENTA', () => {
 
-    test('Crear detalle de venta para un producto', async () => {
+    testDb('Crear detalle de venta para un producto', async () => {
 
         logTest('Crear detalle de venta');
 
@@ -816,7 +783,7 @@ describe('DETALLE DE VENTA', () => {
     // VARIOS DETALLES
     // ------------------------------------------------------------
 
-    test('Los números de item son secuenciales', async () => {
+    testDb('Los números de item son secuenciales', async () => {
 
         logTest('Numeración secuencial de detalles');
 
@@ -901,7 +868,7 @@ describe('DETALLE DE VENTA', () => {
     // BÚSQUEDA POR VENTA
     // ------------------------------------------------------------
 
-    test('Buscar todos los detalles de una venta', async () => {
+    testDb('Buscar todos los detalles de una venta', async () => {
 
         logTest('Buscar detalles por venta');
 
@@ -933,13 +900,13 @@ describe('DETALLE DE VENTA', () => {
 // VENTA
 // ============================================================
 
-describe('VENTA', () => {
+describeDb('VENTA', () => {
 
     // ------------------------------------------------------------
     // INICIAR VENTA
     // ------------------------------------------------------------
 
-    test('Iniciar una venta abre una transacción', async () => {
+    testDb('Iniciar una venta abre una transacción', async () => {
 
         logTest('Iniciar venta');
 
@@ -1000,7 +967,7 @@ describe('VENTA', () => {
     // AGREGAR DETALLE + ACTUALIZAR TOTAL
     // ------------------------------------------------------------
 
-    test('Agregar detalle actualiza el total de la venta', async () => {
+    testDb('Agregar detalle actualiza el total de la venta', async () => {
 
         logTest('Agregar detalle y actualizar total');
 
@@ -1075,7 +1042,7 @@ describe('VENTA', () => {
     // VARIOS DETALLES + TOTAL
     // ------------------------------------------------------------
 
-    test('Agregar varios detalles calcula correctamente el total', async () => {
+    testDb('Agregar varios detalles calcula correctamente el total', async () => {
 
         logTest('Total con varios detalles');
 
@@ -1174,7 +1141,7 @@ describe('VENTA', () => {
     // ROLLBACK DE AGREGAR DETALLE
     // ------------------------------------------------------------
 
-    test('Un error al agregar un detalle no cancela la venta completa', async () => {
+    testDb('Un error al agregar un detalle no cancela la venta completa', async () => {
 
         logTest('Rollback del savepoint de agregar detalle');
 
@@ -1260,7 +1227,7 @@ describe('VENTA', () => {
     // CANCELAR VENTA
     // ------------------------------------------------------------
 
-    test('Cancelar venta revierte toda la transacción', async () => {
+    testDb('Cancelar venta revierte toda la transacción', async () => {
 
         logTest('Cancelar venta');
 
