@@ -53,7 +53,6 @@ Producto.init({
     codigo: {
         type: DataTypes.STRING(20),
         allowNull: false,
-        unique: true,
         validate: {
             is: /^[A-Z0-9-]{2,20}$/i
         }

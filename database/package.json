@@ -16,6 +16,7 @@
     "./migrations/preciosOfertas": "./src/migrations/preciosOfertas.ts",
     "./migrations/comprasSprint4": "./src/migrations/comprasSprint4.ts",
     "./migrations/zonaHorariaRecepcion": "./src/migrations/zonaHorariaRecepcion.ts",
+    "./migrations/limpiezaEsquema": "./src/migrations/limpiezaEsquema.ts",
     "./repositories/productoRepository": "./src/repositories/productoRepository.ts",
     "./repositories/tipoProductoRepository": "./src/repositories/tipoProductoRepository.ts",
     "./repositories/precioRepository": "./src/repositories/precioRepository.ts",

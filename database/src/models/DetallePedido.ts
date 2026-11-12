@@ -2,7 +2,6 @@ import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
 class DetallePedido extends Model {
-    declare id: number;
     declare pedidoId: number;
 
     declare numeroItem: number;
@@ -19,12 +18,6 @@ class DetallePedido extends Model {
 
 DetallePedido.init(
     {
-        id: {
-            type: DataTypes.INTEGER,
-            allowNull: true,
-            defaultValue: null
-        },
-        
         pedidoId: {
             type: DataTypes.INTEGER,
             primaryKey: true,

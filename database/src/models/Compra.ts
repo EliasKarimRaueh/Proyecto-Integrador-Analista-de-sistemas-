@@ -22,8 +22,7 @@ Compra.init({
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
-        autoIncrement: true,
-        unique: true
+        autoIncrement: true
     },
 
     tipoComprobante: {
@@ -47,8 +46,7 @@ Compra.init({
 
     claveOperacion: {
         type: DataTypes.UUID,
-        allowNull: true,
-        unique: true
+        allowNull: true
     },
 
     proveedorId: {
@@ -64,7 +62,6 @@ Compra.init({
         type: DataTypes.INTEGER,
         allowNull: true,
         defaultValue: null,
-        unique:true,
         references: {
             model: 'pedidos',
             key: 'id'

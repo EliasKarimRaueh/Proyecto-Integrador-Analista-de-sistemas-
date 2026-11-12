@@ -11,12 +11,11 @@ class Pago extends Model {
 }
 
 Pago.init({
-    claveOperacion: { type: DataTypes.UUID, allowNull: true, unique: true },
+    claveOperacion: { type: DataTypes.UUID, allowNull: true },
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
-        autoIncrement: true,
-        unique: true
+        autoIncrement: true
     },
 
     proveedorId: {

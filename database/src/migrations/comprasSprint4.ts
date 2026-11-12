@@ -21,36 +21,46 @@ export async function migrateComprasSprint4() {
                 id SERIAL PRIMARY KEY,
                 "proveedorId" INTEGER NOT NULL REFERENCES proveedores(id),
                 "fechaHora" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-                estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+                estado VARCHAR(20) NOT NULL DEFAULT 'REALIZADO',
                 "totalEstimado" DECIMAL(12,2) NOT NULL DEFAULT 0,
+                total DECIMAL(12,2) NOT NULL DEFAULT 0,
+                "usuarioRecepcion" BIGINT,
+                "fechaHoraRecepcion" TIMESTAMP WITH TIME ZONE,
                 observaciones VARCHAR(300)
             )
         `);
 
         await query(`
             CREATE TABLE IF NOT EXISTS "detallesPedido" (
-                id SERIAL PRIMARY KEY,
                 "pedidoId" INTEGER NOT NULL REFERENCES pedidos(id),
+                "numeroItem" INTEGER NOT NULL,
                 "productoId" INTEGER NOT NULL REFERENCES productos(id),
                 cantidad FLOAT NOT NULL,
+                nombre VARCHAR(255) NOT NULL,
+                "unidadPedido" VARCHAR(255) NOT NULL,
+                "importeUnitario" DECIMAL(12,2) NOT NULL,
                 "costoEstimado" DECIMAL(12,2) NOT NULL DEFAULT 0,
                 subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
-                UNIQUE ("pedidoId", "productoId")
+                PRIMARY KEY ("pedidoId", "numeroItem")
             )
         `);
 
         await query(`
             CREATE TABLE IF NOT EXISTS "detallesCompra" (
-                id SERIAL PRIMARY KEY,
                 "compraId" INTEGER NOT NULL REFERENCES compras(id),
+                "numeroItem" INTEGER NOT NULL,
+                "pedidoId" INTEGER,
+                "numeroItemPedido" INTEGER,
                 "productoId" INTEGER NOT NULL REFERENCES productos(id),
                 cantidad FLOAT NOT NULL,
-                "costoUnitario" DECIMAL(12,2) NOT NULL DEFAULT 0,
+                nombre VARCHAR(255) NOT NULL,
+                "unidadCompra" VARCHAR(255) NOT NULL,
+                "importeUnitario" DECIMAL(12,2) NOT NULL,
                 subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
                 presentacion VARCHAR(20),
                 "cantidadPresentacion" FLOAT,
                 "factorConversion" FLOAT,
-                UNIQUE ("compraId", "productoId")
+                PRIMARY KEY ("compraId", "numeroItem")
             )
         `);
 
@@ -82,7 +92,7 @@ export async function migrateComprasSprint4() {
 
         await query('ALTER TABLE compras ADD COLUMN IF NOT EXISTS "pedidoId" INTEGER');
         await query('ALTER TABLE compras ADD COLUMN IF NOT EXISTS "tipoComprobante" VARCHAR(20)');
-        await query('ALTER TABLE compras ADD COLUMN IF NOT EXISTS "numeroComprobante" VARCHAR(50)');
+        await query('ALTER TABLE compras ADD COLUMN IF NOT EXISTS "numeroComprobante" VARCHAR(80)');
         await query('ALTER TABLE compras ADD COLUMN IF NOT EXISTS estado VARCHAR(20)');
         await query("UPDATE compras SET estado = 'RECIBIDA' WHERE estado IS NULL");
         await query("ALTER TABLE compras ALTER COLUMN estado SET DEFAULT 'PENDIENTE_RECEPCION'");
@@ -131,12 +141,6 @@ export async function migrateComprasSprint4() {
                     FOREIGN KEY ("pedidoId") REFERENCES pedidos(id);
                 END IF;
             END $$;
-        `);
-
-        await query(`
-            CREATE UNIQUE INDEX IF NOT EXISTS compras_comprobante_unique
-            ON compras ("proveedorId", "tipoComprobante", "numeroComprobante")
-            WHERE "numeroComprobante" IS NOT NULL
         `);
 
         await query(`
