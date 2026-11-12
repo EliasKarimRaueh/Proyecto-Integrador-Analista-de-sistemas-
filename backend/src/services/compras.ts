@@ -62,6 +62,12 @@ function textoOpcional(value: unknown, campo: string, maximo: number): string | 
   return texto || null;
 }
 
+function textoObligatorio(value: unknown, campo: string, maximo: number): string {
+  const texto = textoOpcional(value, campo, maximo);
+  if (texto === null) throw new ErrorOperacion(`${campo} es obligatorio.`);
+  return texto;
+}
+
 function fecha(value: unknown): Date {
   if (value === undefined) return new Date();
   const resultado = new Date(String(value));
@@ -148,7 +154,7 @@ export async function registrarCompra(body: unknown) {
   if (!TIPOS_COMPROBANTE.includes(tipoComprobante as never)) {
     throw new ErrorOperacion('El tipo de comprobante no es válido.');
   }
-  const numeroComprobante = textoOpcional(b.numeroComprobante, 'numeroComprobante', 50);
+  const numeroComprobante = textoObligatorio(b.numeroComprobante, 'numeroComprobante', 50);
   const pedidoId = b.pedidoId === undefined ? undefined : id(b.pedidoId, 'pedidoId');
   const fechaHora = fecha(b.fechaHora);
   const observaciones = textoOpcional(b.observaciones, 'observaciones', 300);
@@ -156,6 +162,7 @@ export async function registrarCompra(body: unknown) {
   const proveedor = await proveedores.buscarPorId(proveedorId);
   if (!proveedor) throw new ErrorOperacion('Proveedor no encontrado.', 404);
   if (!proveedor.activo) throw new ErrorOperacion('El proveedor está inactivo.');
+  if (!proveedor.ctaCte) throw new ErrorOperacion('El proveedor debe tener cuenta corriente habilitada.', 409);
 
   return await sequelize.transaction(async transaction => {
     if (pedidoId !== undefined) {
