@@ -170,14 +170,10 @@ DetalleCompra.init(
         sequelize,
         modelName: 'DetalleCompra',
         tableName: 'detallesCompra',
-        timestamps: false,
-        indexes: [
-            {
-                unique: true,
-                fields: ['compraId', 'productoId']
-            }
-        ]
-
+        timestamps: false
+        // Sin índice único (compraId, productoId): la base real no lo tiene.
+        // La unicidad de producto por compra se valida en el servicio
+        // (normalizarLineas) y la PK real es (compraId, numeroItem).
     }
 );
 
