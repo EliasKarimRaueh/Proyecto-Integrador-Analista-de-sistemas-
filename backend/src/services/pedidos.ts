@@ -174,6 +174,13 @@ export async function cancelarPedido(pedidoId: number) {
       throw new ErrorOperacion('Solo se puede cancelar un pedido realizado.', 409);
     }
 
+    // Un pedido con compra registrada ya no puede cancelarse: al recibir esa
+    // compra, la recepción pisaría el estado CANCELADO con RECIBIDO.
+    const compra = await compras.findBy({ pedidoId }, transaction);
+    if (compra) {
+      throw new ErrorOperacion('El pedido ya tiene una compra registrada; no se puede cancelar.', 409);
+    }
+
     return await pedidos.actualizarEstado(pedidoId, 'CANCELADO', transaction);
   });
 }
