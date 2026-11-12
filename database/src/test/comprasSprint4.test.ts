@@ -115,7 +115,10 @@ describeDb('COMPRAS SPRINT 4', () => {
 
             await detallesCompra.crearMuchos([{
                 compraId: compra.id,
+                numeroItem: 1,
                 productoId: PRODUCTO_ID,
+                nombre: 'Producto de prueba',
+                unidadCompra: 'KILOS',
                 cantidad: 2,
                 importeUnitario: 50,
                 subtotal: 100

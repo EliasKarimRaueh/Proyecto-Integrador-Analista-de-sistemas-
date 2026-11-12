@@ -514,7 +514,7 @@ class DetalleCompraRepository extends BaseRepository<DetalleCompra> {
             include: [
                 { model: Producto, as: 'producto' }
             ],
-            order: [['id', 'ASC']],
+            order: [['numeroItem', 'ASC']],
             transaction
         });
     }

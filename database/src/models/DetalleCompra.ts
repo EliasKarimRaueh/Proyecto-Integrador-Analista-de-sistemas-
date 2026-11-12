@@ -3,7 +3,6 @@ import sequelize from '../config/database.js';
 
 class DetalleCompra extends Model {
     declare compraId: number;
-    declare id: number;
 
     declare numeroItem: number;
     declare cantidad: number;
@@ -24,12 +23,6 @@ class DetalleCompra extends Model {
 
 DetalleCompra.init(
     {
-        id: {
-            type: DataTypes.INTEGER,
-            allowNull: true,
-            defaultValue: null
-        },
-        
         compraId: {
             type: DataTypes.INTEGER,
             primaryKey: true,
