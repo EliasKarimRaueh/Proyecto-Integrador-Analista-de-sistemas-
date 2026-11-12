@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 jest.mock('polleria-database/repositories/compraRepository', () => require('../mocks/compraRepository.js'));
 jest.mock('polleria-database/repositories/cuentaProveedorRepository', () => require('../mocks/cuentaProveedorRepository.js'));
 jest.mock('polleria-database/repositories/detalleCompraRepository', () => require('../mocks/detalleCompraRepository.js'));
-jest.mock('polleria-database/repositories/pedidoCompraRepository', () => require('../mocks/pedidoCompraRepository.js'));
+jest.mock('../../../database/src/repositories/pedidoRepository.js', () => require('../mocks/pedidoRepository.js'));
+jest.mock('../../../database/src/repositories/detallePedidoRepository.js', () => require('../mocks/detallePedidoRepository.js'));
 jest.mock('polleria-database/repositories/productoRepository', () => require('../mocks/productoRepository.js'));
 jest.mock('polleria-database/repositories/productoProveedorRepository', () => require('../mocks/productoProveedorRepository.js'));
 jest.mock('polleria-database/repositories/proveedorRepository', () => require('../mocks/proveedorRepository.js'));
@@ -17,7 +18,7 @@ import {
 import { instancia as compraRepo } from '../mocks/compraRepository.js';
 import { instancia as cuentaRepo } from '../mocks/cuentaProveedorRepository.js';
 import { instancia as detalleCompraRepo } from '../mocks/detalleCompraRepository.js';
-import { instancia as pedidoRepo } from '../mocks/pedidoCompraRepository.js';
+import { instancia as pedidoRepo } from '../mocks/pedidoRepository.js';
 import { instancia as productoRepo } from '../mocks/productoRepository.js';
 import { instancia as relacionRepo } from '../mocks/productoProveedorRepository.js';
 import { instancia as proveedorRepo } from '../mocks/proveedorRepository.js';
@@ -58,16 +59,16 @@ const DETALLE_VALIDO = [{ productoId: 10, cantidad: 2, costoUnitario: 100 }];
 
 beforeEach(() => {
   usarTransaccionFalsa();
-  proveedorRepo.buscarPorId.mockResolvedValue({ id: 5, nombre: 'Distribuidora Sur', activo: true });
+  proveedorRepo.buscarPorId.mockResolvedValue({ id: 5, nombre: 'Distribuidora Sur', activo: true, ctaCte: true });
   productoRepo.findById.mockResolvedValue(producto());
   compraRepo.crear.mockResolvedValue(compra());
+  compraRepo.findBy.mockResolvedValue(null);
   compraRepo.listarConFiltros.mockResolvedValue({ rows: [compra()], count: 1 });
   compraRepo.buscarDetalleCompleto.mockResolvedValue(compra({ cuentaProveedor: { id: 1, compraId: 7 } }));
   compraRepo.buscarPorId.mockResolvedValue(compra());
   detalleCompraRepo.crearMuchos.mockResolvedValue([{ id: 1, compraId: 7, productoId: 10 }]);
   cuentaRepo.crear.mockResolvedValue({ id: 1, proveedorId: 5, compraId: 7, importePendiente: '200.00' });
-  pedidoRepo.buscarPorIdConBloqueo.mockResolvedValue({ id: 3, proveedorId: 5, estado: 'PENDIENTE' });
-  pedidoRepo.actualizarEstado.mockResolvedValue({ id: 3, estado: 'FACTURADO' });
+  pedidoRepo.buscarPorIdConBloqueo.mockResolvedValue({ id: 3, proveedorId: 5, estado: 'REALIZADO' });
   productoRepo.buscarParaReposicion.mockResolvedValue({ rows: [producto()], count: 1 });
   relacionRepo.getProveedoresActivosPorProductos.mockResolvedValue(new Map([
     [10, [{ id: 5, nombre: 'Distribuidora Sur' }]],
@@ -109,20 +110,24 @@ describe('postCompra', () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
-  it('marca el pedido como facturado', async () => {
+  it('registra la compra asociada a un pedido realizado', async () => {
     const res = crearRes();
 
     await postCompra(crearReq({
       body: {
         proveedorId: 5,
         tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-2',
         pedidoId: 3,
         detalles: DETALLE_VALIDO,
       },
     }), res);
 
     expect(pedidoRepo.buscarPorIdConBloqueo).toHaveBeenCalledWith(3, expect.anything());
-    expect(pedidoRepo.actualizarEstado).toHaveBeenCalledWith(3, 'FACTURADO', expect.anything());
+    expect(compraRepo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ pedidoId: 3 }),
+      expect.anything(),
+    );
   });
 
   it('responde 404 si el proveedor no existe', async () => {
@@ -130,7 +135,7 @@ describe('postCompra', () => {
     const res = crearRes();
 
     await postCompra(crearReq({
-      body: { proveedorId: 5, tipoComprobante: 'FACTURA', detalles: DETALLE_VALIDO },
+      body: { proveedorId: 5, tipoComprobante: 'FACTURA', numeroComprobante: 'A-3', detalles: DETALLE_VALIDO },
     }), res);
 
     expect(res.status).toHaveBeenCalledWith(404);
@@ -148,7 +153,7 @@ describe('postCompra', () => {
   it('rechaza una fecha inválida', async () => {
     const res = crearRes();
     await postCompra(crearReq({
-      body: { proveedorId: 5, tipoComprobante: 'FACTURA', fechaHora: 'no-es-fecha', detalles: DETALLE_VALIDO },
+      body: { proveedorId: 5, tipoComprobante: 'FACTURA', numeroComprobante: 'A-7', fechaHora: 'no-es-fecha', detalles: DETALLE_VALIDO },
     }), res);
 
     expect(res.status).toHaveBeenCalledWith(400);
@@ -157,7 +162,7 @@ describe('postCompra', () => {
 
   it('exige detalles', async () => {
     const res = crearRes();
-    await postCompra(crearReq({ body: { proveedorId: 5, tipoComprobante: 'FACTURA' } }), res);
+    await postCompra(crearReq({ body: { proveedorId: 5, tipoComprobante: 'FACTURA', numeroComprobante: 'A-4' } }), res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ message: 'Debe indicar entre 1 y 100 detalles.' });
@@ -169,6 +174,7 @@ describe('postCompra', () => {
       body: {
         proveedorId: 5,
         tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-5',
         detalles: [DETALLE_VALIDO[0], DETALLE_VALIDO[0]],
       },
     }), res);
@@ -182,7 +188,7 @@ describe('postCompra', () => {
     const res = crearRes();
 
     await postCompra(crearReq({
-      body: { proveedorId: 5, tipoComprobante: 'FACTURA', pedidoId: 3, detalles: DETALLE_VALIDO },
+      body: { proveedorId: 5, tipoComprobante: 'FACTURA', numeroComprobante: 'A-6', pedidoId: 3, detalles: DETALLE_VALIDO },
     }), res);
 
     expect(res.status).toHaveBeenCalledWith(400);
@@ -194,7 +200,7 @@ describe('postCompra', () => {
     const res = crearRes();
 
     await postCompra(crearReq({
-      body: { proveedorId: 5, tipoComprobante: 'FACTURA', pedidoId: 3, detalles: DETALLE_VALIDO },
+      body: { proveedorId: 5, tipoComprobante: 'FACTURA', numeroComprobante: 'A-6', pedidoId: 3, detalles: DETALLE_VALIDO },
     }), res);
 
     expect(res.status).toHaveBeenCalledWith(409);

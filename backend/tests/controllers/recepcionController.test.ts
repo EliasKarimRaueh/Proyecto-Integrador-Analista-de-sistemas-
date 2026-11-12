@@ -4,7 +4,8 @@ jest.mock('polleria-database/repositories/compraRepository', () => require('../m
 jest.mock('polleria-database/repositories/detalleCompraRepository', () => require('../mocks/detalleCompraRepository.js'));
 jest.mock('polleria-database/repositories/detalleRecepcionRepository', () => require('../mocks/detalleRecepcionRepository.js'));
 jest.mock('polleria-database/repositories/movimientoStockRepository', () => require('../mocks/movimientoStockRepository.js'));
-jest.mock('polleria-database/repositories/pedidoCompraRepository', () => require('../mocks/pedidoCompraRepository.js'));
+jest.mock('../../../database/src/repositories/pedidoRepository.js', () => require('../mocks/pedidoRepository.js'));
+jest.mock('../../../database/src/repositories/detallePedidoRepository.js', () => require('../mocks/detallePedidoRepository.js'));
 jest.mock('polleria-database/repositories/productoRepository', () => require('../mocks/productoRepository.js'));
 jest.mock('polleria-database/repositories/recepcionRepository', () => require('../mocks/recepcionRepository.js'));
 
@@ -17,7 +18,7 @@ import { instancia as compraRepo } from '../mocks/compraRepository.js';
 import { instancia as detalleCompraRepo } from '../mocks/detalleCompraRepository.js';
 import { instancia as detalleRecepcionRepo } from '../mocks/detalleRecepcionRepository.js';
 import { instancia as movimientoRepo } from '../mocks/movimientoStockRepository.js';
-import { instancia as pedidoRepo } from '../mocks/pedidoCompraRepository.js';
+import { instancia as pedidoRepo } from '../mocks/pedidoRepository.js';
 import { instancia as productoRepo } from '../mocks/productoRepository.js';
 import { instancia as recepcionRepo } from '../mocks/recepcionRepository.js';
 import { crearReq, crearRes } from '../helpers/http.js';
@@ -64,7 +65,7 @@ beforeEach(() => {
   recepcionRepo.buscarPorId.mockResolvedValue({ id: 9, compraId: 7, detalles: [] });
   detalleRecepcionRepo.crearMuchos.mockResolvedValue([{ id: 1, recepcionId: 9, productoId: 10 }]);
   movimientoRepo.registrarIngreso.mockResolvedValue({ id: 1, recepcionId: 9 });
-  pedidoRepo.actualizarEstado.mockResolvedValue({ id: 3, estado: 'RECIBIDO' });
+  pedidoRepo.updateById.mockResolvedValue({ id: 3, estado: 'RECIBIDO' });
 });
 
 describe('postRecepcion', () => {
@@ -98,7 +99,11 @@ describe('postRecepcion', () => {
     );
     expect(productoRepo.updateCosto).toHaveBeenCalledWith(10, '10.00', transaccion);
     expect(compraRepo.actualizar).toHaveBeenCalledWith(7, { estado: 'RECIBIDA' }, transaccion);
-    expect(pedidoRepo.actualizarEstado).toHaveBeenCalledWith(3, 'RECIBIDO', transaccion);
+    expect(pedidoRepo.updateById).toHaveBeenCalledWith(
+      3,
+      expect.objectContaining({ estado: 'RECIBIDO' }),
+      transaccion,
+    );
     expect(res.status).toHaveBeenCalledWith(201);
   });
 

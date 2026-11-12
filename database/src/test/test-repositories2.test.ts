@@ -24,20 +24,37 @@ import Proveedor from '../models/Proveedor.js';
 
 import CompraRepository from '../repositories/compraRepository.js';
 import CuentaProveedorRepository from '../repositories/cuentaProveedorRepository.js';
+import DetalleCompraRepository from '../repositories/detalleCompraRepository.js';
+import MovimientoStockRepository from '../repositories/movimientoStockRepository.js';
 import PagoRepository from '../repositories/pagoRepository.js';
 import PagoPorCuentaRepository from '../repositories/pagoPorCuentaRepository.js';
+import ProductoRepository from '../repositories/productoRepository.js';
 
 import ProveedorRepository from '../repositories/proveedorRepository.js';
 
 
 jest.setTimeout(30000);
 
+// Guardia: estos tests escriben en la base apuntada por DATABASE_URL.
+// Solo se ejecutan cuando RUN_DB_TESTS=true, para no tocar la base compartida.
+const RUN_DB_TESTS = process.env.RUN_DB_TESTS === 'true';
+const describeDb = RUN_DB_TESTS ? describe : describe.skip;
+const testDb = RUN_DB_TESTS ? test : test.skip;
+
 // ============================================================
 // CONFIGURACIÓN
 // ============================================================
 
-const compraRepository = new CompraRepository();
+const productoRepository = new ProductoRepository();
+const detalleCompraRepository = new DetalleCompraRepository(productoRepository);
+const movimientoStockRepository = new MovimientoStockRepository();
 const cuentaProveedorRepository = new CuentaProveedorRepository();
+const compraRepository = new CompraRepository(
+    detalleCompraRepository,
+    movimientoStockRepository,
+    cuentaProveedorRepository,
+    productoRepository
+);
 const pagoRepository = new PagoRepository();
 const pagoPorCuentaRepository = new PagoPorCuentaRepository();
 const proveedorRepository = new ProveedorRepository();
@@ -101,6 +118,8 @@ async function ejecutarConRollback(
 // ============================================================
 
 beforeAll(async () => {
+    if (!RUN_DB_TESTS) return;
+
     console.log('\n');
     console.log('############################################################');
     console.log('# TESTS DE REPOSITORIOS FINANCIEROS                         #');
@@ -133,6 +152,8 @@ beforeAll(async () => {
 // ============================================================
 
 afterAll(async () => {
+    if (!RUN_DB_TESTS) return;
+
     console.log('\n');
     console.log('############################################################');
     console.log('# LIMPIEZA Y FINALIZACIÓN                                  #');
@@ -181,8 +202,8 @@ afterAll(async () => {
 // PROVEEDOR
 // ============================================================
 
-describe('PROVEEDOR', () => {
-    test('Filtra proveedores por estado sin paginación', async () => {
+describeDb('PROVEEDOR', () => {
+    testDb('Filtra proveedores por estado sin paginación', async () => {
         logTest('Filtrar proveedores por estado');
 
         await ejecutarConRollback(async (transaction) => {
@@ -224,8 +245,8 @@ describe('PROVEEDOR', () => {
 // COMPRA
 // ============================================================
 
-describe('COMPRA', () => {
-    test('Crear y buscar una compra por ID', async () => {
+describeDb('COMPRA', () => {
+    testDb('Crear y buscar una compra por ID', async () => {
         logTest('Crear y buscar compra');
 
         const compra = await compraRepository.crear({
@@ -250,7 +271,7 @@ describe('COMPRA', () => {
         logOk('La compra fue creada y encontrada correctamente.');
     });
 
-    test('Actualizar una compra existente', async () => {
+    testDb('Actualizar una compra existente', async () => {
         logTest('Actualizar compra');
 
         const compra = await compraRepository.crear({
@@ -273,7 +294,7 @@ describe('COMPRA', () => {
         logOk('La compra fue actualizada correctamente.');
     });
 
-    test('Buscar compras por proveedor', async () => {
+    testDb('Buscar compras por proveedor', async () => {
         logTest('Buscar compras por proveedor');
 
         const resultado =
@@ -295,8 +316,8 @@ describe('COMPRA', () => {
 // CUENTA DE PROVEEDOR
 // ============================================================
 
-describe('CUENTA DE PROVEEDOR', () => {
-    test('Crear y buscar una cuenta por ID', async () => {
+describeDb('CUENTA DE PROVEEDOR', () => {
+    testDb('Crear y buscar una cuenta por ID', async () => {
         logTest('Crear y buscar cuenta de proveedor');
 
         const compra = await compraRepository.crear({
@@ -332,7 +353,7 @@ describe('CUENTA DE PROVEEDOR', () => {
         logOk('La cuenta fue creada y encontrada correctamente.');
     });
 
-    test('Buscar cuentas por compra', async () => {
+    testDb('Buscar cuentas por compra', async () => {
         logTest('Buscar cuentas por compra');
 
         const compra = await compraRepository.crear({
@@ -362,7 +383,7 @@ describe('CUENTA DE PROVEEDOR', () => {
         logOk('La cuenta fue encontrada por su compra.');
     });
 
-    test('Actualizar saldo y estado de una cuenta', async () => {
+    testDb('Actualizar saldo y estado de una cuenta', async () => {
         logTest('Actualizar saldo y estado');
 
         const compra = await compraRepository.crear({
@@ -402,8 +423,8 @@ describe('CUENTA DE PROVEEDOR', () => {
 // PAGO
 // ============================================================
 
-describe('PAGO', () => {
-    test('Crear y buscar un pago por ID', async () => {
+describeDb('PAGO', () => {
+    testDb('Crear y buscar un pago por ID', async () => {
         logTest('Crear y buscar pago');
 
         const pago = await pagoRepository.crear({
@@ -429,7 +450,7 @@ describe('PAGO', () => {
         logOk('El pago fue creado y encontrado correctamente.');
     });
 
-    test('Buscar pagos por proveedor', async () => {
+    testDb('Buscar pagos por proveedor', async () => {
         logTest('Buscar pagos por proveedor');
 
         const resultado =
@@ -451,8 +472,8 @@ describe('PAGO', () => {
 // PAGO POR CUENTA
 // ============================================================
 
-describe('PAGO POR CUENTA', () => {
-    test('Buscar aplicaciones de un pago y una cuenta', async () => {
+describeDb('PAGO POR CUENTA', () => {
+    testDb('Buscar aplicaciones de un pago y una cuenta', async () => {
         logTest('Buscar aplicación de pago por pago y cuenta');
 
         const compra = await compraRepository.crear({
@@ -512,7 +533,7 @@ describe('PAGO POR CUENTA', () => {
         logOk('La aplicación del pago fue encontrada correctamente.');
     });
 
-    test('Sumar importes aplicados a un pago', async () => {
+    testDb('Sumar importes aplicados a un pago', async () => {
         logTest('Sumar importes aplicados por pago');
 
         const compra = await compraRepository.crear({
@@ -563,7 +584,7 @@ describe('PAGO POR CUENTA', () => {
         logOk('La suma de importes aplicados al pago es correcta.');
     });
 
-    test('Sumar importes aplicados a una cuenta', async () => {
+    testDb('Sumar importes aplicados a una cuenta', async () => {
         logTest('Sumar importes aplicados por cuenta');
 
         const compra = await compraRepository.crear({
