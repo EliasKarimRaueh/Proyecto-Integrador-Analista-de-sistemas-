@@ -21,7 +21,7 @@ export function FormularioAbastecimiento({ modo, inicio, proveedores, onClose, o
   const lock = useRef(false)
   const productos = useApiResource(fetchProducts)
   const relaciones = useApiResource(() => proveedorId ? fetchProductosProveedor(Number(proveedorId)) : Promise.resolve([]), proveedorId)
-  const disponibles = (productos.data ?? []).filter(p => p.active && (modo === 'compra' || (relaciones.data ?? []).some(r => r.activo && r.productoId === Number(p.id))))
+  const disponibles = (productos.data ?? []).filter(p => p.active && (relaciones.data ?? []).some(r => r.activo && r.productoId === Number(p.id)))
   const patch = (index: number, cambios: Partial<LineaEditor>) => setLineas(actual => actual.map((l, i) => i === index ? { ...l, ...cambios } : l))
   const total = lineas.reduce((s, l) => s + datosLinea(l, productos.data ?? []).subtotal, 0)
   async function enviar(event: FormEvent) {
@@ -31,9 +31,9 @@ export function FormularioAbastecimiento({ modo, inicio, proveedores, onClose, o
     try {
       if (!proveedores.some(p => p.id === Number(proveedorId) && p.activo)) throw new Error('Seleccioná un proveedor activo.')
       if (!fecha) throw new Error('Indicá una fecha.')
-      if (modo === 'pedido' && (relaciones.loading || relaciones.error)) throw new Error('Esperá a que carguen los productos del proveedor.')
+      if (relaciones.loading || relaciones.error) throw new Error('Esperá a que carguen los productos del proveedor.')
       const detalles = validarLineas(lineas, productos.data ?? [])
-      if (modo === 'pedido' && detalles.some(d => !disponibles.some(p => Number(p.id) === d.productoId))) throw new Error('El pedido solo admite productos asociados al proveedor.')
+      if (detalles.some(d => !disponibles.some(p => Number(p.id) === d.productoId))) throw new Error(`${modo === 'pedido' ? 'El pedido' : 'La compra'} solo admite productos asociados al proveedor.`)
       if (modo === 'compra' && !numero.trim()) throw new Error('Ingresá el número de factura o remito.')
       if (!Number.isFinite(total) || total > 99999999.99) throw new Error('El total supera el máximo permitido.')
       lock.current = true; setSaving(true)
@@ -67,8 +67,8 @@ export function FormularioAbastecimiento({ modo, inicio, proveedores, onClose, o
           <div><small>Subtotal</small><strong className="supply-amount">{formatearMonto(Number.isFinite(d.subtotal) ? d.subtotal : 0)}</strong></div>
         </div><div className="operation-actions"><small>{cantidadFormato(d.cantidadBase || 0)} {d.producto?.unit} de inventario · costo base {formatearMonto(d.costoBase || 0)}</small><button type="button" className="button" onClick={() => setLineas(actual => actual.filter((_, j) => j !== i))}>Quitar producto {i + 1}</button></div></div>
       })}</div>
-      <button type="button" className="button" disabled={!proveedorId || productos.loading || (modo === 'pedido' && relaciones.loading) || lineas.length >= 100} onClick={() => setLineas(actual => [...actual, { productoId: '', cantidad: '1', costo: '0.00', unidad: 'VENTA' }])}>Agregar producto</button>
-      {!productos.loading && proveedorId && modo === 'pedido' && !relaciones.loading && !disponibles.length && <p>Este proveedor no tiene productos activos asociados. Asociálos desde Proveedores.</p>}
+      <button type="button" className="button" disabled={!proveedorId || productos.loading || relaciones.loading || lineas.length >= 100} onClick={() => setLineas(actual => [...actual, { productoId: '', cantidad: '1', costo: '0.00', unidad: 'VENTA' }])}>Agregar producto</button>
+      {!productos.loading && proveedorId && !relaciones.loading && !disponibles.length && <p>Este proveedor no tiene productos activos asociados. Asociálos desde Proveedores.</p>}
       <label className="supply-observations">Observaciones<textarea maxLength={300} value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={2}/></label>
       <div className="receipt-total" aria-live="polite"><span>Total {modo === 'pedido' ? 'estimado' : 'de la compra'}</span><strong>{formatearMonto(Number.isFinite(total) ? total : 0)}</strong></div>
       {modo === 'compra' && <p className="form-note">La compra genera deuda en la cuenta corriente. El stock se actualiza al registrar la recepción física.</p>}

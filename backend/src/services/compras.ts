@@ -87,7 +87,7 @@ type LineaCompra = {
   factorConversion: number | null;
 };
 
-async function normalizarLineas(value: unknown, transaction: import('sequelize').Transaction) {
+async function normalizarLineas(value: unknown, proveedorId: number, transaction: import('sequelize').Transaction) {
   if (!Array.isArray(value) || value.length === 0 || value.length > 100) {
     throw new ErrorOperacion('Debe indicar entre 1 y 100 detalles.');
   }
@@ -100,6 +100,11 @@ async function normalizarLineas(value: unknown, transaction: import('sequelize')
     const producto = await productos.findById(productoId, transaction);
     if (!producto || !producto.activo) {
       throw new ErrorOperacion(`Producto ${productoId} no encontrado o inactivo.`, 404);
+    }
+
+    const relacion = await relaciones.findByRelation(productoId, proveedorId, transaction);
+    if (!relacion || !relacion.activo) {
+      throw new ErrorOperacion(`El producto ${productoId} no está asociado al proveedor.`);
     }
 
     if (lineas.some(linea => linea.productoId === productoId)) {
@@ -181,7 +186,7 @@ export async function registrarCompra(body: unknown) {
       }
     }
 
-    const lineas = await normalizarLineas(b.detalles, transaction);
+    const lineas = await normalizarLineas(b.detalles, proveedorId, transaction);
     const total = calcularTotal(lineas.map(linea => linea.subtotal));
 
     const compra = await compras.crear({

@@ -1114,6 +1114,7 @@ describe('API /api/catalogo, /api/compras, /api/cuentas y /api/pagos (Sprint 3)'
   });
 
   it('POST /api/compras registra compra con detalle y cuenta', async () => {
+    relacionRepo.findByRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: true });
     const res = await request(app).post('/api/compras').send({
       proveedorId: 5,
       tipoComprobante: 'FACTURA',
@@ -1124,6 +1125,19 @@ describe('API /api/catalogo, /api/compras, /api/cuentas y /api/pagos (Sprint 3)'
     expect(compraRepo.crear).toHaveBeenCalled();
     expect(detalleCompraRepo.crearMuchos).toHaveBeenCalled();
     expect(cuentaRepo.crear).toHaveBeenCalled();
+  });
+
+  it('POST /api/compras rechaza compra con producto no asociado al proveedor', async () => {
+    relacionRepo.findByRelation.mockResolvedValue(null);
+    const res = await request(app).post('/api/compras').send({
+      proveedorId: 5,
+      tipoComprobante: 'FACTURA',
+      numeroComprobante: 'A-10',
+      detalles: [{ productoId: 10, cantidad: 1, costoUnitario: 1500 }],
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ message: 'El producto 10 no está asociado al proveedor.' });
+    expect(compraRepo.crear).not.toHaveBeenCalled();
   });
 
   it('GET /api/compras lista las compras', async () => {

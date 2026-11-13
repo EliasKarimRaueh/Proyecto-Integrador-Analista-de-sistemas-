@@ -70,6 +70,7 @@ beforeEach(() => {
   cuentaRepo.crear.mockResolvedValue({ id: 1, proveedorId: 5, compraId: 7, importePendiente: '200.00' });
   pedidoRepo.buscarPorIdConBloqueo.mockResolvedValue({ id: 3, proveedorId: 5, estado: 'REALIZADO' });
   productoRepo.buscarParaReposicion.mockResolvedValue({ rows: [producto()], count: 1 });
+  relacionRepo.findByRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: true });
   relacionRepo.getProveedoresActivosPorProductos.mockResolvedValue(new Map([
     [10, [{ id: 5, nombre: 'Distribuidora Sur' }]],
   ]));
@@ -204,6 +205,44 @@ describe('postCompra', () => {
     }), res);
 
     expect(res.status).toHaveBeenCalledWith(409);
+  });
+
+  it('exige que el producto esté asociado al proveedor', async () => {
+    relacionRepo.findByRelation.mockResolvedValue(null);
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-1',
+        detalles: DETALLE_VALIDO,
+      },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El producto 10 no está asociado al proveedor.',
+    });
+  });
+
+  it('rechaza una relación inactiva con el proveedor', async () => {
+    relacionRepo.findByRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: false });
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-1',
+        detalles: DETALLE_VALIDO,
+      },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'El producto 10 no está asociado al proveedor.',
+    });
   });
 });
 
