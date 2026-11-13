@@ -15,7 +15,8 @@ import {
   calcularSubtotal,
   calcularTotal,
   convertirCantidadBase,
-  convertirCostoUnitario
+  convertirCostoUnitario,
+  validarDetallesConPedido
 } from './comprasCalculos.js';
 
 // Repositorio base de productos
@@ -68,10 +69,23 @@ function textoObligatorio(value: unknown, campo: string, maximo: number): string
   return texto;
 }
 
-function fecha(value: unknown): Date {
-  if (value === undefined) return new Date();
+function fecha(value: unknown, mensajeError: string = 'La fecha de la compra no es válida.'): Date {
+  if (value === undefined || value === null || value === '') return new Date();
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    const ahora = new Date();
+    const [anio, mes, dia] = value.trim().split('-').map(Number);
+    if (mes < 1 || mes > 12) {
+      throw new ErrorOperacion(mensajeError);
+    }
+    const resultado = new Date(ahora);
+    resultado.setFullYear(anio, mes - 1, dia);
+    if (Number.isNaN(resultado.getTime()) || resultado.getDate() !== dia) {
+      throw new ErrorOperacion(mensajeError);
+    }
+    return resultado;
+  }
   const resultado = new Date(String(value));
-  if (Number.isNaN(resultado.getTime())) throw new ErrorOperacion('La fecha de la compra no es válida.');
+  if (Number.isNaN(resultado.getTime())) throw new ErrorOperacion(mensajeError);
   return resultado;
 }
 
@@ -170,6 +184,8 @@ export async function registrarCompra(body: unknown) {
   if (!proveedor.ctaCte) throw new ErrorOperacion('El proveedor debe tener cuenta corriente habilitada.', 409);
 
   return await sequelize.transaction(async transaction => {
+    let detallesPedido: Awaited<ReturnType<typeof detallesPedidos.buscarPorPedido>> | undefined;
+
     if (pedidoId !== undefined) {
       const pedido = await pedidos.buscarPorIdConBloqueo(pedidoId, transaction);
       if (!pedido) throw new ErrorOperacion('Pedido no encontrado.', 404);
@@ -184,9 +200,19 @@ export async function registrarCompra(body: unknown) {
       if (compraExistente) {
         throw new ErrorOperacion('El pedido ya tiene una compra registrada.', 409);
       }
+
+      detallesPedido = await detallesPedidos.buscarPorPedido(pedidoId, transaction);
+      if (!detallesPedido || detallesPedido.length === 0) {
+        throw new ErrorOperacion('El pedido no tiene detalles registrados.', 409);
+      }
     }
 
     const lineas = await normalizarLineas(b.detalles, proveedorId, transaction);
+
+    if (detallesPedido) {
+      validarDetallesConPedido(lineas, detallesPedido);
+    }
+
     const total = calcularTotal(lineas.map(linea => linea.subtotal));
 
     const compra = await compras.crear({
@@ -201,10 +227,20 @@ export async function registrarCompra(body: unknown) {
       total: total as unknown as number
     } as never, transaction);
 
+    const mapaDetallePedido = detallesPedido
+      ? new Map(
+          detallesPedido
+            .filter((dp): dp is typeof dp & { productoId: number } => dp.productoId !== null)
+            .map(dp => [dp.productoId, dp])
+        )
+      : null;
+
     const detalles = await detallesCompras.crearMuchos(
       lineas.map((linea, indice) => ({
         compraId: compra.id,
         numeroItem: indice + 1,
+        pedidoId: pedidoId ?? null,
+        numeroItemPedido: mapaDetallePedido?.get(linea.productoId)?.numeroItem ?? null,
         productoId: linea.productoId,
         nombre: linea.nombre,
         unidadCompra: linea.unidadVenta,

@@ -62,8 +62,52 @@ export function validarDiferenciaRecepcion(
   cantidadRecibida: number,
   observaciones: string | null
 ) {
-  const diferencia = Math.abs(redondearCantidad(cantidadComprada) - redondearCantidad(cantidadRecibida));
+  const diferencia = redondearCantidad(
+    Math.abs(redondearCantidad(cantidadComprada) - redondearCantidad(cantidadRecibida))
+  );
   if (diferencia > 0.001 && !observaciones) {
     throw new ErrorOperacion('La recepción tiene diferencias y requiere una observación.');
+  }
+}
+
+export function validarDetallesConPedido(
+  lineasCompra: Array<{ productoId: number; cantidadBase: number }>,
+  detallesPedido: Array<{ productoId: number | null; cantidad: number | string }>
+): void {
+  const detallePedidoMap = new Map<number, number>();
+  for (const dp of detallesPedido) {
+    if (dp.productoId === null || dp.productoId === undefined) {
+      throw new ErrorOperacion('El pedido contiene un detalle sin producto asociado.');
+    }
+    detallePedidoMap.set(dp.productoId, redondearCantidad(Number(dp.cantidad)));
+  }
+
+  const lineasCompraMap = new Map<number, number>();
+  for (const linea of lineasCompra) {
+    lineasCompraMap.set(linea.productoId, redondearCantidad(linea.cantidadBase));
+  }
+
+  for (const linea of lineasCompra) {
+    if (!detallePedidoMap.has(linea.productoId)) {
+      throw new ErrorOperacion(`El producto ${linea.productoId} no pertenece al pedido.`);
+    }
+  }
+
+  for (const dp of detallesPedido) {
+    if (dp.productoId !== null && !lineasCompraMap.has(dp.productoId)) {
+      throw new ErrorOperacion(`Falta el producto ${dp.productoId} solicitado en el pedido.`);
+    }
+  }
+
+  for (const dp of detallesPedido) {
+    if (dp.productoId !== null) {
+      const cantidadCompra = lineasCompraMap.get(dp.productoId)!;
+      const cantidadPedido = detallePedidoMap.get(dp.productoId)!;
+      if (redondearCantidad(Math.abs(cantidadCompra - cantidadPedido)) > 0.001) {
+        throw new ErrorOperacion(
+          `La cantidad del producto ${dp.productoId} (${cantidadCompra}) no coincide con la solicitada en el pedido (${cantidadPedido}).`
+        );
+      }
+    }
   }
 }

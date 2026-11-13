@@ -19,6 +19,7 @@ import { instancia as compraRepo } from '../mocks/compraRepository.js';
 import { instancia as cuentaRepo } from '../mocks/cuentaProveedorRepository.js';
 import { instancia as detalleCompraRepo } from '../mocks/detalleCompraRepository.js';
 import { instancia as pedidoRepo } from '../mocks/pedidoRepository.js';
+import { instancia as detallePedidoRepo } from '../mocks/detallePedidoRepository.js';
 import { instancia as productoRepo } from '../mocks/productoRepository.js';
 import { instancia as relacionRepo } from '../mocks/productoProveedorRepository.js';
 import { instancia as proveedorRepo } from '../mocks/proveedorRepository.js';
@@ -69,6 +70,7 @@ beforeEach(() => {
   detalleCompraRepo.crearMuchos.mockResolvedValue([{ id: 1, compraId: 7, productoId: 10 }]);
   cuentaRepo.crear.mockResolvedValue({ id: 1, proveedorId: 5, compraId: 7, importePendiente: '200.00' });
   pedidoRepo.buscarPorIdConBloqueo.mockResolvedValue({ id: 3, proveedorId: 5, estado: 'REALIZADO' });
+  detallePedidoRepo.buscarPorPedido.mockResolvedValue([{ numeroItem: 1, pedidoId: 3, productoId: 10, cantidad: 2 }]);
   productoRepo.buscarParaReposicion.mockResolvedValue({ rows: [producto()], count: 1 });
   relacionRepo.findByRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: true });
   relacionRepo.getProveedoresActivosPorProductos.mockResolvedValue(new Map([
@@ -125,10 +127,141 @@ describe('postCompra', () => {
     }), res);
 
     expect(pedidoRepo.buscarPorIdConBloqueo).toHaveBeenCalledWith(3, expect.anything());
+    expect(detallePedidoRepo.buscarPorPedido).toHaveBeenCalledWith(3, expect.anything());
     expect(compraRepo.crear).toHaveBeenCalledWith(
       expect.objectContaining({ pedidoId: 3 }),
       expect.anything(),
     );
+    expect(detalleCompraRepo.crearMuchos).toHaveBeenCalledWith(
+      [expect.objectContaining({ compraId: 7, productoId: 10, pedidoId: 3, numeroItemPedido: 1 })],
+      expect.anything(),
+    );
+  });
+
+  it('rechaza una compra de pedido si el pedido no tiene detalles registrados', async () => {
+    detallePedidoRepo.buscarPorPedido.mockResolvedValue([]);
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-2',
+        pedidoId: 3,
+        detalles: DETALLE_VALIDO,
+      },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ message: 'El pedido no tiene detalles registrados.' });
+  });
+
+  it('rechaza una compra de pedido si se agrega un producto que no pertenece al pedido', async () => {
+    productoRepo.findById.mockImplementation(async (id: number) => producto({ id }));
+    relacionRepo.findByRelation.mockResolvedValue({ productoId: 11, proveedorId: 5, activo: true });
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-2',
+        pedidoId: 3,
+        detalles: [
+          { productoId: 10, cantidad: 2, costoUnitario: 100 },
+          { productoId: 11, cantidad: 1, costoUnitario: 50 },
+        ],
+      },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'El producto 11 no pertenece al pedido.' });
+  });
+
+  it('rechaza una compra de pedido si falta un producto solicitado en el pedido', async () => {
+    detallePedidoRepo.buscarPorPedido.mockResolvedValue([
+      { numeroItem: 1, pedidoId: 3, productoId: 10, cantidad: 2 },
+      { numeroItem: 2, pedidoId: 3, productoId: 11, cantidad: 1 },
+    ]);
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-2',
+        pedidoId: 3,
+        detalles: [{ productoId: 10, cantidad: 2, costoUnitario: 100 }],
+      },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Falta el producto 11 solicitado en el pedido.' });
+  });
+
+  it('rechaza una compra de pedido si la cantidad no coincide con la del pedido', async () => {
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-2',
+        pedidoId: 3,
+        detalles: [{ productoId: 10, cantidad: 5, costoUnitario: 100 }],
+      },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'La cantidad del producto 10 (5) no coincide con la solicitada en el pedido (2).',
+    });
+  });
+
+  it('permite registrar compra de pedido modificando costos unitarios', async () => {
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-2',
+        pedidoId: 3,
+        detalles: [{ productoId: 10, cantidad: 2, costoUnitario: 150 }],
+      },
+    }), res);
+
+    expect(compraRepo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ pedidoId: 3, total: '300.00' }),
+      expect.anything(),
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('acepta fecha en formato YYYY-MM-DD combinando con la hora actual', async () => {
+    const res = crearRes();
+
+    await postCompra(crearReq({
+      body: {
+        proveedorId: 5,
+        tipoComprobante: 'FACTURA',
+        numeroComprobante: 'A-20',
+        fechaHora: '2026-11-20',
+        detalles: DETALLE_VALIDO,
+      },
+    }), res);
+
+    expect(compraRepo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fechaHora: expect.any(Date),
+      }),
+      expect.anything(),
+    );
+    const llamada = (compraRepo.crear as jest.Mock).mock.calls[0][0];
+    expect(llamada.fechaHora.getFullYear()).toBe(2026);
+    expect(llamada.fechaHora.getMonth()).toBe(10); // Noviembre (0-indexed)
+    expect(llamada.fechaHora.getDate()).toBe(20);
+    expect(res.status).toHaveBeenCalledWith(201);
   });
 
   it('responde 404 si el proveedor no existe', async () => {

@@ -8,6 +8,7 @@ import {
   convertirCostoUnitario,
   puedeCancelarPedido,
   redondearCantidad,
+  validarDetallesConPedido,
   validarDiferenciaRecepcion,
 } from '../../src/services/comprasCalculos.js';
 import { ErrorOperacion } from '../../src/services/operaciones.js';
@@ -45,6 +46,8 @@ describe('cálculos de compras', () => {
     expect(() => validarDiferenciaRecepcion(10, 10, null)).not.toThrow();
     expect(() => validarDiferenciaRecepcion(10, 9, 'faltó un cajón')).not.toThrow();
     expect(() => validarDiferenciaRecepcion(10, 9, null)).toThrow(ErrorOperacion);
+    expect(() => validarDiferenciaRecepcion(5.001, 5.000, null)).not.toThrow();
+    expect(() => validarDiferenciaRecepcion(5.002, 5.000, null)).toThrow(ErrorOperacion);
   });
 
   it('solo permite cancelar pedidos realizados', () => {
@@ -58,5 +61,107 @@ describe('cálculos de compras', () => {
     expect(() => convertirCantidadBase(1, 0)).toThrow(ErrorOperacion);
     expect(() => convertirCostoUnitario(100, 0)).toThrow(ErrorOperacion);
     expect(() => calcularCantidadSugerida(1, 0)).toThrow(ErrorOperacion);
+  });
+
+  describe('validarDetallesConPedido', () => {
+    it('acepta cuando los productos y las cantidades coinciden', () => {
+      const lineasCompra = [
+        { productoId: 10, cantidadBase: 5 },
+        { productoId: 20, cantidadBase: 12.5 },
+      ];
+      const detallesPedido = [
+        { productoId: 10, cantidad: 5 },
+        { productoId: 20, cantidad: '12.5' },
+      ];
+      expect(() => validarDetallesConPedido(lineasCompra, detallesPedido)).not.toThrow();
+    });
+
+    it('rechaza si la compra incluye un producto que no estaba en el pedido', () => {
+      const lineasCompra = [
+        { productoId: 10, cantidadBase: 5 },
+        { productoId: 99, cantidadBase: 1 },
+      ];
+      const detallesPedido = [
+        { productoId: 10, cantidad: 5 },
+      ];
+      expect(() => validarDetallesConPedido(lineasCompra, detallesPedido)).toThrow(
+        'El producto 99 no pertenece al pedido.'
+      );
+    });
+
+    it('rechaza si en la compra falta un producto solicitado en el pedido', () => {
+      const lineasCompra = [
+        { productoId: 10, cantidadBase: 5 },
+      ];
+      const detallesPedido = [
+        { productoId: 10, cantidad: 5 },
+        { productoId: 20, cantidad: 3 },
+      ];
+      expect(() => validarDetallesConPedido(lineasCompra, detallesPedido)).toThrow(
+        'Falta el producto 20 solicitado en el pedido.'
+      );
+    });
+
+    it('rechaza si la cantidad difiere de la solicitada', () => {
+      const lineasCompra = [
+        { productoId: 10, cantidadBase: 4.5 },
+      ];
+      const detallesPedido = [
+        { productoId: 10, cantidad: 5 },
+      ];
+      expect(() => validarDetallesConPedido(lineasCompra, detallesPedido)).toThrow(
+        'La cantidad del producto 10 (4.5) no coincide con la solicitada en el pedido (5).'
+      );
+    });
+
+    it('permite diferencias dentro del umbral de precisión (0.001)', () => {
+      const lineasCompra = [
+        { productoId: 10, cantidadBase: 5.0004 },
+      ];
+      const detallesPedido = [
+        { productoId: 10, cantidad: 5.0000 },
+      ];
+      expect(() => validarDetallesConPedido(lineasCompra, detallesPedido)).not.toThrow();
+    });
+
+    it('permite diferencias de exactamente 0.001 evitando deriva de precisión IEEE-754 (base 5 y base 10)', () => {
+      const lineasCompraBase5 = [
+        { productoId: 10, cantidadBase: 5.001 },
+      ];
+      const detallesPedidoBase5 = [
+        { productoId: 10, cantidad: 5.000 },
+      ];
+      expect(() => validarDetallesConPedido(lineasCompraBase5, detallesPedidoBase5)).not.toThrow();
+
+      const lineasCompraBase10 = [
+        { productoId: 10, cantidadBase: 10.001 },
+      ];
+      const detallesPedidoBase10 = [
+        { productoId: 10, cantidad: 10.000 },
+      ];
+      expect(() => validarDetallesConPedido(lineasCompraBase10, detallesPedidoBase10)).not.toThrow();
+
+      // Inverso (compra menor que pedido en 0.001)
+      const lineasCompraInversa = [
+        { productoId: 10, cantidadBase: 5.000 },
+      ];
+      const detallesPedidoInverso = [
+        { productoId: 10, cantidad: 5.001 },
+      ];
+      expect(() => validarDetallesConPedido(lineasCompraInversa, detallesPedidoInverso)).not.toThrow();
+    });
+
+    it('rechaza cuando la diferencia supera el umbral de 0.001 (ej. 5.002 vs 5.000)', () => {
+      const lineasCompra = [
+        { productoId: 10, cantidadBase: 5.002 },
+      ];
+      const detallesPedido = [
+        { productoId: 10, cantidad: 5.000 },
+      ];
+      expect(() => validarDetallesConPedido(lineasCompra, detallesPedido)).toThrow(ErrorOperacion);
+      expect(() => validarDetallesConPedido(lineasCompra, detallesPedido)).toThrow(
+        'La cantidad del producto 10 (5.002) no coincide con la solicitada en el pedido (5).'
+      );
+    });
   });
 });

@@ -13,10 +13,23 @@ import type { Proveedor } from '../proveedores/proveedores'
 import { datosLinea, validarLineas, type LineaEditor } from './calculos'
 
 export type InicioFormulario = { proveedorId?: number; pedidoId?: number; lineas?: LineaEditor[] }
+
+export function timestampParaEnvio(fechaSeleccionada: string): string {
+  const ahora = new Date()
+  if (!fechaSeleccionada || fechaSeleccionada === hoyComoFechaInput()) {
+    return ahora.toISOString()
+  }
+  const [anio, mes, dia] = fechaSeleccionada.split('-').map(Number)
+  const d = new Date(ahora)
+  d.setFullYear(anio, mes - 1, dia)
+  return d.toISOString()
+}
+
 export function FormularioAbastecimiento({ modo, inicio, proveedores, onClose, onGuardado }: { modo: 'pedido' | 'compra'; inicio: InicioFormulario; proveedores: Proveedor[]; onClose: () => void; onGuardado: (id: number) => void }) {
   const [proveedorId, setProveedorId] = useState(String(inicio.proveedorId ?? ''))
   const [lineas, setLineas] = useState<LineaEditor[]>(inicio.lineas ?? [])
   const [fecha, setFecha] = useState(hoyComoFechaInput()), [tipo, setTipo] = useState('FACTURA'), [numero, setNumero] = useState(''), [observaciones, setObservaciones] = useState('')
+  const esDesdePedido = modo === 'compra' && Boolean(inicio.pedidoId)
   const [error, setError] = useState(''), [saving, setSaving] = useState(false), [incierto, setIncierto] = useState(false)
   const lock = useRef(false)
   const productos = useApiResource(fetchProducts)
@@ -31,13 +44,14 @@ export function FormularioAbastecimiento({ modo, inicio, proveedores, onClose, o
     try {
       if (!proveedores.some(p => p.id === Number(proveedorId) && p.activo)) throw new Error('Seleccioná un proveedor activo.')
       if (!fecha) throw new Error('Indicá una fecha.')
-      if (relaciones.loading || relaciones.error) throw new Error('Esperá a que carguen los productos del proveedor.')
+      if (!esDesdePedido && (relaciones.loading || relaciones.error)) throw new Error('Esperá a que carguen los productos del proveedor.')
       const detalles = validarLineas(lineas, productos.data ?? [])
-      if (detalles.some(d => !disponibles.some(p => Number(p.id) === d.productoId))) throw new Error(`${modo === 'pedido' ? 'El pedido' : 'La compra'} solo admite productos asociados al proveedor.`)
+      if (!esDesdePedido && detalles.some(d => !disponibles.some(p => Number(p.id) === d.productoId))) throw new Error(`${modo === 'pedido' ? 'El pedido' : 'La compra'} solo admite productos asociados al proveedor.`)
       if (modo === 'compra' && !numero.trim()) throw new Error('Ingresá el número de factura o remito.')
       if (!Number.isFinite(total) || total > 99999999.99) throw new Error('El total supera el máximo permitido.')
       lock.current = true; setSaving(true)
-      const datos = { proveedorId: Number(proveedorId), fechaHora: `${fecha}T12:00:00-03:00`, observaciones: observaciones.trim(), detalles }
+      const fechaHora = timestampParaEnvio(fecha)
+      const datos = { proveedorId: Number(proveedorId), fechaHora, observaciones: observaciones.trim(), detalles }
       const id = modo === 'pedido'
         ? (await guardarPedido(datos)).pedido.id
         : (await guardarCompra({ ...datos, pedidoId: inicio.pedidoId, tipoComprobante: tipo, numeroComprobante: numero.trim() })).compra.id
@@ -55,20 +69,21 @@ export function FormularioAbastecimiento({ modo, inicio, proveedores, onClose, o
         <label>Fecha<input type="date" required value={fecha} onChange={e => setFecha(e.target.value)}/></label>
         {modo === 'compra' && <><label>Tipo de comprobante<select value={tipo} onChange={e => setTipo(e.target.value)}><option>FACTURA</option><option>REMITO</option><option>OTRO</option></select></label><label>Número de comprobante<input required maxLength={50} value={numero} onChange={e => setNumero(e.target.value)}/></label></>}
       </div>
+      {esDesdePedido && <p className="form-note">Los productos y cantidades están bloqueados según el pedido #{inicio.pedidoId}. Podés ajustar los costos por presentación si difieren del estimado.</p>}
       <div className="supply-lines">{lineas.map((l, i) => {
         const d = datosLinea(l, productos.data ?? [])
-        return <div className="supply-line" key={i}><div className="form-grid"><label className="full-width">Producto {i + 1}<select required aria-label={`Producto ${i + 1}`} value={l.productoId} onChange={e => {
+        return <div className="supply-line" key={i}><div className="form-grid"><label className="full-width">Producto {i + 1}<select required aria-label={`Producto ${i + 1}`} disabled={esDesdePedido} value={l.productoId} onChange={e => {
           const p = disponibles.find(p => p.id === e.target.value)
           patch(i, { productoId: e.target.value, cantidad: '1', unidad: 'VENTA', costo: Number(p?.costoActual ?? 0).toFixed(2), factorConversion: undefined, presentacion: undefined })
-        }}><option value="">Seleccionar producto</option>{disponibles.filter(p => p.id === l.productoId || !lineas.some(otra => otra.productoId === p.id)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-          <label>Medir en<select aria-label={`Medir producto ${i + 1} en`} value={l.unidad} onChange={e => { const unidad = e.target.value as LineaEditor['unidad']; patch(i, { unidad, cantidad: '1', costo: ((Number(d.producto?.costoActual ?? 0)) * (unidad === 'COMPRA' ? d.producto?.factorConversion ?? 1 : 1)).toFixed(2) }) }}><option value="VENTA">Venta · {d.producto?.unit ?? 'kg/un.'}</option><option value="COMPRA">Compra · {d.producto?.unidadCompra ?? 'presentación'}</option></select></label>
-          <label>Cantidad<input aria-label={`Cantidad producto ${i + 1}`} required inputMode="decimal" value={l.cantidad} onChange={e => patch(i, { cantidad: e.target.value })}/></label>
+        }}><option value="">Seleccionar producto</option>{d.producto && !disponibles.some(p => p.id === l.productoId) && <option value={d.producto.id}>{d.producto.name}</option>}{disponibles.filter(p => p.id === l.productoId || !lineas.some(otra => otra.productoId === p.id)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+          <label>Medir en<select aria-label={`Medir producto ${i + 1} en`} disabled={esDesdePedido} value={l.unidad} onChange={e => { const unidad = e.target.value as LineaEditor['unidad']; patch(i, { unidad, cantidad: '1', costo: ((Number(d.producto?.costoActual ?? 0)) * (unidad === 'COMPRA' ? d.producto?.factorConversion ?? 1 : 1)).toFixed(2) }) }}><option value="VENTA">Venta · {d.producto?.unit ?? 'kg/un.'}</option><option value="COMPRA">Compra · {d.producto?.unidadCompra ?? 'presentación'}</option></select></label>
+          <label>Cantidad<input aria-label={`Cantidad producto ${i + 1}`} required disabled={esDesdePedido} inputMode="decimal" value={l.cantidad} onChange={e => patch(i, { cantidad: e.target.value })}/></label>
           <label>{modo === 'pedido' ? 'Costo estimado' : 'Costo'} por {l.unidad === 'COMPRA' ? 'presentación' : d.producto?.unit ?? 'unidad'}<input aria-label={`Costo producto ${i + 1}`} required inputMode="decimal" value={l.costo} onChange={e => patch(i, { costo: e.target.value })}/></label>
           <div><small>Subtotal</small><strong className="supply-amount">{formatearMonto(Number.isFinite(d.subtotal) ? d.subtotal : 0)}</strong></div>
-        </div><div className="operation-actions"><small>{cantidadFormato(d.cantidadBase || 0)} {d.producto?.unit} de inventario · costo base {formatearMonto(d.costoBase || 0)}</small><button type="button" className="button" onClick={() => setLineas(actual => actual.filter((_, j) => j !== i))}>Quitar producto {i + 1}</button></div></div>
+        </div><div className="operation-actions"><small>{cantidadFormato(d.cantidadBase || 0)} {d.producto?.unit} de inventario · costo base {formatearMonto(d.costoBase || 0)}</small>{!esDesdePedido && <button type="button" className="button" onClick={() => setLineas(actual => actual.filter((_, j) => j !== i))}>Quitar producto {i + 1}</button>}</div></div>
       })}</div>
-      <button type="button" className="button" disabled={!proveedorId || productos.loading || relaciones.loading || lineas.length >= 100} onClick={() => setLineas(actual => [...actual, { productoId: '', cantidad: '1', costo: '0.00', unidad: 'VENTA' }])}>Agregar producto</button>
-      {!productos.loading && proveedorId && !relaciones.loading && !disponibles.length && <p>Este proveedor no tiene productos activos asociados. Asociálos desde Proveedores.</p>}
+      {!esDesdePedido && <button type="button" className="button" disabled={!proveedorId || productos.loading || relaciones.loading || lineas.length >= 100} onClick={() => setLineas(actual => [...actual, { productoId: '', cantidad: '1', costo: '0.00', unidad: 'VENTA' }])}>Agregar producto</button>}
+      {!esDesdePedido && !productos.loading && proveedorId && !relaciones.loading && !disponibles.length && <p>Este proveedor no tiene productos activos asociados. Asociálos desde Proveedores.</p>}
       <label className="supply-observations">Observaciones<textarea maxLength={300} value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={2}/></label>
       <div className="receipt-total" aria-live="polite"><span>Total {modo === 'pedido' ? 'estimado' : 'de la compra'}</span><strong>{formatearMonto(Number.isFinite(total) ? total : 0)}</strong></div>
       {modo === 'compra' && <p className="form-note">La compra genera deuda en la cuenta corriente. El stock se actualiza al registrar la recepción física.</p>}

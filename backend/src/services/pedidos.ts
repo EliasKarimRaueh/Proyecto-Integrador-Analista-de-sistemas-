@@ -43,10 +43,23 @@ function textoOpcional(value: unknown, campo: string, maximo: number): string | 
   return texto || null;
 }
 
-function fecha(value: unknown): Date {
-  if (value === undefined) return new Date();
+function fecha(value: unknown, mensajeError: string = 'La fecha del pedido no es válida.'): Date {
+  if (value === undefined || value === null || value === '') return new Date();
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    const ahora = new Date();
+    const [anio, mes, dia] = value.trim().split('-').map(Number);
+    if (mes < 1 || mes > 12) {
+      throw new ErrorOperacion(mensajeError);
+    }
+    const resultado = new Date(ahora);
+    resultado.setFullYear(anio, mes - 1, dia);
+    if (Number.isNaN(resultado.getTime()) || resultado.getDate() !== dia) {
+      throw new ErrorOperacion(mensajeError);
+    }
+    return resultado;
+  }
   const resultado = new Date(String(value));
-  if (Number.isNaN(resultado.getTime())) throw new ErrorOperacion('La fecha del pedido no es válida.');
+  if (Number.isNaN(resultado.getTime())) throw new ErrorOperacion(mensajeError);
   return resultado;
 }
 
