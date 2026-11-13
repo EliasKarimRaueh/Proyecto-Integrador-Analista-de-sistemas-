@@ -8,6 +8,7 @@ jest.mock('../../../database/src/repositories/pedidoRepository.js', () => requir
 jest.mock('../../../database/src/repositories/detallePedidoRepository.js', () => require('../mocks/detallePedidoRepository.js'));
 jest.mock('polleria-database/repositories/productoRepository', () => require('../mocks/productoRepository.js'));
 jest.mock('polleria-database/repositories/recepcionRepository', () => require('../mocks/recepcionRepository.js'));
+jest.mock('polleria-database/repositories/cuentaProveedorRepository', () => require('../mocks/cuentaProveedorRepository.js'));
 
 import {
   getRecepciones,
@@ -21,6 +22,7 @@ import { instancia as movimientoRepo } from '../mocks/movimientoStockRepository.
 import { instancia as pedidoRepo } from '../mocks/pedidoRepository.js';
 import { instancia as productoRepo } from '../mocks/productoRepository.js';
 import { instancia as recepcionRepo } from '../mocks/recepcionRepository.js';
+import { instancia as cuentaRepo } from '../mocks/cuentaProveedorRepository.js';
 import { crearReq, crearRes } from '../helpers/http.js';
 import { usarTransaccionFalsa } from '../helpers/transaccion.js';
 
@@ -66,6 +68,8 @@ beforeEach(() => {
   detalleRecepcionRepo.crearMuchos.mockResolvedValue([{ id: 1, recepcionId: 9, productoId: 10 }]);
   movimientoRepo.registrarIngreso.mockResolvedValue({ id: 1, recepcionId: 9 });
   pedidoRepo.updateById.mockResolvedValue({ id: 3, estado: 'RECIBIDO' });
+  cuentaRepo.buscarPorCompra.mockResolvedValue({ id: 1, compraId: 7, importePendiente: '200.00', estado: 'PAGO PENDIENTE' });
+  cuentaRepo.descontarPorNoRecibido.mockResolvedValue({ id: 1, compraId: 7, importePendiente: '198.00', estado: 'PAGO PENDIENTE' });
 });
 
 describe('postRecepcion', () => {
@@ -139,7 +143,7 @@ describe('postRecepcion', () => {
     expect(res.json).toHaveBeenCalledWith({ message: 'El producto 99 no pertenece a la compra.' });
   });
 
-  it('exige observar diferencias de cantidad', async () => {
+  it('exige un motivo cuando hay faltantes o rechazos', async () => {
     const res = crearRes();
     await postRecepcion(crearReq({
       body: { compraId: 7, detalles: [{ productoId: 10, cantidadPresentacion: 1, factorConversion: 10 }] },
@@ -147,11 +151,12 @@ describe('postRecepcion', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
-      message: 'La recepción tiene diferencias y requiere una observación.',
+      message: 'La recepción tiene faltantes o rechazos y requiere un motivo.',
     });
   });
 
-  it('acepta diferencias con observación', async () => {
+  it('acepta diferencias con observación y descuenta la deuda por lo no recibido', async () => {
+    const transaccion = usarTransaccionFalsa();
     const res = crearRes();
     await postRecepcion(crearReq({
       body: {
@@ -162,6 +167,55 @@ describe('postRecepcion', () => {
     }), res);
 
     expect(res.status).toHaveBeenCalledWith(201);
+    expect(recepcionRepo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ compraId: 7, conformidad: 'CON_DIFERENCIAS' }),
+      transaccion,
+    );
+    expect(detalleRecepcionRepo.crearMuchos).toHaveBeenCalledWith(
+      [expect.objectContaining({ productoId: 10, cantidadBase: 10, cantidadRechazadaBase: 0, cantidadFaltanteBase: 10, motivo: 'faltó un cajón' })],
+      transaccion,
+    );
+    // Faltaron 10 kg a $10,00/kg: se descuentan $100,00 de la deuda.
+    expect(cuentaRepo.descontarPorNoRecibido).toHaveBeenCalledWith(1, 100, transaccion);
+  });
+
+  it('registra el rechazo con motivo y no ingresa stock cuando no se acepta nada', async () => {
+    const transaccion = usarTransaccionFalsa();
+    const res = crearRes();
+    await postRecepcion(crearReq({
+      body: {
+        compraId: 7,
+        detalles: [{ productoId: 10, presentacion: 'KILOS', cantidadPresentacion: 0, factorConversion: 1, cantidadRechazadaBase: 20, motivo: 'Producto vencido' }],
+      },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(recepcionRepo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ conformidad: 'CON_DIFERENCIAS' }),
+      transaccion,
+    );
+    expect(detalleRecepcionRepo.crearMuchos).toHaveBeenCalledWith(
+      [expect.objectContaining({ cantidadBase: 0, cantidadRechazadaBase: 20, cantidadFaltanteBase: 0, motivo: 'Producto vencido' })],
+      transaccion,
+    );
+    expect(movimientoRepo.registrarIngreso).not.toHaveBeenCalled();
+    expect(productoRepo.updateCosto).not.toHaveBeenCalled();
+    // Se rechazaron 20 kg a $10,00/kg: se descuentan $200,00 de la deuda.
+    expect(cuentaRepo.descontarPorNoRecibido).toHaveBeenCalledWith(1, 200, transaccion);
+  });
+
+  it('marca conformidad COMPLETA cuando se recibe todo lo comprado', async () => {
+    const res = crearRes();
+    await postRecepcion(crearReq({
+      body: { compraId: 7, detalles: [{ productoId: 10, cantidadPresentacion: 2, factorConversion: 10 }] },
+    }), res);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(recepcionRepo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ conformidad: 'COMPLETA' }),
+      expect.anything(),
+    );
+    expect(cuentaRepo.descontarPorNoRecibido).not.toHaveBeenCalled();
   });
 
   it('exige recibir todos los productos', async () => {

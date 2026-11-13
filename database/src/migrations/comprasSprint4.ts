@@ -75,7 +75,8 @@ export async function migrateComprasSprint4() {
                 "proveedorId" INTEGER NOT NULL REFERENCES proveedores(id),
                 "fechaHora" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
                 observaciones VARCHAR(300),
-                "usuarioId" INTEGER NOT NULL DEFAULT 1
+                "usuarioId" INTEGER NOT NULL DEFAULT 1,
+                conformidad VARCHAR(20) NOT NULL DEFAULT 'COMPLETA'
             )
         `);
 
@@ -88,6 +89,9 @@ export async function migrateComprasSprint4() {
                 "cantidadPresentacion" FLOAT NOT NULL,
                 "factorConversion" FLOAT NOT NULL,
                 "cantidadBase" FLOAT NOT NULL,
+                "cantidadRechazadaBase" FLOAT NOT NULL DEFAULT 0,
+                "cantidadFaltanteBase" FLOAT NOT NULL DEFAULT 0,
+                motivo VARCHAR(200),
                 "costoUnitario" DECIMAL(12,2),
                 UNIQUE ("recepcionId", "productoId")
             )

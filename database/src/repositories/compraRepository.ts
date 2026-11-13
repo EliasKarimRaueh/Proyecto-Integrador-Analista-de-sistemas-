@@ -18,6 +18,7 @@ import DetalleCompra from '../models/DetalleCompra.js';
 import Proveedor from '../models/Proveedor.js';
 import CuentaProveedor from '../models/CuentaProveedor.js';
 import Recepcion from '../models/Recepcion.js';
+import DetalleRecepcion from '../models/DetalleRecepcion.js';
 
 
 import ProductoRepository from './productoRepository.js';
@@ -100,7 +101,11 @@ class CompraRepository extends BaseRepository<Compra> {
             include: [
                 { model: Proveedor, as: 'proveedor' },
                 { model: CuentaProveedor, as: 'cuentaProveedor' },
-                { model: Recepcion, as: 'recepcion' },
+                {
+                    model: Recepcion,
+                    as: 'recepcion',
+                    include: [{ model: DetalleRecepcion, as: 'detalles' }]
+                },
                 {
                     model: DetalleCompra,
                     as: 'detalles',
@@ -156,7 +161,7 @@ class CompraRepository extends BaseRepository<Compra> {
     }
 
     /**
-     * Busca todas las compras sin aplicar paginación.
+     * Busca todas las compras sin aplicar paginaciï¿½n.
      */
     async buscarTodas(
         orderBy = 'fechaHora',

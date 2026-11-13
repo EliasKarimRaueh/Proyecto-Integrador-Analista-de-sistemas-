@@ -11,6 +11,9 @@ class DetalleRecepcion extends Model {
     declare cantidadPresentacion: number;
     declare factorConversion: number;
     declare cantidadBase: number;
+    declare cantidadRechazadaBase: number;
+    declare cantidadFaltanteBase: number;
+    declare motivo: string | null;
     declare costoUnitario: string | null;
 }
 
@@ -55,9 +58,9 @@ DetalleRecepcion.init({
         type: DataTypes.FLOAT,
         allowNull: false,
         validate: {
-            isPositive(value: number) {
-                if (value <= 0) {
-                    throw new Error('La cantidad recibida debe ser positiva.');
+            isNonNegative(value: number) {
+                if (value < 0) {
+                    throw new Error('La cantidad aceptada no puede ser negativa.');
                 }
             }
         }
@@ -79,12 +82,44 @@ DetalleRecepcion.init({
         type: DataTypes.FLOAT,
         allowNull: false,
         validate: {
-            isPositive(value: number) {
-                if (value <= 0) {
-                    throw new Error('La cantidad en unidad base debe ser positiva.');
+            isNonNegative(value: number) {
+                if (value < 0) {
+                    throw new Error('La cantidad aceptada en unidad base no puede ser negativa.');
                 }
             }
         }
+    },
+
+    cantidadRechazadaBase: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0,
+        validate: {
+            isNonNegative(value: number) {
+                if (value < 0) {
+                    throw new Error('La cantidad rechazada no puede ser negativa.');
+                }
+            }
+        }
+    },
+
+    cantidadFaltanteBase: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0,
+        validate: {
+            isNonNegative(value: number) {
+                if (value < 0) {
+                    throw new Error('La cantidad faltante no puede ser negativa.');
+                }
+            }
+        }
+    },
+
+    motivo: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        defaultValue: null
     },
 
     costoUnitario: {

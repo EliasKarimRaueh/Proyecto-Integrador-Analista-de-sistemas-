@@ -9,6 +9,7 @@ class Recepcion extends Model {
     declare fechaHora: Date;
     declare observaciones: string | null;
     declare usuarioId: number;
+    declare conformidad: 'COMPLETA' | 'CON_DIFERENCIAS';
 }
 
 Recepcion.init({
@@ -64,6 +65,18 @@ Recepcion.init({
         type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 1
+    },
+
+    conformidad: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: 'COMPLETA',
+        validate: {
+            isIn: {
+                args: [['COMPLETA', 'CON_DIFERENCIAS']],
+                msg: 'La conformidad de la recepción no es válida.'
+            }
+        }
     }
 
 }, {

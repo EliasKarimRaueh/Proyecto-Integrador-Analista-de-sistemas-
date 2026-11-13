@@ -1,6 +1,7 @@
 import sequelize from '../config/database.js';
 import '../relationships/relationships.js';
 import { migrateComprasSprint4 } from '../migrations/comprasSprint4.js';
+import { migrateRecepcionConformidad } from '../migrations/recepcionConformidad.js';
 
 import {
     describe,
@@ -69,6 +70,7 @@ beforeAll(async () => {
     await sequelize.authenticate();
     await sequelize.sync();
     await migrateComprasSprint4();
+    await migrateRecepcionConformidad();
 });
 
 afterAll(async () => {
@@ -185,6 +187,34 @@ describeDb('COMPRAS SPRINT 4', () => {
                 transaction
             );
             expect(filtradas.rows.some(row => row.id === compra.id)).toBe(true);
+        });
+    });
+
+    testDb('descuenta de la cuenta lo no recibido y salda la cuenta', async () => {
+        await conRollback(async transaction => {
+
+            const compra = await compras.crear({
+                proveedorId: PROVEEDOR_ID,
+                estado: 'RECIBIDA',
+                total: 100
+            }, transaction);
+
+            const cuenta = await cuentas.crear({
+                proveedorId: PROVEEDOR_ID,
+                compraId: compra.id,
+                importePendiente: 100,
+                estado: 'PAGO PENDIENTE'
+            }, transaction);
+
+            const ajustada = await cuentas.descontarPorNoRecibido(cuenta.id, 40, transaction);
+            expect(Number(ajustada!.importePendiente)).toBe(60);
+            expect(ajustada!.estado).toBe('PAGO PENDIENTE');
+
+            const saldada = await cuentas.descontarPorNoRecibido(cuenta.id, 60, transaction);
+            expect(Number(saldada!.importePendiente)).toBe(0);
+            expect(saldada!.estado).toBe('PAGADO');
+
+            await expect(cuentas.descontarPorNoRecibido(cuenta.id, 10, transaction)).rejects.toThrow();
         });
     });
 

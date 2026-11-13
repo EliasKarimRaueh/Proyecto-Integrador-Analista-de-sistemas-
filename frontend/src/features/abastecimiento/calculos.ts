@@ -3,6 +3,9 @@ import type { Product } from '../products/products'
 export function estadoTexto(estado: string) {
   return ({ REALIZADO: 'Realizado', CANCELADO: 'Cancelado', RECIBIDO: 'Recibido', PENDIENTE_RECEPCION: 'Pendiente de recepción', RECIBIDA: 'Recibida' } as Record<string, string>)[estado] ?? estado
 }
+export function conformidadTexto(conformidad: string) {
+  return ({ COMPLETA: 'Conforme', CON_DIFERENCIAS: 'Con diferencias' } as Record<string, string>)[conformidad] ?? conformidad
+}
 export const fechaTexto = (fecha: string) => new Date(fecha).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'short', timeStyle: 'short' })
 
 export type LineaEditor = { productoId: string; cantidad: string; costo: string; unidad: 'COMPRA' | 'VENTA'; factorConversion?: string; presentacion?: string }

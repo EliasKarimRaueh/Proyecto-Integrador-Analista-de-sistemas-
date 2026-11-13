@@ -18,6 +18,7 @@
     "./migrations/zonaHorariaRecepcion": "./src/migrations/zonaHorariaRecepcion.ts",
     "./migrations/limpiezaEsquema": "./src/migrations/limpiezaEsquema.ts",
     "./migrations/presentacionPedidos": "./src/migrations/presentacionPedidos.ts",
+    "./migrations/recepcionConformidad": "./src/migrations/recepcionConformidad.ts",
     "./repositories/productoRepository": "./src/repositories/productoRepository.ts",
     "./repositories/tipoProductoRepository": "./src/repositories/tipoProductoRepository.ts",
     "./repositories/precioRepository": "./src/repositories/precioRepository.ts",

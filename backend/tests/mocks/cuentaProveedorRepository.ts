@@ -12,6 +12,7 @@ export const instancia = {
   buscarPagadasPorProveedor: jest.fn(),
   actualizarSaldoYEstado: jest.fn(),
   buscarPagosAplicados: jest.fn(),
+  descontarPorNoRecibido: jest.fn(),
 };
 
 const CuentaProveedorRepository = jest.fn(() => instancia);

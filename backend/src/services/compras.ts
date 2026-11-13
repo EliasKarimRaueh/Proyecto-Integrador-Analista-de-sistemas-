@@ -328,6 +328,23 @@ export async function listarCompras(
 export async function detalleCompra(compraId: number) {
   const compra = await compras.buscarDetalleCompleto(compraId);
   if (!compra) throw new ErrorOperacion('Compra no encontrada.', 404);
-  const detalle = compra as unknown as { cuentaProveedor?: unknown };
-  return { compra, cuenta: detalle.cuentaProveedor ?? null };
+  const detalle = compra as unknown as {
+    cuentaProveedor?: unknown;
+    recepcion?: { detalles?: Array<{ productoId: number; cantidadBase: number }> } | null;
+    detalles?: Array<{ productoId: number; importeUnitario: string | number }>;
+  };
+
+  let totalRecibido: string | null = null;
+  if (detalle.recepcion) {
+    const aceptadoPorProducto = new Map(
+      (detalle.recepcion.detalles ?? []).map(d => [d.productoId, Number(d.cantidadBase)])
+    );
+    totalRecibido = calcularTotal(
+      (detalle.detalles ?? []).map(d =>
+        calcularSubtotal(aceptadoPorProducto.get(d.productoId) ?? 0, d.importeUnitario)
+      )
+    );
+  }
+
+  return { compra, cuenta: detalle.cuentaProveedor ?? null, totalRecibido };
 }
