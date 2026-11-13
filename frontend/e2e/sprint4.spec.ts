@@ -19,7 +19,7 @@ async function simularAbastecimiento(page: Page) {
       data = stock <= 12 && (url.searchParams.get('soloHabitual') !== 'true' || habitual === 5) ? [{ id: 1, codigo: 'POL-001', nombre: 'Pollo entero', unidadCompra: 'CAJONES', unidadVenta: 'KILOS', factorConversion: 20, costoActual: '1000.00', stockActual: stock, stockMinimo: 10, faltante: 5, cantidadSugerida: 20, estado: 'Crítico', proveedorHabitualId: habitual, proveedores: [proveedor] }] : []
       total = (data as unknown[]).length
     } else if (path === '/api/pedidos' && method === 'POST') {
-      const pedido = { ...b, id: pedidos.length + 1, proveedor, estado: 'PENDIENTE', totalEstimado: String(b.detalles.reduce((s: number, d: { cantidad: number; costoEstimado: string }) => s + d.cantidad * Number(d.costoEstimado), 0)), detalles: b.detalles.map((d: object) => ({ ...d, producto: productoDetalle })) }
+      const pedido = { ...b, id: pedidos.length + 1, proveedor, estado: 'REALIZADO', compra: null, totalEstimado: String(b.detalles.reduce((s: number, d: { cantidad: number; costoEstimado: string }) => s + d.cantidad * Number(d.costoEstimado), 0)), detalles: b.detalles.map((d: object) => ({ ...d, producto: productoDetalle })) }
       pedidos.push(pedido); data = { pedido }
     } else if (/\/api\/pedidos\/\d+\/cancelar$/.test(path)) {
       const pedido = pedidos.find(p => p.id === Number(path.split('/')[3]))!
@@ -31,7 +31,7 @@ async function simularAbastecimiento(page: Page) {
       const totalCompra = b.detalles.reduce((s: number, d: { cantidad: number; costoUnitario: string }) => s + d.cantidad * Number(d.costoUnitario), 0)
       const compra = { ...b, id: compras.length + 1, proveedor, estado: 'PENDIENTE_RECEPCION', total: totalCompra.toFixed(2), detalles: b.detalles.map((d: { cantidad: number; costoUnitario: string }) => ({ ...d, subtotal: (d.cantidad * Number(d.costoUnitario)).toFixed(2), producto: productoDetalle })) }
       compras.push(compra)
-      const pedido = pedidos.find(p => p.id === b.pedidoId); if (pedido) pedido.estado = 'FACTURADO'
+      const pedido = pedidos.find(p => p.id === b.pedidoId); if (pedido) pedido.compra = { id: compra.id }
       data = { compra }
     } else if (/\/api\/compras\/\d+$/.test(path)) {
       const compra = compras.find(p => p.id === Number(path.split('/').pop()))!
