@@ -19,7 +19,7 @@ async function simularAbastecimiento(page: Page) {
       data = stock <= 12 && (url.searchParams.get('soloHabitual') !== 'true' || habitual === 5) ? [{ id: 1, codigo: 'POL-001', nombre: 'Pollo entero', unidadCompra: 'CAJONES', unidadVenta: 'KILOS', factorConversion: 20, costoActual: '1000.00', stockActual: stock, stockMinimo: 10, faltante: 5, cantidadSugerida: 20, estado: 'Crítico', proveedorHabitualId: habitual, proveedores: [proveedor] }] : []
       total = (data as unknown[]).length
     } else if (path === '/api/pedidos' && method === 'POST') {
-      const pedido = { ...b, id: pedidos.length + 1, proveedor, estado: 'PENDIENTE', totalEstimado: String(b.detalles.reduce((s: number, d: { cantidad: number; costoEstimado: string }) => s + d.cantidad * Number(d.costoEstimado), 0)), detalles: b.detalles.map((d: object) => ({ ...d, producto: productoDetalle })) }
+      const pedido = { ...b, id: pedidos.length + 1, proveedor, estado: 'REALIZADO', compra: null, totalEstimado: String(b.detalles.reduce((s: number, d: { cantidad: number; costoEstimado: string }) => s + d.cantidad * Number(d.costoEstimado), 0)), detalles: b.detalles.map((d: object) => ({ ...d, producto: productoDetalle })) }
       pedidos.push(pedido); data = { pedido }
     } else if (/\/api\/pedidos\/\d+\/cancelar$/.test(path)) {
       const pedido = pedidos.find(p => p.id === Number(path.split('/')[3]))!
@@ -31,19 +31,25 @@ async function simularAbastecimiento(page: Page) {
       const totalCompra = b.detalles.reduce((s: number, d: { cantidad: number; costoUnitario: string }) => s + d.cantidad * Number(d.costoUnitario), 0)
       const compra = { ...b, id: compras.length + 1, proveedor, estado: 'PENDIENTE_RECEPCION', total: totalCompra.toFixed(2), detalles: b.detalles.map((d: { cantidad: number; costoUnitario: string }) => ({ ...d, subtotal: (d.cantidad * Number(d.costoUnitario)).toFixed(2), producto: productoDetalle })) }
       compras.push(compra)
-      const pedido = pedidos.find(p => p.id === b.pedidoId); if (pedido) pedido.estado = 'FACTURADO'
+      const pedido = pedidos.find(p => p.id === b.pedidoId); if (pedido) pedido.compra = { id: compra.id }
       data = { compra }
     } else if (/\/api\/compras\/\d+$/.test(path)) {
       const compra = compras.find(p => p.id === Number(path.split('/').pop()))!
-      data = { compra, cuenta: { estado: 'PAGO PENDIENTE', importePendiente: compra.total } }
+      const recibido = compra.estado === 'RECIBIDA' ? (compra.total as string) : null
+      data = { compra, cuenta: { estado: 'PAGO PENDIENTE', importePendiente: compra.total }, totalRecibido: recibido }
     } else if (path === '/api/compras') { data = compras; total = compras.length }
     else if (path === '/api/recepciones' && method === 'POST') {
       const compra = compras.find(c => c.id === b.compraId)!
       compra.estado = 'RECIBIDA'
       const pedido = pedidos.find(p => p.id === compra.pedidoId); if (pedido) pedido.estado = 'RECIBIDO'
-      const detalles = b.detalles.map((d: { cantidadPresentacion: number; factorConversion: number }) => ({ ...d, cantidadBase: d.cantidadPresentacion * d.factorConversion, producto: productoDetalle }))
+      const detalles = b.detalles.map((d: { productoId: number; cantidadPresentacion: number; factorConversion: number; cantidadRechazadaBase?: number }) => {
+        const cantidadBase = d.cantidadPresentacion * d.factorConversion
+        const comprada = (compra.detalles as { productoId: number; cantidad: number }[]).find(cd => cd.productoId === d.productoId)?.cantidad ?? 0
+        return { ...d, cantidadBase, cantidadRechazadaBase: d.cantidadRechazadaBase ?? 0, cantidadFaltanteBase: Math.max(0, comprada - cantidadBase - (d.cantidadRechazadaBase ?? 0)), producto: productoDetalle }
+      })
       stock += detalles.reduce((s: number, d: { cantidadBase: number }) => s + d.cantidadBase, 0)
-      const recepcion = { ...b, id: recepciones.length + 1, proveedorId: 5, proveedor, fechaHora: new Date().toISOString(), detalles, movimientosStock: [{ id: 1, productoId: 1, cantMovimiento: stock - 5, cantFinal: stock }] }
+      const conDiferencia = detalles.some((d: { cantidadRechazadaBase: number; cantidadFaltanteBase: number }) => d.cantidadRechazadaBase > 0 || d.cantidadFaltanteBase > 0)
+      const recepcion = { ...b, id: recepciones.length + 1, proveedorId: 5, proveedor, fechaHora: new Date().toISOString(), conformidad: conDiferencia ? 'CON_DIFERENCIAS' : 'COMPLETA', detalles, movimientosStock: [{ id: 1, productoId: 1, cantMovimiento: stock - 5, cantFinal: stock }] }
       recepciones.push(recepcion); data = { recepcion }
     } else if (/\/api\/recepciones\/\d+$/.test(path)) data = recepciones.find(r => r.id === Number(path.split('/').pop()))
     else if (path === '/api/recepciones') { data = recepciones; total = recepciones.length }
@@ -72,11 +78,13 @@ test('reposición → pedido → compra con deuda → recepción por peso real �
   await expect(page.getByText(/Cuenta corriente: PAGO PENDIENTE/)).toBeVisible()
   await page.getByRole('button', { name: 'Cerrar', exact: true }).last().click()
   await page.getByRole('button', { name: 'Recibir mercadería' }).click()
-  await page.getByLabel('Cantidad recibida producto 1').fill('19.5')
-  await expect(page.getByText('Hay diferencias de cantidad.', { exact: false })).toBeVisible()
-  await page.getByLabel(/Observaciones/).fill('Cajón con 19,5 kg pesados al recibir.')
+  await page.getByLabel('Presentación producto 1').selectOption('KILOS')
+  await page.getByLabel('Cantidad aceptada producto 1').fill('19.5')
+  await expect(page.getByText('Aceptado:', { exact: false })).toBeVisible()
+  await expect(page.getByText('Faltante: 0,5', { exact: false })).toBeVisible()
+  await page.getByLabel('Motivo producto 1').fill('Cajón con 19,5 kg pesados al recibir.')
   await page.getByRole('button', { name: 'Confirmar recepción e ingresar stock' }).click()
-  await expect(page.getByRole('status')).toHaveText('Recepción #1 registrada. Stock y costos actualizados.')
+  await expect(page.getByRole('status')).toHaveText('Recepción #1 registrada. Se ajustaron el stock y la cuenta corriente.')
   await page.getByRole('navigation', { name: 'Abastecimiento' }).getByRole('link', { name: 'Recepciones' }).click()
   await page.getByRole('button', { name: 'Ver detalle', exact: true }).click()
   await expect(page.getByText(/Stock final 24,5/)).toBeVisible()

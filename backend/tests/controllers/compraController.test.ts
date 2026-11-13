@@ -410,7 +410,21 @@ describe('getCompraById', () => {
     expect(res.json).toHaveBeenCalledWith({
       compra: compra({ cuentaProveedor: { id: 1, compraId: 7 } }),
       cuenta: { id: 1, compraId: 7 },
+      totalRecibido: null,
     });
+  });
+
+  it('calcula el total recibido a partir de lo aceptado en la recepción', async () => {
+    compraRepo.buscarDetalleCompleto.mockResolvedValue(compra({
+      cuentaProveedor: { id: 1, compraId: 7 },
+      detalles: [{ productoId: 10, importeUnitario: '100.00' }],
+      recepcion: { id: 9, detalles: [{ productoId: 10, cantidadBase: 1.5 }] },
+    }));
+    const res = crearRes();
+    await getCompraById(crearReq({ params: { id: '7' } }), res);
+
+    // 1,5 kg aceptados a $100,00/kg: total recibido $150,00.
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ totalRecibido: '150.00' }));
   });
 
   it('responde 404 si la compra no existe', async () => {

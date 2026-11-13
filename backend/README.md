@@ -188,7 +188,7 @@ Estados: `PENDIENTE`, `FACTURADO`, `CANCELADO` y `RECIBIDO`. Un pedido nace `PEN
 | --- | --- | --- |
 | GET | `/api/recepciones` | Historial paginado con filtros |
 | GET | `/api/recepciones/:id` | Recepción con sus detalles |
-| POST | `/api/recepciones` | Recibir una compra y actualizar stock |
+| POST | `/api/recepciones` | Recibir una compra con conformidad y actualizar stock |
 
 `GET /api/recepciones` admite `compraId`, `proveedorId`, `fechaDesde`, `fechaHasta`, `page` y `limite`. Devuelve un array y publica el total en `X-Total-Count`.
 
@@ -205,14 +205,22 @@ Estados: `PENDIENTE`, `FACTURADO`, `CANCELADO` y `RECIBIDO`. Un pedido nace `PEN
       "cantidadPresentacion": 2,
       "factorConversion": 10,
       "costoPresentacion": 1500
+    },
+    {
+      "productoId": 11,
+      "presentacion": "KILOS",
+      "cantidadPresentacion": 0,
+      "factorConversion": 1,
+      "cantidadRechazadaBase": 5,
+      "motivo": "Mercadería vencida"
     }
   ]
 }
 ```
 
-Una compra solo puede recibirse una vez y debe estar en `PENDIENTE_RECEPCION`. La recepción debe incluir todos los productos de la compra, sin repetirlos. `presentacion` admite `UNIDAD`, `KILOS`, `CAJON`, `CAJA`, `BOLSA` o `BULTO`; si se omite, se deriva de `unidadCompra`. Cada detalle requiere `cantidadPresentacion` positiva y puede informar `factorConversion`, `costoUnitario` o `costoPresentacion`; si no informa costo, se conserva el costo del detalle de compra.
+Una compra solo puede recibirse una vez y debe estar en `PENDIENTE_RECEPCION`. La recepción debe incluir todos los productos de la compra, sin repetirlos. `presentacion` admite `UNIDAD`, `KILOS`, `CAJON`, `CAJA`, `BOLSA` o `BULTO`; si se omite, se deriva de `unidadCompra`. Cada detalle requiere `cantidadPresentacion` (puede ser 0 si no se acepta nada) y puede informar `factorConversion`, `cantidadRechazadaBase`, `motivo`, `costoUnitario` o `costoPresentacion`; si no informa costo, se conserva el costo del detalle de compra.
 
-La cantidad recibida se convierte a la unidad base con `cantidadPresentacion * factorConversion`. Si difiere de la cantidad comprada en más de 0.001 y no hay observaciones, la operación se rechaza. Al confirmar, se crea la recepción, se registran ingresos de stock con motivo `RECEPCION`, se actualiza `productos.costoActual` con el último costo unitario, la compra pasa a `RECIBIDA` y, si tiene pedido asociado, el pedido pasa a `RECIBIDO`. Todo se ejecuta en una única transacción.
+La cantidad aceptada se convierte a la unidad base con `cantidadPresentacion * factorConversion`. El faltante se calcula como `comprada − aceptada − rechazada` (nunca negativo) y recibir más de lo comprado se rechaza. Si hay faltante o rechazo, la línea requiere `motivo` (o `observaciones` en la recepción). Al confirmar, se crea la recepción con `conformidad` `COMPLETA` o `CON_DIFERENCIAS`, se registran ingresos de stock solo por lo aceptado (motivo `RECEPCION`), se actualiza `productos.costoActual` con el último costo unitario, se descuenta de la cuenta corriente el importe de lo no recibido al costo de compra (si el saldo llega a 0 la cuenta pasa a `PAGADO`), la compra pasa a `RECIBIDA` y, si tiene pedido asociado, el pedido pasa a `RECIBIDO`. `GET /api/compras/:id` devuelve `{ compra, cuenta, totalRecibido }`. Todo se ejecuta en una única transacción.
 
 ## Consultas, transacciones y pruebas
 
@@ -224,7 +232,7 @@ Los productos se bloquean en orden de ID para serializar modificaciones de stock
 
 La autenticación de usuarios todavía queda fuera de alcance. Se conserva el usuario predeterminado 1 del modelo existente; el `usuarioId` enviado en ventas, movimientos y recepciones todavía no representa una identidad autenticada.
 
-Las migraciones `productCatalog`, `preciosOfertas` y `comprasSprint4` se ejecutan al iniciar el servidor. La migración del Sprint 4 es idempotente y crea las tablas de pedidos, detalles, recepciones, así como las columnas y restricciones nuevas de compras y movimientos de stock.
+Las migraciones `productCatalog`, `preciosOfertas`, `comprasSprint4` y `recepcionConformidad` se ejecutan al iniciar el servidor. La migración del Sprint 4 es idempotente y crea las tablas de pedidos, detalles, recepciones, así como las columnas y restricciones nuevas de compras y movimientos de stock. `recepcionConformidad` agrega las columnas de rechazo, faltante, motivo y conformidad de forma idempotente.
 
 ```sh
 # Desde backend

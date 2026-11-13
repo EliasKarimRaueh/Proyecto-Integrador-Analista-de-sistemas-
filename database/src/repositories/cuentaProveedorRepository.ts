@@ -283,6 +283,70 @@ class CuentaProveedorRepository extends BaseRepository<CuentaProveedor> {
     }
 
     /**
+     * Descontar del saldo pendiente el importe de la mercadería que no se
+     * recibió (faltante + rechazada). A diferencia de un pago, este ajuste no
+     * aplica un pago: la deuda baja porque nunca se adeudó esa mercadería.
+     *
+     * Si el saldo final es cero la cuenta queda saldada (PAGADO); si no,
+     * conserva su estado previo (la deuda sigue pendiente, solo que menor).
+     */
+    async descontarPorNoRecibido(
+        id: number,
+        importeADescontar: number,
+        transaction?: Transaction
+    ): Promise<CuentaProveedor | null> {
+        if (
+            !Number.isFinite(importeADescontar) ||
+            importeADescontar <= 0
+        ) {
+            throw new Error(
+                'El importe a descontar debe ser un número mayor que cero.'
+            );
+        }
+
+        const cuenta = await this.buscarPorId(id, transaction);
+
+        if (!cuenta) {
+            return null;
+        }
+
+        const saldoActual = Number(cuenta.importePendiente);
+
+        if (!Number.isFinite(saldoActual) || saldoActual < 0) {
+            throw new Error(
+                'El saldo pendiente de la cuenta no es válido.'
+            );
+        }
+
+        const saldoActualCentavos = Math.round(saldoActual * 100);
+        const importeCentavos = Math.round(importeADescontar * 100);
+
+        if (importeCentavos <= 0) {
+            throw new Error(
+                'El importe a descontar debe ser de al menos un centavo.'
+            );
+        }
+
+        if (importeCentavos > saldoActualCentavos) {
+            throw new Error(
+                'El importe a descontar no puede superar el saldo pendiente.'
+            );
+        }
+
+        const saldoFinalCentavos =
+            saldoActualCentavos - importeCentavos;
+
+        return await this.updateById(
+            id,
+            {
+                importePendiente: saldoFinalCentavos / 100,
+                estado: saldoFinalCentavos === 0 ? 'PAGADO' : cuenta.estado
+            },
+            transaction
+        );
+    }
+
+    /**
      * Consultar los registros de pagos aplicados a una cuenta.
      * La consulta se realiza directamente sobre el modelo para
      * evitar instanciar PagoPorCuentaRepository y crear un ciclo.

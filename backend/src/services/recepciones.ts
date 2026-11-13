@@ -10,10 +10,10 @@ import DetallePedidoRepository from '../../../database/src/repositories/detalleP
 import CuentaProveedorRepository from 'polleria-database/repositories/cuentaProveedorRepository';
 import { ErrorOperacion, objeto, numero, id, validarCantidad } from './operaciones.js';
 import {
-  convertirCantidadBase,
   convertirCostoUnitario,
-  validarDiferenciaRecepcion
+  redondearCantidad
 } from './comprasCalculos.js';
+import { centavos, importe } from './dinero.js';
 
 const PRESENTACIONES = ['UNIDAD', 'KILOS', 'CAJON', 'CAJA', 'BOLSA', 'BULTO'] as const;
 
@@ -69,12 +69,25 @@ function presentacionPorDefecto(unidadCompra: string): typeof PRESENTACIONES[num
   return mapa[unidadCompra] ?? 'UNIDAD';
 }
 
+type DetalleCompraDatos = {
+  importeUnitario?: string | number | null;
+  costoUnitario?: string | number | null;
+};
+
+function costoUnitarioCompra(detalle: DetalleCompraDatos): number {
+  const valor = Number(detalle.importeUnitario ?? detalle.costoUnitario ?? 0);
+  return Number.isFinite(valor) ? valor : 0;
+}
+
 type LineaRecepcion = {
   productoId: number;
   presentacion: typeof PRESENTACIONES[number];
   cantidadPresentacion: number;
   factorConversion: number;
   cantidadBase: number;
+  cantidadRechazadaBase: number;
+  cantidadFaltanteBase: number;
+  motivo: string | null;
   costoUnitario: string;
 };
 
@@ -108,6 +121,7 @@ export async function registrarRecepcion(body: unknown) {
       detallesCompra.map(detalle => [detalle.productoId, detalle])
     );
     const lineas: LineaRecepcion[] = [];
+    let descuentoCentavos = 0n;
 
     for (const item of b.detalles) {
       const detalle = objeto(item);
@@ -139,14 +153,30 @@ export async function registrarRecepcion(body: unknown) {
         ? (presentacion === 'KILOS' || presentacion === 'UNIDAD' ? 1 : producto.factorConversion)
         : numero(detalle.factorConversion, 'factorConversion');
 
-      const cantidadPresentacion = numero(detalle.cantidadPresentacion, 'cantidadPresentacion');
-      const cantidadBase = convertirCantidadBase(cantidadPresentacion, factorConversion);
-      validarCantidad(producto, cantidadBase);
-      if (cantidadBase <= 0) throw new ErrorOperacion('La cantidad recibida es menor a la precisión de stock.');
+      const cantidadPresentacion = numero(detalle.cantidadPresentacion, 'cantidadPresentacion', true);
+      const cantidadBase = redondearCantidad(cantidadPresentacion * factorConversion);
+      const cantidadRechazadaBase = detalle.cantidadRechazadaBase === undefined
+        ? 0
+        : redondearCantidad(numero(detalle.cantidadRechazadaBase, 'cantidadRechazadaBase', true));
+
+      if (cantidadBase > 0) validarCantidad(producto, cantidadBase);
+      if (cantidadRechazadaBase > 0) validarCantidad(producto, cantidadRechazadaBase);
       if ((presentacion === 'KILOS' || presentacion === 'UNIDAD') && factorConversion !== 1) throw new ErrorOperacion('La unidad base requiere factor de conversión 1.');
       if (presentacion === 'KILOS' && producto.unidadVenta === 'UNIDADES' || presentacion === 'UNIDAD' && producto.unidadVenta === 'KILOS') throw new ErrorOperacion('La presentación no coincide con la unidad de venta.');
 
-      validarDiferenciaRecepcion(Number(detalleCompra.cantidad), cantidadBase, observaciones);
+      const cantidadComprada = redondearCantidad(Number(detalleCompra.cantidad));
+      const cantidadFaltanteBase = redondearCantidad(cantidadComprada - cantidadBase - cantidadRechazadaBase);
+
+      if (cantidadFaltanteBase < -0.001) {
+        throw new ErrorOperacion(`La cantidad del producto ${productoId} no puede superar la comprada.`);
+      }
+
+      const motivoLinea = textoOpcional(detalle.motivo, 'motivo', 200);
+      const tieneDiferencia = cantidadRechazadaBase > 0.001 || cantidadFaltanteBase > 0.001;
+
+      if (tieneDiferencia && !motivoLinea && !observaciones) {
+        throw new ErrorOperacion('La recepción tiene faltantes o rechazos y requiere un motivo.');
+      }
 
       let costoUnitario: string;
       if (detalle.costoUnitario !== undefined) {
@@ -157,7 +187,13 @@ export async function registrarRecepcion(body: unknown) {
           factorConversion
         );
       } else {
-        costoUnitario = String(detalleCompra.importeUnitario);
+        costoUnitario = String(costoUnitarioCompra(detalleCompra));
+      }
+
+      const importeUnitarioCompra = costoUnitarioCompra(detalleCompra);
+      const cantidadNoAceptada = redondearCantidad(cantidadRechazadaBase + cantidadFaltanteBase);
+      if (cantidadNoAceptada > 0 && Number.isFinite(importeUnitarioCompra) && importeUnitarioCompra > 0) {
+        descuentoCentavos += centavos(cantidadNoAceptada, importeUnitarioCompra);
       }
 
       lineas.push({
@@ -166,6 +202,9 @@ export async function registrarRecepcion(body: unknown) {
         cantidadPresentacion,
         factorConversion,
         cantidadBase,
+        cantidadRechazadaBase,
+        cantidadFaltanteBase,
+        motivo: motivoLinea ?? (tieneDiferencia ? observaciones : null),
         costoUnitario
       });
     }
@@ -178,13 +217,18 @@ export async function registrarRecepcion(body: unknown) {
       throw new ErrorOperacion('Debe recibir todos los productos de la compra.');
     }
 
+    const conformidad = lineas.some(
+      linea => linea.cantidadRechazadaBase > 0.001 || linea.cantidadFaltanteBase > 0.001
+    ) ? 'CON_DIFERENCIAS' : 'COMPLETA';
+
     const recepcion = await recepciones.crear({
       compraId,
       pedidoId: compra.pedidoId,
       proveedorId: compra.proveedorId,
       fechaHora,
       observaciones,
-      usuarioId
+      usuarioId,
+      conformidad
     }, transaction);
 
     const guardados = await detallesRecepciones.crearMuchos(
@@ -195,6 +239,9 @@ export async function registrarRecepcion(body: unknown) {
         cantidadPresentacion: linea.cantidadPresentacion,
         factorConversion: linea.factorConversion,
         cantidadBase: linea.cantidadBase,
+        cantidadRechazadaBase: linea.cantidadRechazadaBase,
+        cantidadFaltanteBase: linea.cantidadFaltanteBase,
+        motivo: linea.motivo,
         costoUnitario: linea.costoUnitario as unknown as string
       })) as never[],
       transaction
@@ -202,6 +249,7 @@ export async function registrarRecepcion(body: unknown) {
 
     const movimientosGuardados = [];
     for (const linea of [...lineas].sort((a, b) => a.productoId - b.productoId)) {
+      if (linea.cantidadBase <= 0) continue;
       movimientosGuardados.push(
         await movimientos.registrarIngreso(
           linea.productoId,
@@ -214,6 +262,22 @@ export async function registrarRecepcion(body: unknown) {
         )
       );
       await productos.updateCosto(linea.productoId, linea.costoUnitario, transaction);
+    }
+
+    let ajusteAplicadoCentavos = 0n;
+    if (descuentoCentavos > 0n) {
+      const cuenta = await cuentas.buscarPorCompra(compraId, transaction);
+      const pendiente = cuenta ? Number(cuenta.importePendiente) : Number.NaN;
+      if (cuenta && Number.isFinite(pendiente) && pendiente > 0) {
+        const pendienteCentavos = BigInt(Math.round(pendiente * 100));
+        ajusteAplicadoCentavos = pendienteCentavos < descuentoCentavos
+          ? pendienteCentavos
+          : descuentoCentavos;
+        const aDescontar = Number(importe(ajusteAplicadoCentavos));
+        if (aDescontar > 0) {
+          await cuentas.descontarPorNoRecibido(cuenta.id, aDescontar, transaction);
+        }
+      }
     }
 
     await compras.actualizar(compraId, { estado: 'RECIBIDA' }, transaction);
@@ -229,7 +293,13 @@ export async function registrarRecepcion(body: unknown) {
       );
     }
 
-    return { recepcion, detalles: guardados, movimientos: movimientosGuardados };
+    return {
+      recepcion,
+      detalles: guardados,
+      movimientos: movimientosGuardados,
+      conformidad,
+      ajusteCuenta: Number(importe(ajusteAplicadoCentavos))
+    };
   });
 }
 
