@@ -1,3 +1,4 @@
+import CircuitoRepository from '../../../database/src/repositories/circuitoAbastecimientoRepository.js';
 import sequelize from 'polleria-database/config/database';
 import PedidoRepository from '../../../database/src/repositories/pedidoRepository.js';
 import DetallePedidoRepository from '../../../database/src/repositories/detallePedidoRepository.js';
@@ -43,26 +44,6 @@ function textoOpcional(value: unknown, campo: string, maximo: number): string | 
   return texto || null;
 }
 
-function fecha(value: unknown, mensajeError: string = 'La fecha del pedido no es válida.'): Date {
-  if (value === undefined || value === null || value === '') return new Date();
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
-    const ahora = new Date();
-    const [anio, mes, dia] = value.trim().split('-').map(Number);
-    if (mes < 1 || mes > 12) {
-      throw new ErrorOperacion(mensajeError);
-    }
-    const resultado = new Date(ahora);
-    resultado.setFullYear(anio, mes - 1, dia);
-    if (Number.isNaN(resultado.getTime()) || resultado.getDate() !== dia) {
-      throw new ErrorOperacion(mensajeError);
-    }
-    return resultado;
-  }
-  const resultado = new Date(String(value));
-  if (Number.isNaN(resultado.getTime())) throw new ErrorOperacion(mensajeError);
-  return resultado;
-}
-
 type LineaPedido = {
   productoId: number;
   cantidad: number;
@@ -82,7 +63,7 @@ function lineasPedido(value: unknown): LineaPedido[] {
     const detalle = objeto(item);
     const productoId = id(detalle.productoId, 'productoId');
     const cantidad = numero(detalle.cantidad, 'cantidad');
-    const costoEstimado = numero(detalle.costoEstimado ?? 0, 'costoEstimado', true).toFixed(2);
+    const costoEstimado = '0.00';
     return {
       productoId,
       cantidad,
@@ -109,9 +90,7 @@ export async function registrarPedido(body: unknown) {
   const b = objeto(body);
   const proveedorId = id(b.proveedorId, 'proveedorId');
   const observaciones = textoOpcional(b.observaciones, 'observaciones', 300);
-  const fechaHora = fecha(b.fechaHora);
   const lineas = lineasPedido(b.detalles);
-  const totalEstimado = calcularTotal(lineas.map(linea => linea.subtotal));
 
   const proveedor = await proveedores.buscarPorId(proveedorId);
   if (!proveedor) throw new ErrorOperacion('Proveedor no encontrado.', 404);
@@ -131,6 +110,13 @@ export async function registrarPedido(body: unknown) {
         unidadVenta: producto.unidadVenta
       });
 
+      linea.costoEstimado = Number(producto.costoActual).toFixed(2);
+      if (linea.cantidadPresentacion !== null) {
+        linea.factorConversion = producto.factorConversion;
+        linea.cantidad = Number((linea.cantidadPresentacion * producto.factorConversion).toFixed(3));
+        linea.presentacion = producto.unidadCompra;
+      }
+      linea.subtotal = calcularSubtotal(linea.cantidad, linea.costoEstimado);
       const relacion = await relaciones.findByRelation(linea.productoId, proveedorId, transaction);
       validarCantidad(producto, linea.cantidad);
       if (!relacion || !relacion.activo) {
@@ -138,9 +124,9 @@ export async function registrarPedido(body: unknown) {
       }
     }
 
+    const totalEstimado = calcularTotal(lineas.map(linea => linea.subtotal));
     const pedido = await pedidos.crear({
       proveedorId,
-      fechaHora,
       estado: 'REALIZADO',
       totalEstimado: totalEstimado as unknown as string,
       observaciones
@@ -183,13 +169,14 @@ export async function listarPedidos(
     throw new ErrorOperacion('El estado del pedido no es válido.');
   }
 
-  return await pedidos.listar({ proveedorId, estado, desde, hasta }, page, limit);
+  const resultado = await pedidos.listar({ proveedorId, estado, desde, hasta }, page, limit);
+  return { ...resultado, rows: await Promise.all(resultado.rows.map(async p => ({ ...p.toJSON(), ...await new CircuitoRepository().relacionadas(p.id) }))) };
 }
 
 export async function detallePedido(pedidoId: number) {
   const pedido = await pedidos.buscarDetalle(pedidoId);
   if (!pedido) throw new ErrorOperacion('Pedido no encontrado.', 404);
-  return pedido;
+  return { ...pedido.toJSON(), ...await new CircuitoRepository().relacionadas(pedidoId) };
 }
 
 export async function cancelarPedido(pedidoId: number) {
@@ -200,11 +187,9 @@ export async function cancelarPedido(pedidoId: number) {
       throw new ErrorOperacion('Solo se puede cancelar un pedido realizado.', 409);
     }
 
-    // Un pedido con compra registrada ya no puede cancelarse: al recibir esa
-    // compra, la recepción pisaría el estado CANCELADO con RECIBIDO.
-    const compra = await compras.findBy({ pedidoId }, transaction);
-    if (compra) {
-      throw new ErrorOperacion('El pedido ya tiene una compra registrada; no se puede cancelar.', 409);
+    const asociadas = await new CircuitoRepository().relacionadas(pedidoId, transaction);
+    if (asociadas.recepcion || asociadas.compra) {
+      throw new ErrorOperacion('El pedido ya tiene una recepción o compra registrada; no se puede cancelar.', 409);
     }
 
     return await pedidos.actualizarEstado(pedidoId, 'CANCELADO', transaction);

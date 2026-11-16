@@ -276,6 +276,7 @@ class ProductoRepository extends BaseRepository<Producto> {
         opciones: {
             proveedorId?: number;
             incluirProximos?: boolean;
+            incluirNormales?: boolean;
             soloHabitual?: boolean;
             q?: string;
             page: number;
@@ -286,7 +287,7 @@ class ProductoRepository extends BaseRepository<Producto> {
 
         const where: any = {
             activo: true,
-            stockMinimo: { [Op.ne]: null }
+            ...(opciones.incluirNormales ? {} : { stockMinimo: { [Op.ne]: null } })
         };
 
         if (opciones.q) {
@@ -316,7 +317,7 @@ class ProductoRepository extends BaseRepository<Producto> {
             if (opciones.soloHabitual) where.proveedorHabitualId = opciones.proveedorId;
         }
 
-        where[Op.and] = [
+        if (!opciones.incluirNormales) where[Op.and] = [
             opciones.incluirProximos
                 ? sequelize.where(
                     sequelize.col('stockActual'),
@@ -329,6 +330,11 @@ class ProductoRepository extends BaseRepository<Producto> {
                     sequelize.col('stockMinimo')
                 )
         ];
+        else if (!opciones.incluirProximos) where[Op.and] = [{ [Op.or]: [
+            { stockMinimo: null },
+            sequelize.where(sequelize.col('stockActual'), Op.lte, sequelize.col('stockMinimo')),
+            sequelize.where(sequelize.col('stockActual'), Op.gt, sequelize.literal('"stockMinimo" * 1.2'))
+        ] }];
 
         return await this.model.findAndCountAll({
             where,

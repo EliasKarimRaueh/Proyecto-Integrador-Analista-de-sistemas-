@@ -4,7 +4,7 @@ import type { Proveedor } from '../proveedores/proveedores'
 import { estadoTexto } from './calculos'
 
 export function NavegacionAbastecimiento() {
-  return <nav className="category-tabs supply-nav" aria-label="Abastecimiento">{[['/reposicion', 'Reposición'], ['/pedidos', 'Pedidos'], ['/compras', 'Compras'], ['/recepciones', 'Recepciones']].map(([to, label]) => <NavLink className={({ isActive }) => isActive ? 'selected' : ''} to={to} key={to}>{label}</NavLink>)}</nav>
+  return <nav className="category-tabs supply-nav" aria-label="Abastecimiento">{[['/reposicion', 'Reposición'], ['/pedidos', 'Pedidos'], ['/recepciones', 'Recepciones'], ['/compras', 'Compras']].map(([to, label]) => <NavLink className={({ isActive }) => isActive ? 'selected' : ''} to={to} key={to}>{label}</NavLink>)}</nav>
 }
 export function FiltrosAbastecimientoUI({ filtros, onChange, proveedores, estados }: { filtros: FiltrosAbastecimiento; onChange: (filtros: FiltrosAbastecimiento) => void; proveedores: Proveedor[]; estados?: string[] }) {
   const field = (key: keyof FiltrosAbastecimiento, value: string) => onChange({ ...filtros, [key]: value, page: 1 })

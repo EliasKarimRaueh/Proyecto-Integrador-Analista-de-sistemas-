@@ -11,7 +11,8 @@ export const getRecepciones = (req: Request, res: Response) => ejecutar(res, asy
     ? undefined
     : id(req.query.proveedorId, 'proveedorId');
 
-  const resultado = await recepciones.listarRecepciones(page, limit, compraId, proveedorId, desde, hasta);
+  const pedidoId = req.query.pedidoId === undefined ? undefined : id(req.query.pedidoId, 'pedidoId');
+  const resultado = await recepciones.listarRecepciones(page, limit, compraId, proveedorId, desde, hasta, pedidoId);
   res.setHeader('X-Total-Count', resultado.count);
   return resultado.rows;
 });

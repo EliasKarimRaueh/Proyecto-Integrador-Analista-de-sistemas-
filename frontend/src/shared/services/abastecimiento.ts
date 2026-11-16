@@ -10,26 +10,27 @@ export type ProductoAbastecimiento = {
 }
 export type DetalleAbastecimiento = {
   id?: number; productoId: number; cantidad: number; costoEstimado?: string; costoUnitario?: string; importeUnitario?: string
-  subtotal: string; producto?: { id: number; nombre: string; unidadCompra: string; unidadVenta: Unidad; factorConversion: number }
+  subtotal: string; producto?: { id: number; nombre: string; unidadCompra: string; unidadVenta: Unidad; factorConversion: number; costoActual?: string }
   presentacion?: string; cantidadPresentacion?: number | null; factorConversion?: number | null; cantidadBase?: number
   cantidadRechazadaBase?: number; cantidadFaltanteBase?: number; motivo?: string | null
+  cantidadSobranteBase?: number
 }
 export type PedidoCompra = {
   id: number; proveedorId: number; proveedor?: { nombre: string }; fechaHora: string
-  estado: 'REALIZADO' | 'CANCELADO' | 'RECIBIDO'; totalEstimado: string; observaciones: string | null; compra?: { id: number } | null; detalles: DetalleAbastecimiento[]
+  estado: 'REALIZADO' | 'CANCELADO' | 'RECIBIDO'; totalEstimado: string; observaciones: string | null; compra?: { id: number } | null; recepcion?: { id: number } | null; compras?: { id: number }[]; recepciones?: { id: number }[]; detalles: DetalleAbastecimiento[]
 }
 export type Compra = {
   id: number; proveedorId: number; proveedor?: { nombre: string }; pedidoId: number | null; fechaHora: string
-  estado: 'PENDIENTE_RECEPCION' | 'RECIBIDA'; tipoComprobante: string; numeroComprobante: string | null
+  estado: 'PENDIENTE_RECEPCION' | 'RECIBIDA'; tipoComprobante: string | null; numeroComprobante: string | null; recepcionId?: number; formaPago?: 'PAGADO' | 'A CUENTA'; pedido?: { id: number } | null
   total: string; observaciones: string | null; detalles: DetalleAbastecimiento[]; recepcion?: { id: number } | null
 }
 export type Conformidad = 'COMPLETA' | 'CON_DIFERENCIAS'
 export type Recepcion = {
-  id: number; compraId: number; proveedorId: number; proveedor?: { nombre: string }; fechaHora: string
+  id: number; pedidoId: number; proveedorId: number; proveedor?: { nombre: string; ctaCte?: boolean }; fechaHora: string; pedido?: { id: number } | null; compra?: { id: number } | null; usuarioNombre?: string
   conformidad: Conformidad; observaciones: string | null; detalles: DetalleAbastecimiento[]
   movimientosStock?: { id: number; productoId: number; cantMovimiento: number; cantFinal: number }[]
 }
-export type FiltrosAbastecimiento = { page?: number; proveedorId?: string; estado?: string; desde?: string; hasta?: string; q?: string; incluirProximos?: boolean; soloHabitual?: boolean }
+export type FiltrosAbastecimiento = { page?: number; proveedorId?: string; estado?: string; desde?: string; hasta?: string; q?: string; incluirProximos?: boolean; incluirNormales?: boolean; soloHabitual?: boolean; pedidoId?: string }
 export async function listarAbastecimiento<T>(ruta: string, filtros: FiltrosAbastecimiento) {
   const { desde, hasta, ...resto } = filtros
   if (desde && hasta && desde > hasta) throw new Error('La fecha inicial no puede superar la final.')
@@ -47,7 +48,7 @@ export const fetchRecepcion = (id: number) => apiRequest<Recepcion>(`recepciones
 export const cancelarPedido = (id: number) => apiRequest(`pedidos/${id}/cancelar`, { method: 'POST' })
 export const guardarHabitual = (id: number, proveedorId: number | null) => apiRequest(`stock/${id}/proveedor-habitual`, { method: 'PUT', body: JSON.stringify({ proveedorId }) })
 export type LineaAbastecimientoInput = { productoId: number; cantidad: number; costoUnitario?: string; costoEstimado?: string; presentacion?: string; cantidadPresentacion?: number; factorConversion?: number }
-export const guardarPedido = (datos: { proveedorId: number; fechaHora: string; observaciones: string; detalles: LineaAbastecimientoInput[] }) => apiRequest<{ pedido: PedidoCompra }>('pedidos', { method: 'POST', body: JSON.stringify(datos) })
-export const guardarCompra = (datos: { proveedorId: number; pedidoId?: number; fechaHora: string; tipoComprobante: string; numeroComprobante: string; observaciones: string; detalles: LineaAbastecimientoInput[] }) => apiRequest<{ compra: Compra }>('compras', { method: 'POST', body: JSON.stringify(datos) })
+export const guardarPedido = (datos: { proveedorId: number; observaciones: string; detalles: LineaAbastecimientoInput[] }) => apiRequest<{ pedido: PedidoCompra }>('pedidos', { method: 'POST', body: JSON.stringify(datos) })
+export const guardarCompra = (datos: { recepcionId: number; formaPago: 'PAGADO' | 'A CUENTA'; tipoComprobante: string | null; numeroComprobante: string | null; observaciones: string; detalles: { productoId: number; costo: string }[] }) => apiRequest<{ compra: Compra }>('compras', { method: 'POST', body: JSON.stringify(datos) })
 export type LineaRecepcionInput = { productoId: number; presentacion: string; cantidadPresentacion: number; factorConversion: number; cantidadRechazadaBase?: number; motivo?: string }
-export const guardarRecepcion = (datos: { compraId: number; observaciones: string; detalles: LineaRecepcionInput[] }) => apiRequest<{ recepcion: Recepcion; conformidad: Conformidad; ajusteCuenta: string }>('recepciones', { method: 'POST', body: JSON.stringify(datos) })
+export const guardarRecepcion = (datos: { pedidoId: number; observaciones: string; detalles: LineaRecepcionInput[] }) => apiRequest<{ recepcion: Recepcion; conformidad: Conformidad }>('recepciones', { method: 'POST', body: JSON.stringify(datos) })
