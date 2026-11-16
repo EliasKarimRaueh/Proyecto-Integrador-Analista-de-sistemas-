@@ -11,7 +11,7 @@ const units = ['kg', 'unidad'] as const;
 type ProductInput = { code?: unknown; name?: unknown; category?: unknown; unit?: unknown; description?: unknown; unidadCompra?: unknown; factorConversion?: unknown };
 
 function normalize(value: string) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function toTitleCase(value: string) {
@@ -84,11 +84,23 @@ function parseId(req: Request, res: Response) {
   return id;
 }
 
+async function hasDuplicateName(name: string, excludeId?: number) {
+  const { rows } = await productoRepository.findAll(1, 10000, 'id', 'ASC');
+  const target = normalize(name);
+  return rows.some(product => product.id !== excludeId && normalize(product.nombre) === target);
+}
+
 function sendDatabaseError(res: Response, error: unknown) {
   const details = error instanceof Error ? error.message : String(error);
-  if (/unique|productos_codigo_unique|codigo/i.test(details)) {
-    res.status(409).json({ message: 'Ya existe un producto con ese código.' });
-    return;
+  if (/unique|duplicate key|productos_codigo_unique|productos_nombre_unique/i.test(details)) {
+    if (/nombre/i.test(details)) {
+      res.status(409).json({ message: 'Ya existe un producto con ese nombre.' });
+      return;
+    }
+    if (/codigo|productos_codigo_unique/i.test(details)) {
+      res.status(409).json({ message: 'Ya existe un producto con ese código.' });
+      return;
+    }
   }
   console.error('Error al operar sobre productos:', error);
   res.status(500).json({ message: 'No se pudo guardar el producto en la base de datos.' });
@@ -119,6 +131,10 @@ export const createProducto = async (req: Request, res: Response) => {
   if (!parsed.value) { res.status(400).json({ message: parsed.error }); return; }
   try {
     const input = parsed.value;
+    if (await hasDuplicateName(input.name)) {
+      res.status(409).json({ message: 'Ya existe un producto con ese nombre.' });
+      return;
+    }
     const type = await findOrCreateCategory(input.category);
     const product = await productoRepository.create({
       codigo: input.code, nombre: input.name, descripcion: input.description, tipoProductoId: type.id,
@@ -138,6 +154,10 @@ export const updateProducto = async (req: Request, res: Response) => {
   if (!parsed.value) { res.status(400).json({ message: parsed.error }); return; }
   try {
     const input = parsed.value;
+    if (await hasDuplicateName(input.name, id)) {
+      res.status(409).json({ message: 'Ya existe un producto con ese nombre.' });
+      return;
+    }
     const type = await findOrCreateCategory(input.category);
     const product = await productoRepository.updateById(id, {
       codigo: input.code, nombre: input.name, descripcion: input.description, tipoProductoId: type.id,

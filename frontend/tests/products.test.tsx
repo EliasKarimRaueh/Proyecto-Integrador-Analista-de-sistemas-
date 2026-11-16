@@ -159,6 +159,33 @@ describe('Catálogo de productos conectado a la API', () => {
     expect(escritura).toHaveLength(0)
   })
 
+  it('bloquea el alta cuando el nombre ya existe en el catálogo', async () => {
+    const user = userEvent.setup()
+    render(<ProductsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Nuevo producto' }))
+    await user.type(screen.getByLabelText('Nombre del producto *'), 'Suprema')
+    await user.click(screen.getByRole('button', { name: 'Registrar producto' }))
+
+    expect(screen.getByText('Ya existe un producto con ese nombre.')).toBeTruthy()
+    const escritura = fetchMock.mock.calls.filter(([, options]) => (options as RequestInit | undefined)?.method)
+    expect(escritura).toHaveLength(0)
+  })
+
+  it('bloquea la edición cuando el nombre ya lo usa otro producto', async () => {
+    const user = userEvent.setup()
+    render(<ProductsPage />)
+    await screen.findByRole('button', { name: 'Suprema' })
+    await user.click(screen.getByRole('button', { name: 'Editar Patitas' }))
+    await user.clear(screen.getByLabelText('Nombre del producto *'))
+    await user.type(screen.getByLabelText('Nombre del producto *'), 'Suprema')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(screen.getByText('Ya existe un producto con ese nombre.')).toBeTruthy()
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    const escriturasPut = fetchMock.mock.calls.filter(([, options]) => (options as RequestInit | undefined)?.method === 'PUT')
+    expect(escriturasPut).toHaveLength(0)
+  })
+
   it('mantiene abierto el formulario cuando la API rechaza el cambio', async () => {
     fetchMock.mockImplementation((input, options) => {
       if (String(input).startsWith('/api/precios')) return json(precios)
