@@ -26,6 +26,7 @@ Proveedor.init({
     nombre: {
         type: DataTypes.STRING,
         allowNull: false,
+        unique: true,
         validate: {
             len: {
                 args: [1, 50],
@@ -64,7 +65,8 @@ Proveedor.init({
 
     ctaCte: {
         type: DataTypes.BOOLEAN,
-        allowNull: false
+        allowNull: false,
+        defaultValue: false,
     },
 
     telefono: {

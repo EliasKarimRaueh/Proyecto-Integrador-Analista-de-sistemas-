@@ -1,7 +1,7 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database.js';
 
-const PRESENTACIONES = ['UNIDAD', 'KILOS', 'CAJON', 'CAJA', 'BOLSA', 'BULTO'] as const;
+const PRESENTACIONES = ['UNIDAD', 'KILOS', 'CAJON', 'CAJA', 'BOLSA', 'BULTO','UNIDADES'] as const;
 
 class DetalleRecepcion extends Model {
     declare id: number;

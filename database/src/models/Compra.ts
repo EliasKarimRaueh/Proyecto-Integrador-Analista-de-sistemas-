@@ -15,6 +15,7 @@ class Compra extends Model {
     declare formaPago:'PAGADO'|'A CUENTA';
     declare observaciones: string | null;
     declare estado: typeof ESTADOS[number];
+    declare recepcionId: number;
 }
 
 Compra.init({
@@ -116,6 +117,15 @@ Compra.init({
         allowNull: false,
         defaultValue: 'A CUENTA',
     },
+
+    recepcionId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'recepciones',
+            key: 'id'
+        }
+    }
 
 }, {
 
