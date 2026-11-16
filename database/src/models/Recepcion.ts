@@ -3,7 +3,7 @@ import sequelize from '../config/database.js';
 
 class Recepcion extends Model {
     declare id: number;
-    declare compraId: number;
+    declare compraId: number | null;
     declare pedidoId: number | null;
     declare proveedorId: number;
     declare fechaHora: Date;
@@ -22,8 +22,8 @@ Recepcion.init({
 
     compraId: {
         type: DataTypes.INTEGER,
-        allowNull: false,
-        unique: true,
+        allowNull: true,
+        defaultValue: null,
         references: {
             model: 'compras',
             key: 'id'
