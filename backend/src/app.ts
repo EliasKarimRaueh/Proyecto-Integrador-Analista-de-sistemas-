@@ -24,6 +24,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use('/api/stock/inventarios', express.json({ limit: '2mb' }));
 app.use(express.json());
 
 // Ruta de prueba

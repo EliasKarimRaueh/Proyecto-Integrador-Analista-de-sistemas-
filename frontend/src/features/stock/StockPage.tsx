@@ -6,6 +6,7 @@ import { useApiResource } from '../../shared/hooks/useApiResource'
 import { cantidadInput, cantidadFormato, unidadCorta, errorMensaje, validarMotivo } from '../../shared/lib/operaciones'
 import { fetchStock, guardarMinimo, guardarMovimiento, type StockProducto, type TipoMovimiento } from '../../shared/services/operaciones'
 import { normalize } from '../products/products'
+import { InventarioModal } from './InventarioModal'
 
 const tipos: { value: TipoMovimiento; label: string }[] = [
   { value: 'INGRESO', label: 'Entrada' }, { value: 'EGRESO', label: 'Salida' },
@@ -16,6 +17,7 @@ const tipos: { value: TipoMovimiento; label: string }[] = [
 type Editor = { producto: StockProducto; mode: 'movimiento' | 'minimo' }
 export function StockPage() {
   const resource = useApiResource(fetchStock)
+  const [inventario, setInventario] = useState(false)
   const [search, setSearch] = useState(''), [estado, setEstado] = useState('Todos'), [page, setPage] = useState(1)
   const [editor, setEditor] = useState<Editor | null>(null), [tipo, setTipo] = useState<TipoMovimiento>('INGRESO')
   const [cantidad, setCantidad] = useState(''), [motivo, setMotivo] = useState('')
@@ -47,7 +49,7 @@ export function StockPage() {
     } catch (fallo) { setError(errorMensaje(fallo)) } finally { setSaving(false) }
   }
   return <section>
-    <Encabezado title="Inventario" description="Existencias, alertas de reposición y movimientos de mercadería." actions={<><button className="button" onClick={resource.refetch}>Actualizar</button><Link className="button" to="/reposicion">Preparar reposición</Link><Link className="button" to="/movimientos">Ver movimientos</Link><Link className="button primary" to="/desposte">Desposte</Link></>} />
+    <Encabezado title="Inventario" description="Existencias, alertas de reposición y movimientos de mercadería." actions={<><button className="button primary" disabled={resource.loading || !!resource.error || !productos.length} onClick={() => { setNotice(''); setInventario(true) }}>Registrar nuevo inventario</button><Link className="button" to="/reposicion">Preparar reposición</Link><Link className="button" to="/movimientos">Ver movimientos</Link><Link className="button primary" to="/desposte">Desposte</Link></>} />
     <div className="stats-grid">
       {[['Productos activos', productos.length], ['Próximos al mínimo', productos.filter(p => p.estado === 'Próximo al Mínimo').length], ['Stock crítico', productos.filter(p => p.estado === 'Crítico').length]].map(([label, count]) => <div className="stat" key={label}><div><span>{label}</span><strong>{count}</strong></div></div>)}
     </div>
@@ -57,6 +59,7 @@ export function StockPage() {
       <div className="filters"><label className="search-field"><input aria-label="Buscar stock por nombre" placeholder="Buscar por nombre…" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}/></label><label className="status-filter">Estado<select value={estado} onChange={e => { setEstado(e.target.value); setPage(1) }}>{['Todos', 'Normal', 'Próximo al Mínimo', 'Crítico'].map(s => <option key={s}>{s}</option>)}</select></label></div>
       {resource.loading ? <p className="operation-loading" role="status">Cargando inventario…</p> : <><div className="table-scroll"><table><thead><tr><th>Producto</th><th>Existencias</th><th>Mínimo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{visible.map(p => <tr key={p.id}><td><strong>{p.nombre}</strong></td><td>{cantidadFormato(p.stockActual)} {unidadCorta(p.unidadVenta)}</td><td>{p.stockMinimo === null ? 'Sin configurar' : `${cantidadFormato(p.stockMinimo)} ${unidadCorta(p.unidadVenta)}`}</td><td><EstadoStock estado={p.estado}/></td><td><div className="operation-actions"><button className="button" onClick={() => abrir(p, 'movimiento')}>Registrar movimiento</button><button className="icon-button" aria-label={`Configurar mínimo de ${p.nombre}`} title="Configurar mínimo" onClick={() => abrir(p, 'minimo')}>⚙</button><Link className="button" to={`/movimientos?productoId=${p.id}`}>Historial</Link></div></td></tr>)}</tbody></table></div>{!visible.length && <Vacio>{productos.length ? 'No hay productos que coincidan con los filtros.' : 'Registrá productos en el catálogo para comenzar.'}</Vacio>}<Paginacion page={page} count={filtered.length} onChange={setPage}/></>}
     </div>
+    {inventario && <InventarioModal productos={productos} onClose={() => { setInventario(false); resource.refetch() }} onGuardado={ajustes => { setInventario(false); setNotice(`Inventario registrado: ${ajustes} ajustes de stock.`); resource.refetch() }}/>}
     {editor && <Modal title={editor.mode === 'minimo' ? `Reposición · ${editor.producto.nombre}` : `Movimiento · ${editor.producto.nombre}`} onClose={() => setEditor(null)} busy={saving}>
       <p>Stock actual: <strong>{cantidadFormato(editor.producto.stockActual)} {unidadCorta(editor.producto.unidadVenta)}</strong></p>
       <form onSubmit={enviar}><ErrorCarga error={error}/><fieldset disabled={saving} className="operation-fieldset"><div className="form-grid">

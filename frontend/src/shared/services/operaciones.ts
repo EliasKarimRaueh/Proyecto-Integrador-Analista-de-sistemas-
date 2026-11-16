@@ -44,6 +44,7 @@ export const cotizar = (detalles: LineaVenta[], signal?: AbortSignal) => apiRequ
 export const confirmarVenta = (detalles: LineaVenta[]) => apiRequest<VentaCompleta>('ventas', { method: 'POST', body: JSON.stringify({ detalles }) })
 export const guardarMovimiento = (input: MovimientoInput) => apiRequest<Movimiento | null>('stock/movimientos', { method: 'POST', body: JSON.stringify(input) })
 export const guardarMinimo = (productoId: number, stockMinimo: number) => apiRequest(`stock/${productoId}/reposicion`, { method: 'PUT', body: JSON.stringify({ stockMinimo }) })
+export const guardarInventario = (productos: { productoId: number; stockEsperado: number; stockContado: number }[], motivo: string) => apiRequest<{ productosContados: number; ajustes: number }>('stock/inventarios', { method: 'POST', body: JSON.stringify({ productos, motivo }) })
 export const guardarDesposte = (input: DesposteInput) => apiRequest<{ operacionId: string; movimientos: Movimiento[]; merma: number }>('stock/fraccionamientos', { method: 'POST', body: JSON.stringify(input) })
 export type FiltrosHistorial = { page?: number; limite?: number; fechaDesde?: string; fechaHasta?: string; productoId?: string; tipo?: string; ventaId?: string; operacionId?: string }
 export const fetchVentas = (filtros: FiltrosHistorial = {}) => apiRequest<Pagina<VentaCompleta>>(consulta('ventas', { limite: 20, ...filtros }))

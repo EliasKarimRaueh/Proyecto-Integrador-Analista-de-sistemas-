@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { getEstadoStock, getMovimientos, registrarMovimiento, registrarFraccionamiento, configurarReposicion, configurarProveedorHabitual } from '../controllers/stockController.js';
+import { getEstadoStock, getMovimientos, registrarInventario, registrarMovimiento, registrarFraccionamiento, configurarReposicion, configurarProveedorHabitual } from '../controllers/stockController.js';
 
 const router = Router();
 
 router.get('/', getEstadoStock);
+router.post('/inventarios', registrarInventario);
 router.post('/movimientos', registrarMovimiento);
 router.get('/movimientos', getMovimientos);
 router.put('/:productoId/reposicion', configurarReposicion);

@@ -9,14 +9,13 @@ import { desactivarOferta, fetchOferta, fetchOfertas } from '../../shared/servic
 import { normalize } from '../products/products'
 import { DetalleOfertaModal } from './DetalleOfertaModal'
 import { FormularioOfertaModal } from './FormularioOfertaModal'
-import { ReactivarOfertaModal } from './ReactivarOfertaModal'
 import { fetchPreciosVigentes } from '../../shared/services/precios'
 import type { Precio } from '../precios/precios'
 import { ETIQUETA_ESTADO, estadoOferta, type Oferta } from './ofertas'
 
 type Editor =
   | { modo: 'crear' }
-  | { modo: 'editar' | 'detalle' | 'baja' | 'reactivar'; oferta: Oferta }
+  | { modo: 'editar' | 'detalle' | 'baja' | 'reactivar' | 'copiar'; oferta: Oferta }
 
 const FILTROS = [
   { valor: 'todas', etiqueta: 'Todas las ofertas' },
@@ -241,7 +240,8 @@ export function OfertasPage() {
                       <div className="row-actions">
                         <button className="icon-button" title="Ver detalle" aria-label={'Ver ' + oferta.nombre} onClick={() => abrir({ modo: 'detalle', oferta })}><Icon name="eye" size={18} /></button>
                         <button className="button" disabled={!oferta.activo} title="Editar productos y cantidades de la oferta" aria-label={'Editar ' + oferta.nombre} onClick={() => abrir({ modo: 'editar', oferta })}><Icon name="edit" size={18} /> Editar oferta</button>
-                        {!oferta.activo && <button className="button" aria-label={'Reactivar ' + oferta.nombre} onClick={() => abrir({ modo: 'reactivar', oferta })}><Icon name="check" size={18}/>Reactivar</button>}
+                        {(!oferta.activo || estado === 'vencida') && <button className="button" aria-label={'Reactivar ' + oferta.nombre} onClick={() => abrir({ modo: 'reactivar', oferta })}><Icon name="check" size={18}/>Reactivar</button>}
+                        <button className="button" aria-label={'Copiar ' + oferta.nombre} onClick={() => abrir({ modo: 'copiar', oferta })}>Copiar oferta</button>
                         <button className="icon-button danger-text" disabled={!oferta.activo} title={oferta.activo ? 'Dar de baja' : 'Oferta dada de baja'} aria-label={'Dar de baja ' + oferta.nombre} onClick={() => abrir({ modo: 'baja', oferta })}><Icon name="archive" size={18} /></button>
                       </div>
                     </td>
@@ -276,7 +276,7 @@ export function OfertasPage() {
           onGuardado={() => { recargarOfertas(); setEditor(null) }}
         />
       )}
-      {editor?.modo === 'reactivar' && <ReactivarOfertaModal oferta={editor.oferta} onClose={() => setEditor(null)} onGuardado={() => { recargarOfertas(); setEditor(null); setNotice('Oferta reactivada correctamente.') }}/>}
+      {(editor?.modo === 'reactivar' || editor?.modo === 'copiar') && <FormularioOfertaModal modo={editor.modo} oferta={editor.oferta} ofertasExistentes={ofertas} onClose={() => setEditor(null)} onGuardado={() => { recargarOfertas(); setEditor(null); setNotice(editor.modo === 'copiar' ? 'Oferta copiada correctamente.' : 'Oferta reactivada correctamente.') }}/>}
 
       {editor?.modo === 'editar' && (
         <FormularioOfertaModal

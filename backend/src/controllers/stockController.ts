@@ -6,6 +6,8 @@ import Proveedor from 'polleria-database/models/Proveedor';
 import { Op } from 'sequelize';
 import { registrarMovimiento as guardarMovimiento, fraccionar, estadoStock, id, numero, objeto, ErrorOperacion } from '../services/operaciones.js';
 import { ejecutar, paginacion, rangoFechas } from './operacionesController.js';
+import { registrarInventario as guardarInventario } from '../services/inventario.js';
+export const registrarInventario = (req: Request, res: Response) => ejecutar(res, () => guardarInventario(req.body), 201);
 
 export const getEstadoStock = (req: Request, res: Response) => ejecutar(res, async () => {
   const { page, limit } = paginacion(req);

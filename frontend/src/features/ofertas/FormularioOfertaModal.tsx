@@ -6,12 +6,12 @@ import { useApiResource } from '../../shared/hooks/useApiResource'
 import { esFechaValida, fechaInputDesdeHoy, formatearMonto, subtotalListaCentavos, parseMontoInput } from '../../shared/lib/money'
 import { cantidadInput } from '../../shared/lib/operaciones'
 import { fetchProducts } from '../../shared/services/api'
-import { actualizarOferta, crearOferta, fetchOferta } from '../../shared/services/ofertas'
+import { actualizarOferta, crearOferta, fetchOferta, reactivarOferta } from '../../shared/services/ofertas'
 import { fetchPreciosVigentes } from '../../shared/services/precios'
 import { normalize, type Oferta } from './ofertas'
 
 type Draft = { nombre: string; descripcion: string; fechaInicio: string; fechaFin: string; precioFinal: string; productos: { productoId: number; cantidad: string }[] }
-export function FormularioOfertaModal({ oferta, ofertasExistentes, onClose, onGuardado }: { oferta?: Oferta; ofertasExistentes?: Oferta[]; onClose: () => void; onGuardado: () => void }) {
+export function FormularioOfertaModal({ oferta, modo = 'editar', ofertasExistentes, onClose, onGuardado }: { oferta?: Oferta; modo?: 'editar' | 'copiar' | 'reactivar'; ofertasExistentes?: Oferta[]; onClose: () => void; onGuardado: () => void }) {
   const carga = useApiResource(async () => {
     const [productos, precios, detalle] = await Promise.all([fetchProducts(), fetchPreciosVigentes(), oferta ? fetchOferta(oferta.id) : Promise.resolve(null)])
     return { productos, precios, detalle }
@@ -24,11 +24,11 @@ export function FormularioOfertaModal({ oferta, ofertasExistentes, onClose, onGu
     if (!d || inicializado.current) return
     inicializado.current = true
     const precioFinal = d.precioFinal ?? d.resumen?.total ?? (d.descuentoPorcentaje == null ? (d.productos.filter(p => p.activo).reduce((s, p) => s + Math.round(Number(p.precioOferta) * 100), 0) / 100).toFixed(2) : '')
-    setDraft({ nombre: d.nombre, descripcion: d.descripcion ?? '', fechaInicio: fechaInputOferta(d.fechaInicio), fechaFin: fechaInputOferta(d.fechaFin), precioFinal, productos: d.productos.filter(p => p.activo).map(p => ({ productoId: p.productoId, cantidad: String(p.cantidad ?? 1) })) })
-  }, [carga.data])
+    setDraft({ nombre: modo === 'copiar' ? `${d.nombre.slice(0, 42)} (copia)` : d.nombre, descripcion: d.descripcion ?? '', fechaInicio: modo === 'editar' ? fechaInputOferta(d.fechaInicio) : fechaInputDesdeHoy(0), fechaFin: modo === 'editar' ? fechaInputOferta(d.fechaFin) : fechaInputDesdeHoy(7), precioFinal, productos: d.productos.filter(p => p.activo).map(p => ({ productoId: p.productoId, cantidad: String(p.cantidad ?? 1) })) })
+  }, [carga.data, modo])
   const productos = carga.data?.productos ?? []
   const precios = new Map((carga.data?.precios ?? []).map(p => [p.productoId, p.precioMinorista]))
-  const candidatos = productos.filter(p => p.active && !draft.productos.some(i => i.productoId === Number(p.id)) && normalize(p.name).includes(normalize(buscar))).slice(0, 8)
+  const candidatos = productos.filter(p => p.active && !draft.productos.some(i => i.productoId === Number(p.id)) && normalize(p.name).includes(normalize(buscar)))
   function cantidad(item: Draft['productos'][number]) {
     const p = productos.find(p => Number(p.id) === item.productoId)
     return cantidadInput(item.cantidad, p?.unit === 'unidad' ? 'UNIDADES' : 'KILOS')
@@ -44,7 +44,7 @@ export function FormularioOfertaModal({ oferta, ofertasExistentes, onClose, onGu
     if (lock.current) return
     setError('')
     if (!draft.nombre.trim() || draft.nombre.trim().length > 50) { setError('Ingresá un nombre de hasta 50 caracteres.'); return }
-    if (ofertasExistentes?.some(o => o.id !== oferta?.id && normalize(o.nombre) === normalize(draft.nombre))) { setError('Ya existe una oferta con ese nombre.'); return }
+    if (ofertasExistentes?.some(o => (modo === 'copiar' || o.id !== oferta?.id) && normalize(o.nombre) === normalize(draft.nombre))) { setError('Ya existe una oferta con ese nombre.'); return }
     if (!esFechaValida(draft.fechaInicio) || draft.fechaFin && (!esFechaValida(draft.fechaFin) || draft.fechaFin <= draft.fechaInicio)) { setError('La fecha de fin debe ser posterior al inicio.'); return }
     if (!draft.productos.length) { setError('Agregá al menos un producto a la oferta.'); return }
     if (!precioFinal.ok) { setError(precioFinal.error); return }
@@ -54,11 +54,11 @@ export function FormularioOfertaModal({ oferta, ofertasExistentes, onClose, onGu
     if (draft.productos.some(i => !productos.find(p => Number(p.id) === i.productoId)?.active)) { setError('Quitá los productos inactivos antes de guardar.'); return }
     const payload = { nombre: draft.nombre.trim(), descripcion: draft.descripcion.trim(), fechaInicio: draft.fechaInicio, fechaFin: draft.fechaFin || null, precioFinal: precioFinal.value, productos: draft.productos.map(i => ({ productoId: i.productoId, cantidad: cantidad(i) })) }
     lock.current = true; setSaving(true)
-    try { if (oferta) await actualizarOferta(oferta.id, payload); else await crearOferta(payload); onGuardado() }
+    try { if (oferta && modo === 'reactivar') await reactivarOferta(oferta.id, payload); else if (oferta && modo !== 'copiar') await actualizarOferta(oferta.id, payload); else await crearOferta(payload); onGuardado() }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar la oferta.') }
     finally { lock.current = false; setSaving(false) }
   }
-  return <Modal title={oferta ? `Editar ${oferta.nombre}` : 'Nueva oferta'} eyebrow="CATÁLOGO DE OFERTAS" busy={saving} onClose={onClose}>
+  return <Modal title={oferta ? `${modo === 'copiar' ? 'Copiar' : modo === 'reactivar' ? 'Reactivar' : 'Editar'} ${oferta.nombre}` : 'Nueva oferta'} eyebrow="CATÁLOGO DE OFERTAS" busy={saving} onClose={onClose}>
     <ErrorCarga error={carga.error} retry={carga.refetch} />
     {carga.loading ? <p role="status">Cargando catálogo y precios...</p> : carga.data && <form onSubmit={enviar} noValidate>
       <p>Elegí los productos y las cantidades del combo e ingresá el precio final que querés cobrar.</p>
@@ -79,7 +79,7 @@ export function FormularioOfertaModal({ oferta, ofertasExistentes, onClose, onGu
       <label className="oferta-precio-final">Precio final de la oferta *<input aria-label="Precio final de la oferta *" inputMode="decimal" placeholder="Ej. 25000,00" value={draft.precioFinal} onChange={e => setDraft({ ...draft, precioFinal: e.target.value })} /></label>
       <dl className="detail-grid"><div><dt>Subtotal de lista (referencia)</dt><dd>{subtotal === null ? '—' : formatearMonto(subtotal / 100)}</dd></div><div><dt>Precio final del combo</dt><dd>{precioFinal.ok ? formatearMonto(precioFinal.value) : '—'}</dd></div></dl>
       <p className="form-note">Se cobrará este precio por cada combo, con las cantidades indicadas.</p>
-      </fieldset><div className="modal-footer"><button type="button" className="button" disabled={saving} onClick={onClose}>Cancelar</button><button className="button primary" disabled={saving}>{saving ? 'Guardando...' : oferta ? 'Guardar cambios' : 'Registrar oferta'}</button></div>
+      </fieldset><div className="modal-footer"><button type="button" className="button" disabled={saving} onClick={onClose}>Cancelar</button><button className="button primary" disabled={saving}>{saving ? 'Guardando...' : modo === 'reactivar' ? 'Confirmar reactivación' : oferta && modo !== 'copiar' ? 'Guardar cambios' : 'Registrar oferta'}</button></div>
     </form>}
   </Modal>
 }

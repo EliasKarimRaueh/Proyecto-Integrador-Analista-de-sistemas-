@@ -54,7 +54,7 @@ export async function actualizarOferta(
 export async function desactivarOferta(id: string): Promise<Oferta> {
   return await apiRequest<Oferta>(`ofertas/${id}`, { method: 'DELETE' })
 }
-export const reactivarOferta = (id: string, fechas: { fechaInicio: string; fechaFin: string | null }) => apiRequest<Oferta>(`ofertas/${id}/reactivar`, { method: 'PUT', body: JSON.stringify(fechas) })
+export const reactivarOferta = (id: string, fechas: { fechaInicio: string; fechaFin: string | null } & Partial<PayloadOferta>) => apiRequest<Oferta>(`ofertas/${id}/reactivar`, { method: 'PUT', body: JSON.stringify(fechas) })
 
 export async function fetchProductosDeOferta(id: string): Promise<OfertaProducto[]> {
   const productos = await apiRequest<OfertaProducto[]>(`ofertas/${id}/productos`)

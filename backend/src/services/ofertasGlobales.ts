@@ -33,7 +33,7 @@ async function validarNombreOfertaUnico(nombre: string, ofertaId: number | undef
     throw new ErrorOperacion('Ya existe una oferta con ese nombre.', 409);
   }
 }
-export async function guardarOfertaGlobal(ofertaId: number | undefined, body: unknown) {
+export async function guardarOfertaGlobal(ofertaId: number | undefined, body: unknown, reactivando = false) {
   const b = objeto(body);
   const nombre = typeof b.nombre === 'string' ? b.nombre.trim() : '';
   const descripcion = typeof b.descripcion === 'string' ? b.descripcion.trim() : '';
@@ -43,6 +43,7 @@ export async function guardarOfertaGlobal(ofertaId: number | undefined, body: un
   const descuentoPorcentaje = precioFinal === null ? porcentajeOferta(b.descuentoPorcentaje) : null;
   const fechaInicio = fechaOferta(b.fechaInicio)!, fechaFin = fechaOferta(b.fechaFin, true);
   if (fechaFin !== null && fechaFin <= fechaInicio) throw new ErrorOperacion('La fecha de fin debe ser posterior al inicio.');
+  if (reactivando && fechaFin !== null && fechaFin < new Date()) throw new ErrorOperacion('Elegí una vigencia que no esté vencida.');
   if (!Array.isArray(b.productos) || !b.productos.length || b.productos.length > 200) throw new ErrorOperacion('Seleccioná entre 1 y 200 productos.');
   const items = b.productos.map(crudo => { const p = objeto(crudo); return { productoId: id(p.productoId), cantidad: numero(p.cantidad ?? 1, 'Cantidad') }; });
   if (new Set(items.map(p => p.productoId)).size !== items.length) throw new ErrorOperacion('Hay productos repetidos en la oferta.');
@@ -51,7 +52,8 @@ export async function guardarOfertaGlobal(ofertaId: number | undefined, body: un
     await validarNombreOfertaUnico(nombre, ofertaId, transaction);
     await repositorio.validarSuperposicion(items.map(i => i.productoId), fechaInicio, fechaFin, ofertaId, transaction);
     let oferta = ofertaId === undefined ? null : await Oferta.findByPk(ofertaId, { transaction, lock: transaction.LOCK.UPDATE });
-    if (ofertaId !== undefined && (!oferta || !oferta.activo)) throw new ErrorOperacion('Oferta no encontrada o dada de baja.', 404);
+    if (ofertaId !== undefined && (!oferta || !oferta.activo && !reactivando)) throw new ErrorOperacion('Oferta no encontrada o dada de baja.', 404);
+    if (reactivando && oferta?.activo && (oferta.fechaFin === null || new Date(oferta.fechaFin) >= new Date())) throw new ErrorOperacion('La oferta ya está activa.', 409);
     const productos = await Producto.findAll({ where: { id: { [Op.in]: items.map(i => i.productoId) } }, transaction, lock: transaction.LOCK.SHARE });
     if (productos.length !== items.length || productos.some(p => !p.activo)) throw new ErrorOperacion('Los productos deben existir y estar activos.');
     for (const item of items) {
@@ -66,7 +68,7 @@ export async function guardarOfertaGlobal(ofertaId: number | undefined, body: un
       }, 0n);
       if (centavos(1, precioFinal) >= subtotalBase) throw new ErrorOperacion('El precio final debe ser menor a la suma de los precios base de los productos.');
     }
-    const cambios = { nombre, descripcion, fechaInicio, fechaFin, descuentoPorcentaje, precioFinal };
+    const cambios = { nombre, descripcion, fechaInicio, fechaFin, descuentoPorcentaje, precioFinal, ...(reactivando ? { activo: true, fechaBaja: null } : {}) };
     oferta = oferta ? await oferta.update(cambios, { transaction }) : await Oferta.create({ ...cambios, activo: true, fechaBaja: null }, { transaction });
     const relaciones = await OfertaProducto.findAll({ where: { ofertaId: oferta.id }, transaction });
     for (const relacion of relaciones) {
@@ -80,12 +82,13 @@ export async function guardarOfertaGlobal(ofertaId: number | undefined, body: un
 
 export async function reactivarOferta(ofertaId: number, body: unknown) {
   const b = objeto(body);
+  if (Array.isArray(b.productos)) return guardarOfertaGlobal(ofertaId, b, true);
   return sequelize.transaction(async transaction => {
     const repositorio = new OfertaRepository();
     await repositorio.bloquearVigencias(transaction);
     const oferta = await Oferta.findByPk(ofertaId, { transaction, lock: transaction.LOCK.UPDATE });
     if (!oferta) throw new ErrorOperacion('Oferta no encontrada.', 404);
-    if (oferta.activo) throw new ErrorOperacion('La oferta ya está activa.', 409);
+    if (oferta.activo && (oferta.fechaFin === null || new Date(oferta.fechaFin) >= new Date())) throw new ErrorOperacion('La oferta ya está activa.', 409);
     const fechaInicio = b.fechaInicio === undefined ? oferta.fechaInicio : fechaOferta(b.fechaInicio)!;
     const fechaFin = b.fechaFin === undefined ? oferta.fechaFin : fechaOferta(b.fechaFin, true);
     if (fechaFin && (fechaFin <= fechaInicio || fechaFin < new Date())) throw new ErrorOperacion('Elegí una vigencia válida que no esté vencida.');

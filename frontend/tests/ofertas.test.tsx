@@ -82,6 +82,11 @@ beforeEach(() => {
     const path = String(input)
     const method = options?.method ?? 'GET'
     const id = path.split('/').at(-1)
+    if (method === 'PUT' && path.endsWith('/reactivar')) {
+      const oferta = ofertas.find(o => o.id === path.split('/').at(-2))!
+      Object.assign(oferta, JSON.parse(String(options?.body)), { activo: true, vigente: true, fechaBaja: null })
+      return json(oferta)
+    }
 
     // El selector de productos del formulario usa el catálogo.
     if (path.startsWith('/api/precios')) return json([{ productoId: 1, precioMinorista: '4500.00', precioMayorista: '4000.00' }])
@@ -125,6 +130,37 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('Listado de ofertas', () => {
+  it('copia una oferta vencida con precio y fechas editables sin modificar la original', async () => {
+    const user = userEvent.setup(); render(<OfertasPage/> )
+    await user.click(await screen.findByRole('button', { name: `Copiar ${vencida.nombre}` }))
+    const nombre = await screen.findByLabelText('Nombre de la oferta *')
+    expect((nombre as HTMLInputElement).value).toContain('(copia)')
+    const precio = screen.getByLabelText('Precio final de la oferta *')
+    await user.clear(precio); await user.type(precio, '3500')
+    await user.click(screen.getByRole('button', { name: 'Registrar oferta' }))
+    await screen.findByText('Oferta copiada correctamente.')
+    expect(ofertas.find(o => o.id === '3')?.fechaFin).toBe(vencida.fechaFin)
+    const post = fetchMock.mock.calls.find(([, o]) => o?.method === 'POST')!
+    expect(JSON.parse(String(post[1]?.body))).toMatchObject({ precioFinal: '3500.00', fechaInicio: hoyComoFechaInput(), productos: [{ productoId: 1, cantidad: 1 }] })
+  })
+  it('reactiva una oferta vencida cambiando su precio en una sola operación', async () => {
+    const user = userEvent.setup(); render(<OfertasPage/> )
+    await user.click(await screen.findByRole('button', { name: `Reactivar ${vencida.nombre}` }))
+    const precio = await screen.findByLabelText('Precio final de la oferta *')
+    await user.clear(precio); await user.type(precio, '3200')
+    await user.click(screen.getByRole('button', { name: 'Confirmar reactivación' }))
+    await screen.findByText('Oferta reactivada correctamente.')
+    const llamada = fetchMock.mock.calls.find(([url, o]) => String(url).endsWith('/3/reactivar') && o?.method === 'PUT')!
+    expect(JSON.parse(String(llamada[1]?.body))).toMatchObject({ precioFinal: '3200.00', fechaInicio: hoyComoFechaInput() })
+  })
+  it('muestra todos los productos disponibles sin recortar el selector a ocho', async () => {
+    const original = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input, opciones) => String(input).startsWith('/api/productos') ? Promise.resolve(json(Array.from({ length: 15 }, (_, i) => ({ ...producto, id: String(i + 1), name: `Producto ${i + 1}` })))) : original(input, opciones))
+    const user = userEvent.setup(); render(<OfertasPage/> )
+    await user.click(await screen.findByRole('button', { name: 'Nueva oferta' }))
+    expect(await screen.findByRole('button', { name: 'Agregar Producto 15' })).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /^Agregar Producto/ })).toHaveLength(15)
+  })
   it('muestra las ofertas con su estado calculado en el frontend', async () => {
     render(<OfertasPage />)
     await screen.findByRole('button', { name: 'Fin de semana' })

@@ -20,6 +20,10 @@ function respuesta(path: string, options?: RequestInit) {
   const url = new URL(path, 'http://localhost'), method = options?.method ?? 'GET'
   const b = options?.body ? JSON.parse(String(options.body)) : undefined
   if (url.pathname === '/api/stock' && method === 'GET') return json(stock)
+  if (url.pathname === '/api/stock/inventarios') {
+    for (const linea of b.productos) stock.find(p => p.id === linea.productoId)!.stockActual = linea.stockContado
+    return json({ productosContados: b.productos.length, ajustes: b.productos.length }, 201)
+  }
   if (url.pathname === '/api/ventas/categorias') return json([{ id: 1, nombre: 'Fresco' }])
   if (url.pathname === '/api/ofertas/10') return json({ id: '10', nombre: 'Combo del día', vigente: true, activo: true, descripcion: 'Pollo y suprema', fechaInicio: '2026-01-01', fechaFin: null, productos: [{ productoId: '1', nombre: 'Pollo entero', codigo: 'POL-001', unidadVenta: 'KILOS', cantidad: 1, precioOferta: '300.00', activo: true }] })
   if (url.pathname === '/api/productos') return json(stock.map(p => ({ id: String(p.id), name: p.nombre, code: p.codigo, unit: p.unidadVenta === 'KILOS' ? 'kg' : 'unidad', active: true, category: 'Fresco', description: '' })))
@@ -125,6 +129,29 @@ describe('Caja integrada', () => {
   })
 })
 describe('Inventario y fraccionamiento', () => {
+  it('registra todos los conteos juntos, incluido cero, y exige revisar antes de guardar', async () => {
+    const user = userEvent.setup(); render(<MemoryRouter><StockPage/></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Registrar nuevo inventario' }))
+    const dialog = screen.getByRole('dialog', { name: 'Registrar nuevo inventario' })
+    for (const p of stock) await user.type(within(dialog).getByLabelText(`Stock contado de ${p.nombre}`), p.id === 1 ? '0' : '4')
+    await user.type(within(dialog).getByLabelText('Motivo del inventario'), 'Conteo de cierre')
+    await user.click(within(dialog).getByRole('button', { name: 'Revisar inventario' }))
+    expect(fetchMock.mock.calls.filter(([url, o]) => String(url).endsWith('/inventarios') && o?.method === 'POST')).toHaveLength(0)
+    await user.click(within(dialog).getByRole('button', { name: 'Confirmar inventario' }))
+    await screen.findByText(`Inventario registrado: ${stock.length} ajustes de stock.`)
+    const llamada = fetchMock.mock.calls.find(([url, o]) => String(url).endsWith('/inventarios') && o?.method === 'POST')!
+    expect(JSON.parse(String(llamada[1]?.body)).productos).toHaveLength(stock.length)
+    expect(JSON.parse(String(llamada[1]?.body)).productos[0]).toEqual({ productoId: 1, stockEsperado: 20, stockContado: 0 })
+    expect(screen.queryByRole('button', { name: 'Actualizar' })).toBeNull()
+  })
+  it('rechaza el inventario incompleto sin enviar ajustes parciales', async () => {
+    const user = userEvent.setup(); render(<MemoryRouter><StockPage/></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Registrar nuevo inventario' }))
+    await user.type(screen.getByLabelText('Motivo del inventario'), 'Conteo de cierre')
+    await user.click(screen.getByRole('button', { name: 'Revisar inventario' }))
+    expect((await screen.findByRole('alert')).textContent).toContain('conteo válido')
+    expect(fetchMock.mock.calls.filter(([url, o]) => String(url).endsWith('/inventarios') && o?.method === 'POST')).toHaveLength(0)
+  })
   it('filtra alertas y registra una merma justificada', async () => {
     const user = userEvent.setup(); mount(<StockPage/>)
     await screen.findByText('Pollo entero')
