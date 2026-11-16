@@ -1,3 +1,7 @@
+import sequelize from 'polleria-database/config/database';
+import ProductoProveedor from 'polleria-database/models/ProductoProveedor';
+import { camposProducto, guardarComplementos } from '../services/productoEdicion.js';
+import { ErrorOperacion } from '../services/validacion.js';
 import { type Request, type Response } from 'express';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import TipoProductoRepository from 'polleria-database/repositories/tipoProductoRepository';
@@ -71,7 +75,13 @@ function presentProduct(product: StoredProduct, category: string) {
     factorConversion: product.factorConversion,
     stockActual: product.stockActual,
     stockMinimo: product.stockMinimo,
+    margenStock: product.margenStock,
+    tipoReposicion: product.tipoReposicion,
+    proveedorHabitualId: product.proveedorHabitualId,
     costoActual: product.costoActual,
+    imagenNombre: product.imagenNombre,
+    imagenMime: product.imagenMime,
+    imagenBytes: product.imagenBytes,
   };
 }
 
@@ -91,6 +101,7 @@ async function hasDuplicateName(name: string, excludeId?: number) {
 }
 
 function sendDatabaseError(res: Response, error: unknown) {
+  if (error instanceof ErrorOperacion) { res.status(error.status).json({ message: error.message }); return; }
   const details = error instanceof Error ? error.message : String(error);
   if (/unique|duplicate key|productos_codigo_unique|productos_nombre_unique/i.test(details)) {
     if (/nombre/i.test(details)) {
@@ -122,7 +133,8 @@ export const getProductos = async (req: Request, res: Response) => {
         : productoRepository.findAll(1, 1000, 'id', 'ASC');
 
     const [{ rows }, categoriesById] = await Promise.all([consulta, getCategoryMap()]);
-    res.json(rows.map(product => presentProduct(product, categoriesById.get(product.tipoProductoId) ?? 'Fresco')));
+    const relaciones = await ProductoProveedor.findAll({ where: { activo: true } });
+    res.json(rows.map(product => ({ ...presentProduct(product, categoriesById.get(product.tipoProductoId) ?? 'Fresco'), proveedorIds: relaciones.filter(r => r.productoId === product.id).map(r => r.proveedorId) })));
   } catch (error) { sendDatabaseError(res, error); }
 };
 
@@ -136,14 +148,22 @@ export const createProducto = async (req: Request, res: Response) => {
       return;
     }
     const type = await findOrCreateCategory(input.category);
-    const product = await productoRepository.create({
-      codigo: input.code, nombre: input.name, descripcion: input.description, tipoProductoId: type.id,
-      unidadCompra: (input.unidadCompra ?? (input.unit === 'kg' ? 'KILOS' : 'UNIDADES')) as StoredProduct['unidadCompra'],
-      unidadVenta: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
-      factorConversion: input.factorConversion ?? 1, stockActual: 0, costoActual: '0', activo: true, fechaBaja: null,
-      tipoReposicion: 'diario', stockMinimo: null,
+    const product = await sequelize.transaction(async transaction => {
+      const adicionales = camposProducto(req.body, input.unit);
+      if (adicionales.tipoReposicion === 'stockMinimo' && adicionales.stockMinimo == null) throw new ErrorOperacion('Indicá el stock mínimo.');
+      const product = await productoRepository.create({
+        codigo: input.code, nombre: input.name, descripcion: input.description, tipoProductoId: type.id,
+        unidadCompra: (input.unidadCompra ?? (input.unit === 'kg' ? 'KILOS' : 'UNIDADES')) as StoredProduct['unidadCompra'],
+        unidadVenta: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
+        factorConversion: input.factorConversion ?? 1, costoActual: '0', activo: true, fechaBaja: null,
+        tipoReposicion: 'diario', stockMinimo: null,
+        ...adicionales,
+        stockActual: 0,
+      }, { transaction });
+      await guardarComplementos(product, req.body, transaction);
+      return product;
     });
-    res.status(201).json(presentProduct(product, input.category));
+    res.status(201).json({ ...presentProduct(product, input.category), proveedorIds: (await ProductoProveedor.findAll({ where: { productoId: product.id, activo: true } })).map(r => r.proveedorId) });
   } catch (error) { sendDatabaseError(res, error); }
 };
 
@@ -159,14 +179,24 @@ export const updateProducto = async (req: Request, res: Response) => {
       return;
     }
     const type = await findOrCreateCategory(input.category);
-    const product = await productoRepository.updateById(id, {
-      codigo: input.code, nombre: input.name, descripcion: input.description, tipoProductoId: type.id,
-      ...(input.unidadCompra === undefined ? {} : { unidadCompra: input.unidadCompra as StoredProduct['unidadCompra'] }),
-      ...(input.factorConversion === undefined ? {} : { factorConversion: input.factorConversion }),
-      unidadVenta: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
+    const product = await sequelize.transaction(async transaction => {
+      const previo = await productoRepository.findById(id, transaction);
+      if (!previo) return null;
+      const adicionales = camposProducto(req.body, input.unit);
+      delete adicionales.stockActual;
+      if ((adicionales.tipoReposicion ?? previo.tipoReposicion) === 'stockMinimo' && (adicionales.stockMinimo === undefined ? previo.stockMinimo : adicionales.stockMinimo) === null) throw new ErrorOperacion('Indicá el stock mínimo.');
+      const product = await productoRepository.updateById(id, {
+        codigo: input.code, nombre: input.name, descripcion: input.description, tipoProductoId: type.id,
+        ...(input.unidadCompra === undefined ? {} : { unidadCompra: input.unidadCompra as StoredProduct['unidadCompra'] }),
+        ...(input.factorConversion === undefined ? {} : { factorConversion: input.factorConversion }),
+        unidadVenta: input.unit === 'kg' ? 'KILOS' : 'UNIDADES',
+        ...adicionales,
+      }, transaction);
+      if (product) await guardarComplementos(product, req.body, transaction);
+      return product;
     });
     if (!product) { res.status(404).json({ message: 'Producto no encontrado.' }); return; }
-    res.json(presentProduct(product, input.category));
+    res.json({ ...presentProduct(product, input.category), proveedorIds: (await ProductoProveedor.findAll({ where: { productoId: product.id, activo: true } })).map(r => r.proveedorId) });
   } catch (error) { sendDatabaseError(res, error); }
 };
 

@@ -31,6 +31,7 @@ function json(data: unknown, status = 200) {
 function responderComoLaApi(input: string | URL | Request, options?: RequestInit) {
   const path = String(input)
   const method = options?.method ?? 'GET'
+  if (path === '/api/proveedores') return json([{ id: 1, nombre: 'Proveedor A', activo: true }, { id: 2, nombre: 'Proveedor B', activo: true }])
 
   if (path.startsWith('/api/precios')) {
     return json(precios)
@@ -77,6 +78,43 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('Catálogo de productos conectado a la API', () => {
+  it('registra precios, stock y proveedores, y limita el habitual a los relacionados', async () => {
+    const user = userEvent.setup()
+    render(<ProductsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Nuevo producto' }))
+    await user.type(screen.getByLabelText('Nombre del producto *'), 'Alitas')
+    await user.clear(screen.getByLabelText('Precio de compra (por kg)'))
+    await user.type(screen.getByLabelText('Precio de compra (por kg)'), '1500')
+    await user.type(screen.getByLabelText('Precio de venta minorista (por kg)'), '2500')
+    await user.type(screen.getByLabelText('Precio de venta mayorista (opcional) (por kg)'), '2200')
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    const habitual = screen.getByLabelText('Proveedor habitual')
+    expect(habitual.querySelectorAll('option')).toHaveLength(1)
+    await user.click(screen.getByLabelText('Proveedor A'))
+    expect(habitual.querySelectorAll('option')).toHaveLength(2)
+    await user.selectOptions(habitual, '1')
+    await user.clear(screen.getByLabelText('Stock actual (kg)'))
+    await user.type(screen.getByLabelText('Stock actual (kg)'), '12.5')
+    await user.click(screen.getByRole('button', { name: 'Registrar producto' }))
+    await screen.findByRole('button', { name: 'Alitas' })
+    const llamada = fetchMock.mock.calls.find(([, opciones]) => opciones?.method === 'POST')!
+    expect(JSON.parse(String(llamada[1]?.body))).toMatchObject({ costoActual: '1500', precioMinorista: '2500', precioMayorista: '2200', stockActual: 12.5, proveedorIds: [1], proveedorHabitualId: 1 })
+  })
+
+  it('precarga los precios y limpia el habitual al quitar su relación', async () => {
+    products[0] = { ...products[0], costoActual: '1500', proveedorIds: [1], proveedorHabitualId: 1 }
+    const user = userEvent.setup()
+    render(<ProductsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Editar Suprema' }))
+    expect((screen.getByLabelText('Precio de venta minorista (por kg)') as HTMLInputElement).value).toBe('4500.50')
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    await user.click(screen.getByLabelText('Proveedor A'))
+    expect((screen.getByLabelText('Proveedor habitual') as HTMLSelectElement).value).toBe('')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    await screen.findByText('Producto actualizado correctamente.')
+    expect(products[0].proveedorIds).toEqual([])
+    expect(products[0].proveedorHabitualId).toBeNull()
+  })
   it('oculta el código también al editar y conserva su valor interno', async () => {
     const user = userEvent.setup()
     render(<ProductsPage />)

@@ -40,6 +40,7 @@ export async function asociarProductos(proveedorId: number, body: unknown) {
       const activo = ids.includes(relacion.productoId);
       if (activo !== relacion.activo) await relacion.update({ activo, fechaBaja: activo ? null : new Date() }, { transaction });
     }
+    await Producto.update({ proveedorHabitualId: null }, { where: { proveedorHabitualId: proveedorId, id: { [Op.notIn]: ids } }, transaction });
     for (const productoId of ids.filter(p => !relaciones.some(r => r.productoId === p))) await ProductoProveedor.create({ proveedorId, productoId, activo: true, fechaBaja: null }, { transaction });
     return ProductoProveedor.findAll({ where: { proveedorId }, transaction, order: [['productoId', 'ASC']] });
   });

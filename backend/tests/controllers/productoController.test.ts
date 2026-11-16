@@ -6,6 +6,9 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 // importa el test desde ../mocks son el mismo objeto.
 jest.mock('polleria-database/repositories/productoRepository', () => require('../mocks/productoRepository.js'));
 jest.mock('polleria-database/repositories/tipoProductoRepository', () => require('../mocks/tipoProductoRepository.js'));
+jest.mock('polleria-database/models/ProductoProveedor', () => ({ findAll: jest.fn().mockResolvedValue([]) }));
+jest.mock('../../src/services/productoEdicion.js', () => ({ camposProducto: jest.fn().mockReturnValue({}), guardarComplementos: jest.fn() }));
+import { usarTransaccionFalsa } from '../helpers/transaccion.js';
 
 import {
   getProductos, createProducto, updateProducto, deactivateProducto, reactivateProducto,
@@ -45,6 +48,7 @@ const BODY_VALIDO = {
 };
 
 beforeEach(() => {
+  usarTransaccionFalsa();
   tipoProductoRepo.findAll.mockResolvedValue(CATEGORIAS);
   productoRepo.findAll.mockImplementation((page: number, limit: number) => {
     if (limit === 10000) return Promise.resolve({ rows: [], count: 0 });
@@ -80,6 +84,8 @@ describe('getProductos', () => {
         stockActual: 0,
         stockMinimo: null,
         costoActual: '0',
+        tipoReposicion: 'diario',
+        proveedorIds: [],
       },
     ]);
   });
@@ -169,7 +175,7 @@ describe('createProducto', () => {
   it('guarda la presentación de compra y su conversión a kilos', async () => {
     const res = crearRes();
     await createProducto(crearReq({ body: { ...BODY_VALIDO, unidadCompra: 'CAJONES', factorConversion: 20 } }), res);
-    expect(productoRepo.create).toHaveBeenCalledWith(expect.objectContaining({ unidadCompra: 'CAJONES', unidadVenta: 'KILOS', factorConversion: 20 }));
+    expect(productoRepo.create).toHaveBeenCalledWith(expect.objectContaining({ unidadCompra: 'CAJONES', unidadVenta: 'KILOS', factorConversion: 20 }), { transaction: expect.any(Object) });
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
@@ -200,7 +206,7 @@ describe('createProducto', () => {
       fechaBaja: null,
       tipoReposicion: 'diario',
       stockMinimo: null,
-    });
+    }, { transaction: expect.any(Object) });
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
@@ -227,8 +233,7 @@ describe('createProducto', () => {
     );
 
     expect(productoRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ unidadCompra: 'UNIDADES', unidadVenta: 'UNIDADES' }),
-    );
+      expect.objectContaining({ unidadCompra: 'UNIDADES', unidadVenta: 'UNIDADES' }), { transaction: expect.any(Object) });
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
@@ -259,8 +264,7 @@ describe('createProducto', () => {
     );
 
     expect(productoRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ tipoProductoId: 3 }),
-    );
+      expect.objectContaining({ tipoProductoId: 3 }), { transaction: expect.any(Object) });
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
@@ -276,8 +280,7 @@ describe('createProducto', () => {
       nombre: 'CONGELADO', activo: true, fechaBaja: null,
     });
     expect(productoRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ tipoProductoId: 7 }),
-    );
+      expect.objectContaining({ tipoProductoId: 7 }), { transaction: expect.any(Object) });
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
@@ -374,8 +377,7 @@ describe('createProducto', () => {
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(productoRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ codigo: expect.stringMatching(/^PRO-[A-F0-9]{16}$/) }),
-    );
+      expect.objectContaining({ codigo: expect.stringMatching(/^PRO-[A-F0-9]{16}$/) }), { transaction: expect.any(Object) });
   });
 
   it('no autogenera código si el nombre es demasiado corto', async () => {
@@ -458,7 +460,7 @@ describe('updateProducto', () => {
   it('permite editar explícitamente la presentación y el factor', async () => {
     const res = crearRes();
     await updateProducto(crearReq({ params: { id: '10' }, body: { ...BODY_VALIDO, unidadCompra: 'BULTOS', factorConversion: 15 } }), res);
-    expect(productoRepo.updateById).toHaveBeenCalledWith(10, expect.objectContaining({ unidadCompra: 'BULTOS', factorConversion: 15 }));
+    expect(productoRepo.updateById).toHaveBeenCalledWith(10, expect.objectContaining({ unidadCompra: 'BULTOS', factorConversion: 15 }), expect.any(Object));
   });
 
   it('rechaza un identificador no numérico antes de leer el cuerpo', async () => {
@@ -484,8 +486,7 @@ describe('updateProducto', () => {
 
     expect(productoRepo.updateById).toHaveBeenCalledWith(
       10,
-      expect.objectContaining({ codigo: 'P-001', nombre: 'Pollo entero' }),
-    );
+      expect.objectContaining({ codigo: 'P-001', nombre: 'Pollo entero' }), expect.any(Object));
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id: '10' }));
   });
@@ -553,7 +554,7 @@ describe('updateProducto', () => {
     await updateProducto(crearReq({ params: { id: '10' }, body: BODY_VALIDO }), res);
 
     expect(res.status).not.toHaveBeenCalledWith(409);
-    expect(productoRepo.updateById).toHaveBeenCalledWith(10, expect.objectContaining({ nombre: 'Pollo entero' }));
+    expect(productoRepo.updateById).toHaveBeenCalledWith(10, expect.objectContaining({ nombre: 'Pollo entero' }), expect.any(Object));
   });
 
   it('actualiza la unidad de venta sin sobrescribir la log?stica omitida', async () => {
@@ -564,8 +565,7 @@ describe('updateProducto', () => {
 
     expect(productoRepo.updateById).toHaveBeenCalledWith(
       10,
-      expect.objectContaining({ unidadVenta: 'UNIDADES' }),
-    );
+      expect.objectContaining({ unidadVenta: 'UNIDADES' }), expect.any(Object));
   });
 });
 

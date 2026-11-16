@@ -1,3 +1,4 @@
+import { fetchProveedores } from '../../shared/services/proveedores'
 import { useState, useMemo, type FormEvent } from 'react'
 import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
@@ -11,6 +12,21 @@ import { categories, units, purchaseUnits, emptyDraft, validateProduct, normaliz
 type Editor = { mode: 'create' } | { mode: 'edit' | 'detail' | 'deactivate' | 'reactivate'; product: Product }
 const categorySymbols: Record<Product['category'], string> = { Fresco: 'F', Congelado: 'C', 'Seco Almacen': 'S' }
 
+function DatosProducto({ producto, minorista, mayorista, proveedores }: { producto: Product; minorista?: string | number; mayorista?: string | number | null; proveedores: { id: number; nombre: string }[] }) {
+  return <dl className="detail-grid">
+    <div><dt>Precio de compra</dt><dd>{formatearMonto(producto.costoActual)}</dd></div>
+    <div><dt>Precio minorista</dt><dd>{minorista == null ? 'Sin precio' : formatearMonto(minorista)}</dd></div>
+    <div><dt>Precio mayorista</dt><dd>{mayorista == null ? 'Sin precio' : formatearMonto(mayorista)}</dd></div>
+    <div><dt>Stock actual</dt><dd>{producto.stockActual ?? 0} {producto.unit}</dd></div>
+    <div><dt>Stock mínimo</dt><dd>{producto.stockMinimo ?? 'Sin configurar'}</dd></div>
+    <div><dt>Margen de stock</dt><dd>{producto.margenStock ?? 'Sin límite'}</dd></div>
+    <div><dt>Reposición</dt><dd>{producto.tipoReposicion === 'stockMinimo' ? 'Por stock mínimo' : producto.tipoReposicion === 'semanal' ? 'Semanal' : 'Diaria'}</dd></div>
+    <div><dt>Proveedores relacionados</dt><dd>{proveedores.filter(p => producto.proveedorIds?.includes(p.id)).map(p => p.nombre).join(', ') || 'Sin proveedores'}</dd></div>
+    <div><dt>Proveedor habitual</dt><dd>{proveedores.find(p => p.id === producto.proveedorHabitualId)?.nombre ?? 'Sin proveedor habitual'}</dd></div>
+    <div><dt>Imagen</dt><dd>{producto.imagenNombre ?? 'Sin imagen'}</dd></div>
+  </dl>
+}
+
 export function ProductsPage() {
   const {
     data: productos,
@@ -21,8 +37,10 @@ export function ProductsPage() {
 
   // Los precios de todos los productos llegan en una sola llamada, así
   // que la columna no hace un request por fila.
-  const { data: precios, refetch: recargarPrecios } = useApiResource(fetchPreciosVigentes)
+  const { data: precios, refetch: recargarPrecios, loading: cargandoPrecios, error: errorPrecios } = useApiResource(fetchPreciosVigentes)
 
+  const proveedores = useApiResource(fetchProveedores)
+  const [verMas, setVerMas] = useState(false)
   const [apiError, setApiError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -50,7 +68,15 @@ export function ProductsPage() {
   const activeCount = products.filter(p => p.active).length
 
   function open(next: Editor) {
+    if ((next.mode === 'create' || next.mode === 'edit') && (cargandoPrecios || errorPrecios)) {
+      setApiError(errorPrecios || 'Esperá a que terminen de cargar los precios.'); return
+    }
     setDraft(next.mode === 'create' ? { ...emptyDraft } : { ...next.product, unidadCompra: next.product.unidadCompra ?? (next.product.unit === 'kg' ? 'KILOS' : 'UNIDADES'), factorConversion: next.product.factorConversion ?? 1 })
+    if (next.mode === 'create' || next.mode === 'edit') {
+      const precio = next.mode === 'edit' ? precioPorProducto.get(Number(next.product.id)) : undefined
+      setDraft(current => ({ ...current, precioMinorista: precio ? String(precio.precioMinorista) : undefined, precioMayorista: precio?.precioMayorista == null ? null : String(precio.precioMayorista) }))
+    }
+    setVerMas(false)
     setErrors({})
     setNotice('')
     setApiError('')
@@ -61,8 +87,9 @@ export function ProductsPage() {
     event.preventDefault()
     const editing = editor?.mode === 'edit' ? editor.product : undefined
     const nextErrors = validateProduct(draft, products, editing?.id)
+    if (editing && precioPorProducto.has(Number(editing.id)) && draft.precioMinorista === undefined) nextErrors.precioMinorista = 'Ingresá el precio minorista vigente.'
     setErrors(nextErrors)
-    if (Object.keys(nextErrors).length) return
+    if (Object.keys(nextErrors).length) { setVerMas(true); return }
     const payload = { ...draft, code: draft.code.trim().toUpperCase(), name: draft.name.trim(), description: draft.description.trim() }
     setSaving(true)
     setApiError('')
@@ -72,6 +99,7 @@ export function ProductsPage() {
         const lista = current ?? []
         return editing ? lista.map(item => item.id === editing.id ? product : item) : [...lista, product]
       })
+      recargarPrecios()
       setNotice(editing ? 'Producto actualizado correctamente.' : 'Producto registrado correctamente.')
       setEditor(null)
     } catch (error) {
@@ -117,7 +145,7 @@ export function ProductsPage() {
   return (
     <section className="products-page">
       <div className="breadcrumb">Gestión <Icon name="arrow" size={14} /> <span>Productos</span></div>
-      <div className="page-heading"><div><h1>Catálogo de productos</h1><p>Administrá los productos de tu pollería en un solo lugar.</p></div><button className="button primary" disabled={!!errorCarga} onClick={() => open({ mode: 'create' })}><Icon name="plus" /> Nuevo producto</button></div>
+      <div className="page-heading"><div><h1>Catálogo de productos</h1><p>Administrá los productos de tu pollería en un solo lugar.</p></div><button className="button primary" disabled={!!errorCarga || proveedores.loading} onClick={() => open({ mode: 'create' })}><Icon name="plus" /> Nuevo producto</button></div>
       <div className="stats-grid">
         <div className="stat"><span className="stat-icon yellow"><Icon name="box" size={24} /></span><div><span>Total de productos</span><strong>{products.length}</strong></div><small>En tu catálogo</small></div>
         <div className="stat"><span className="stat-icon status-green"><Icon name="check" size={24} /></span><div><span>Productos activos</span><strong>{activeCount}</strong></div><small>Disponibles</small></div>
@@ -155,10 +183,29 @@ export function ProductsPage() {
             <label>Factor de conversión *<input type="number" min="0.001" max="1000000" step={draft.unit === 'kg' ? '0.001' : '1'} value={draft.factorConversion ?? ''} onChange={e => field('factorConversion', Number(e.target.value))}/>{errors.factorConversion && <small className="field-error">{errors.factorConversion}</small>}<small>1 unidad de compra equivale a {draft.factorConversion || '…'} {draft.unit} de inventario.</small></label>
             <label className="full-width">Descripción<textarea value={draft.description} maxLength={300} rows={3} onChange={e => field('description', e.target.value)} placeholder="Agregá detalles para identificar el producto" /><small>{draft.description.length}/300 caracteres</small></label>
           </div>
-          <div className="form-note">Los precios y las ofertas se gestionan desde el botón de precios de cada producto.</div>
-          <div className="modal-footer"><button type="button" className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button type="submit" className="button primary" disabled={saving}><Icon name="check" size={18} />{saving ? 'Guardando...' : editor.mode === 'create' ? 'Registrar producto' : 'Guardar cambios'}</button></div>
+          <div className="form-grid">
+            {(['costoActual', 'precioMinorista', 'precioMayorista'] as const).map(key => <label key={key}>{key === 'costoActual' ? 'Precio de compra' : key === 'precioMinorista' ? 'Precio de venta minorista' : 'Precio de venta mayorista (opcional)'} (por {draft.unit})<input type="number" min="0" step="0.01" value={draft[key] ?? ''} onChange={e => field(key, e.target.value || (key === 'precioMayorista' ? null : undefined))} />{errors[key] && <small className="field-error">{errors[key]}</small>}</label>)}
+          </div>
+          <button type="button" className="button" aria-expanded={verMas} aria-controls="producto-mas" onClick={() => setVerMas(valor => !valor)}>{verMas ? 'Ver menos' : 'Ver más'}</button>
+          {verMas && <div id="producto-mas" className="form-grid">
+            <label>Código<input maxLength={20} value={draft.code} onChange={e => field('code', e.target.value)} placeholder="Automático si se deja vacío" />{errors.code && <small className="field-error">{errors.code}</small>}</label>
+            <label>Tipo de reposición<select value={draft.tipoReposicion ?? 'diario'} onChange={e => field('tipoReposicion', e.target.value as ProductDraft['tipoReposicion'])}><option value="diario">Diaria</option><option value="semanal">Semanal</option><option value="stockMinimo">Por stock mínimo</option></select></label>
+            {(['stockActual', 'stockMinimo', 'margenStock'] as const).map(key => <label key={key}>{key === 'stockActual' ? 'Stock actual' : key === 'stockMinimo' ? 'Stock mínimo' : 'Margen de stock'} ({draft.unit})<input type="number" min="0" max="1000000" step={draft.unit === 'kg' ? '0.001' : '1'} value={draft[key] ?? ''} onChange={e => field(key, e.target.value === '' ? key === 'stockActual' ? 0 : null : Number(e.target.value))} />{errors[key] && <small className="field-error">{errors[key]}</small>}</label>)}
+            <label className="full-width">Imagen del producto<input type="file" accept="image/png,image/jpeg,image/webp" onChange={async e => {
+              const archivo = e.target.files?.[0]; if (!archivo) return
+              if (archivo.size > 48000) { setApiError('La imagen debe pesar hasta 48 KB.'); e.target.value = ''; return }
+              try {
+                const base64 = await new Promise<string>((resolve, reject) => { const lector = new FileReader(); lector.onload = () => resolve(String(lector.result).split(',')[1]); lector.onerror = reject; lector.readAsDataURL(archivo) })
+                setDraft(actual => ({ ...actual, imagenBase64: base64, imagenNombre: archivo.name, imagenMime: archivo.type, imagenBytes: archivo.size })); setApiError('')
+              } catch { setApiError('No se pudo leer la imagen.') }
+            }} /><small>PNG, JPEG o WebP, hasta 48 KB. {draft.imagenNombre}</small>{draft.imagenNombre && <button type="button" className="button" onClick={() => setDraft(actual => ({ ...actual, imagenBase64: null, imagenNombre: null, imagenMime: null, imagenBytes: null }))}>Quitar imagen</button>}</label>
+            <fieldset className="full-width product-suppliers"><legend>Proveedores relacionados</legend>{proveedores.error && <p role="alert">{proveedores.error}</p>}{proveedores.loading ? <p>Cargando proveedores...</p> : (proveedores.data ?? []).filter(p => p.activo || draft.proveedorIds?.includes(p.id)).map(p => <label key={p.id}><input type="checkbox" checked={draft.proveedorIds?.includes(p.id) ?? false} onChange={e => { field('proveedorIds', e.target.checked ? [...(draft.proveedorIds ?? []), p.id] : (draft.proveedorIds ?? []).filter(id => id !== p.id)); if (!e.target.checked && draft.proveedorHabitualId === p.id) field('proveedorHabitualId', null) }} />{p.nombre}{!p.activo && ' (inactivo)'}</label>)}</fieldset>
+            <label>Proveedor habitual<select value={draft.proveedorHabitualId ?? ''} onChange={e => field('proveedorHabitualId', e.target.value ? Number(e.target.value) : null)}><option value="">Sin proveedor habitual</option>{(proveedores.data ?? []).filter(p => p.activo && draft.proveedorIds?.includes(p.id)).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select>{errors.proveedorHabitualId && <small className="field-error">{errors.proveedorHabitualId}</small>}</label>
+          </div>}
+          {Object.values(errors).some(Boolean) && <p role="alert" className="field-error">Revisá los campos indicados. Algunos se encuentran en «Ver más».</p>}
+          <div className="modal-footer"><button type="button" className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button type="submit" className="button primary" disabled={saving || proveedores.loading || !!proveedores.error}><Icon name="check" size={18} />{saving ? 'Guardando...' : editor.mode === 'create' ? 'Registrar producto' : 'Guardar cambios'}</button></div>
         </form>}
-        {editor.mode === 'detail' && <><div className="detail-product"><span className={'product-symbol symbol-' + editor.product.category.toLowerCase()}>{categorySymbols[editor.product.category]}</span><div><h3>{editor.product.name}</h3><span className={'badge ' + (editor.product.active ? 'product-active' : 'product-inactive')}>{editor.product.active ? 'Activo' : 'Inactivo'}</span></div></div><dl className="detail-grid"><div><dt>Categoría</dt><dd>{editor.product.category}</dd></div><div><dt>Unidad de venta</dt><dd>{editor.product.unit}</dd></div><div><dt>Unidad de compra</dt><dd>{editor.product.unidadCompra ?? (editor.product.unit === 'kg' ? 'KILOS' : 'UNIDADES')}</dd></div><div><dt>Equivalencia</dt><dd>1 presentación = {editor.product.factorConversion ?? 1} {editor.product.unit}</dd></div><div className="full-width"><dt>Descripción</dt><dd>{editor.product.description || 'Sin descripción'}</dd></div></dl><div className="modal-footer"><button className="button" onClick={() => setEditor(null)}>Cerrar</button><button className="button primary" onClick={() => open({ mode: 'edit', product: editor.product })}><Icon name="edit" size={18} />Editar producto</button></div></>}
+        {editor.mode === 'detail' && <><div className="detail-product"><span className={'product-symbol symbol-' + editor.product.category.toLowerCase()}>{categorySymbols[editor.product.category]}</span><div><h3>{editor.product.name}</h3><span className={'badge ' + (editor.product.active ? 'product-active' : 'product-inactive')}>{editor.product.active ? 'Activo' : 'Inactivo'}</span></div></div><dl className="detail-grid"><div><dt>Categoría</dt><dd>{editor.product.category}</dd></div><div><dt>Unidad de venta</dt><dd>{editor.product.unit}</dd></div><div><dt>Unidad de compra</dt><dd>{editor.product.unidadCompra ?? (editor.product.unit === 'kg' ? 'KILOS' : 'UNIDADES')}</dd></div><div><dt>Equivalencia</dt><dd>1 presentación = {editor.product.factorConversion ?? 1} {editor.product.unit}</dd></div><div className="full-width"><dt>Descripción</dt><dd>{editor.product.description || 'Sin descripción'}</dd></div></dl><DatosProducto producto={editor.product} minorista={precioPorProducto.get(Number(editor.product.id))?.precioMinorista} mayorista={precioPorProducto.get(Number(editor.product.id))?.precioMayorista} proveedores={proveedores.data ?? []}/><div className="modal-footer"><button className="button" onClick={() => setEditor(null)}>Cerrar</button><button className="button primary" onClick={() => open({ mode: 'edit', product: editor.product })}><Icon name="edit" size={18} />Editar producto</button></div></>}
         {editor.mode === 'deactivate' && <><div className="confirmation-icon"><Icon name="archive" size={28} /></div><p>¿Querés dar de baja <strong>{editor.product.name}</strong>?</p><p>El producto quedará inactivo. Sus datos se conservarán y podrás consultarlo usando el filtro de estado.</p><div className="modal-footer"><button autoFocus className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button className="button danger" disabled={saving} onClick={() => changeStatus(editor.product)}>{saving ? 'Procesando...' : 'Confirmar baja'}</button></div></>}
         {editor.mode === 'reactivate' && <><p>¿Querés reactivar <strong>{editor.product.name}</strong>?</p><p>El producto volverá a estar disponible conservando sus datos e historial.</p><div className="modal-footer"><button autoFocus className="button" disabled={saving} onClick={() => setEditor(null)}>Cancelar</button><button className="button primary" disabled={saving} onClick={() => changeStatus(editor.product)}>{saving ? 'Procesando...' : 'Confirmar reactivación'}</button></div></>}
       </Modal>}

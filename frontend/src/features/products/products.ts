@@ -13,9 +13,18 @@ export type Product = {
   unidadCompra?: typeof purchaseUnits[number]
   factorConversion?: number
   costoActual?: string
+  stockActual?: number
+  stockMinimo?: number | null
+  margenStock?: number | null
+  tipoReposicion?: 'diario' | 'semanal' | 'stockMinimo'
+  proveedorIds?: number[]
+  proveedorHabitualId?: number | null
+  imagenNombre?: string | null
+  imagenMime?: string | null
+  imagenBytes?: number | null
 }
 
-export type ProductDraft = Omit<Product, 'id' | 'active'>
+export type ProductDraft = Omit<Product, 'id' | 'active'> & { precioMinorista?: string; precioMayorista?: string | null; imagenBase64?: string | null }
 
 export const emptyDraft: ProductDraft = {
   code: '',
@@ -25,6 +34,13 @@ export const emptyDraft: ProductDraft = {
   description: '',
   unidadCompra: 'KILOS',
   factorConversion: 1,
+  costoActual: '0',
+  stockActual: 0,
+  stockMinimo: null,
+  margenStock: null,
+  tipoReposicion: 'diario',
+  proveedorIds: [],
+  proveedorHabitualId: null,
 }
 
 export function normalize(value: string) {
@@ -33,6 +49,17 @@ export function normalize(value: string) {
 
 export function validateProduct(draft: ProductDraft, products: Product[], editingId?: string) {
   const errors: Partial<Record<keyof ProductDraft, string>> = {}
+  for (const key of ['costoActual', 'precioMinorista', 'precioMayorista'] as const) {
+    const valor = draft[key]
+    if (valor != null && (!/^\d+(\.\d{1,2})?$/.test(valor) || Number(valor) > 99999999.99)) errors[key] = 'Ingresá un importe de hasta dos decimales.'
+  }
+  if (draft.precioMayorista != null && (draft.precioMinorista === undefined || Number(draft.precioMayorista) > Number(draft.precioMinorista))) errors.precioMayorista = 'El mayorista no puede superar al minorista.'
+  for (const key of ['stockActual', 'stockMinimo', 'margenStock'] as const) {
+    const valor = draft[key]
+    if (valor != null && (!Number.isFinite(valor) || valor < 0 || valor > 1000000 || Math.abs(valor * 1000 - Math.round(valor * 1000)) > 1e-6 || draft.unit === 'unidad' && !Number.isInteger(valor))) errors[key] = 'Ingresá una cantidad válida en la unidad de venta.'
+  }
+  if (draft.tipoReposicion === 'stockMinimo' && draft.stockMinimo == null) errors.stockMinimo = 'Indicá el stock mínimo.'
+  if (draft.proveedorHabitualId != null && !draft.proveedorIds?.includes(draft.proveedorHabitualId)) errors.proveedorHabitualId = 'Elegí un proveedor relacionado.'
   if ((editingId || draft.code.trim()) && !/^[A-Z0-9-]{2,20}$/i.test(draft.code.trim())) errors.code = 'Usá entre 2 y 20 letras, números o guiones.'
   else if (draft.code.trim() && products.some(p => p.id !== editingId && normalize(p.code) === normalize(draft.code))) errors.code = 'Este código ya existe, incluso entre los productos inactivos.'
   if (draft.name.trim().length < 2 || draft.name.trim().length > 50) errors.name = 'Ingresá un nombre de entre 2 y 50 caracteres.'

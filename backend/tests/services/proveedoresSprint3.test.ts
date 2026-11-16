@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
 jest.mock('polleria-database/models/Proveedor', () => ({ findByPk: jest.fn() }));
-jest.mock('polleria-database/models/Producto', () => ({ findAll: jest.fn() }));
+jest.mock('polleria-database/models/Producto', () => ({ findAll: jest.fn(), update: jest.fn() }));
 jest.mock('polleria-database/models/ProductoProveedor', () => ({ findAll: jest.fn(), create: jest.fn() }));
 jest.mock('polleria-database/models/Compra', () => ({ findOne: jest.fn(), create: jest.fn() }));
 jest.mock('polleria-database/models/CuentaProveedor', () => ({ findAll: jest.fn(), create: jest.fn(), sum: jest.fn(), findAndCountAll: jest.fn() }));
@@ -93,6 +93,10 @@ describe('Cuentas y pagos del Sprint 3', () => {
   it.each([{ desde: '2026-02-30' }, { desde: '2026-05-01', hasta: '2026-04-01' }, { page: 0 }, { limite: 101 }, { estado: 'OTRO' }])('rechaza filtros inválidos %p', query => expect(() => filtrosCuenta(query)).toThrow());
 });
 describe('Asociaciones de productos', () => {
+  it('limpia el habitual solamente en productos que se desasocian', async () => {
+    await asociarProductos(5, { productoIds: [1] });
+    expect(Producto.update).toHaveBeenCalledWith({ proveedorHabitualId: null }, expect.objectContaining({ where: expect.objectContaining({ proveedorHabitualId: 5 }), transaction: tx }));
+  });
   it('reactiva asociaciones y da de baja las desmarcadas sin borrar filas', async () => {
     const anterior = { productoId: 1, activo: false, update: jest.fn() }, quitar = { productoId: 2, activo: true, update: jest.fn() };
     relaciones.findAll.mockResolvedValue([anterior, quitar]);

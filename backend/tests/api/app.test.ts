@@ -3,6 +3,8 @@ import request from 'supertest';
 
 jest.mock('polleria-database/repositories/productoRepository', () => require('../mocks/productoRepository.js'));
 jest.mock('polleria-database/repositories/tipoProductoRepository', () => require('../mocks/tipoProductoRepository.js'));
+jest.mock('polleria-database/models/ProductoProveedor', () => ({ findAll: jest.fn().mockResolvedValue([]) }));
+jest.mock('../../src/services/productoEdicion.js', () => ({ camposProducto: jest.fn().mockReturnValue({}), guardarComplementos: jest.fn() }));
 jest.mock('polleria-database/repositories/precioRepository', () => require('../mocks/precioRepository.js'));
 jest.mock('polleria-database/repositories/ofertaRepository', () => require('../mocks/ofertaRepository.js'));
 jest.mock('polleria-database/repositories/ofertaProductoRepository', () => require('../mocks/ofertaProductoRepository.js'));
