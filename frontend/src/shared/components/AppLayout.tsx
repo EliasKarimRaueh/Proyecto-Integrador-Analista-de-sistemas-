@@ -59,7 +59,7 @@ export function AppLayout() {
       <aside className="sidebar">
         <NavLink to="/" className="brand">
           <span className="brand-mark" aria-hidden="true">
-            <img src="/android-chrome-192x192.png" alt="" width="30" height="30" />
+            <img src="/android-chrome-192x192.png" alt="" width="40" height="40" />
           </span>
           <span className="brand-text">
             <strong>AvixSoft</strong>
@@ -75,7 +75,6 @@ export function AppLayout() {
                 <NavLink key={to} to={to} end={to === '/'}>
                   <Icon name={icon} />
                   <span>{label}</span>
-                  {pathname === to && <span className="nav-dot" />}
                 </NavLink>
               ))}
             </div>
