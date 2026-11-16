@@ -177,3 +177,41 @@
 .oferta-quitar-btn svg {
   stroke-width: 2.2;
 }
+
+/* Modal de detalle de abastecimiento ampliado (pedidos, recepciones, compras) */
+.modal.modal-abastecimiento-detalle {
+  width: min(880px, calc(100% - 32px));
+}
+
+.detalle-abastecimiento-actions {
+  margin: 14px 0 20px 0;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detalle-abastecimiento-table-scroll {
+  overflow-x: auto;
+  margin: 14px 0 18px 0;
+  border-radius: 8px;
+  border: 1px solid #edf0f5;
+}
+
+.detalle-abastecimiento-tabla {
+  width: 100%;
+  table-layout: auto;
+}
+
+.detalle-abastecimiento-tabla th,
+.detalle-abastecimiento-tabla td {
+  padding: 10px 14px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.detalle-abastecimiento-tabla th:first-child,
+.detalle-abastecimiento-tabla td:first-child {
+  padding-left: 16px;
+  white-space: normal;
+  min-width: 130px;
+}
