@@ -65,9 +65,6 @@
 .connection-state { background: white; }
 .connection-state > span { background: #258958; }
 .connection-state.offline > span { background: #b52d2d; }
-.sidebar { overflow-y: auto; }
-.sidebar nav { gap: 5px; }
-.sidebar nav a { padding: 12px 15px; }
 @media (max-width: 1100px) { .pos-layout { grid-template-columns: minmax(0, 1fr) 310px; gap: 16px; } .desposte-layout { grid-template-columns: minmax(0, 1fr); } .balance-panel { position: static; } }
 @media (max-width: 850px) { .pos-layout { grid-template-columns: minmax(0, 1fr); } .pos-cart { position: static; } .cart-items { max-height: none; } .cart-summary { grid-template-columns: 1fr 1fr; } .cart-summary > strong { text-align: right; } .page-heading { flex-wrap: wrap; gap: 14px; } }
 @media (max-width: 540px) { .operation-form { padding: 18px; } .derived-row { grid-template-columns: minmax(0, 1fr) 85px 25px; gap: 8px; } .pos-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; gap: 9px; } .pos-product { padding: 12px; } .topbar .workspace-tag { font-size: 10px; max-width: 145px; } .history-filters label { min-width: 120px; } }

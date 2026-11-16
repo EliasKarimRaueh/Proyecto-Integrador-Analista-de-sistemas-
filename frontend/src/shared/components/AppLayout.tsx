@@ -3,71 +3,85 @@ import { Icon, type IconName } from './Icon'
 import { useApiResource } from '../hooks/useApiResource'
 import { apiRequest } from '../services/api'
 
-const navigation: { to: string; label: string; icon: IconName }[] = [
-  { to: '/', label: 'Inicio', icon: 'home' },
-  { to: '/caja', label: 'Caja y mostrador', icon: 'bag' },
-  { to: '/productos', label: 'Productos', icon: 'box' },
-  { to: '/proveedores', label: 'Proveedores', icon: 'users' },
-  { to: '/ofertas', label: 'Ofertas', icon: 'tag' },
-  { to: '/stock', label: 'Inventario', icon: 'archive' },
-  { to: '/reposicion', label: 'Reposición', icon: 'box' },
-  { to: '/pedidos', label: 'Pedidos a proveedores', icon: 'bag' },
-  { to: '/compras', label: 'Compras', icon: 'calendar' },
-  { to: '/recepciones', label: 'Recepciones', icon: 'archive' },
-  { to: '/desposte', label: 'Desposte', icon: 'box' },
-  { to: '/ventas', label: 'Ventas', icon: 'calendar' },
-  { to: '/movimientos', label: 'Movimientos', icon: 'arrow' },
+type NavItem = { to: string; label: string; icon: IconName }
+type NavSection = { id: string; label: string; items: NavItem[] }
+
+const navigation: NavSection[] = [
+  {
+    id: 'operacion',
+    label: 'Operación',
+    items: [
+      { to: '/', label: 'Inicio', icon: 'home' },
+      { to: '/caja', label: 'Caja y mostrador', icon: 'bag' },
+      { to: '/ventas', label: 'Ventas', icon: 'calendar' },
+      { to: '/movimientos', label: 'Movimientos', icon: 'arrow' },
+    ],
+  },
+  {
+    id: 'catalogo',
+    label: 'Catálogo',
+    items: [
+      { to: '/productos', label: 'Productos y precios', icon: 'tag' },
+      { to: '/ofertas', label: 'Ofertas', icon: 'percent' },
+    ],
+  },
+  {
+    id: 'stock',
+    label: 'Stock',
+    items: [
+      { to: '/stock', label: 'Inventario', icon: 'archive' },
+      { to: '/desposte', label: 'Desposte', icon: 'cut' },
+    ],
+  },
+  {
+    id: 'abastecimiento',
+    label: 'Abastecimiento',
+    items: [
+      { to: '/proveedores', label: 'Proveedores', icon: 'users' },
+      { to: '/reposicion', label: 'Reposición', icon: 'refresh' },
+      { to: '/pedidos', label: 'Pedidos', icon: 'cart' },
+      { to: '/compras', label: 'Compras', icon: 'calendar' },
+      { to: '/recepciones', label: 'Recepciones', icon: 'check' },
+    ],
+  },
 ]
 
 export function AppLayout() {
   const { pathname } = useLocation()
   const health = useApiResource(() => apiRequest<{ status: string }>('health'))
-  const current = navigation.find(item => item.to === pathname)?.label ?? 'Gestión'
-  
+  const current = navigation
+    .flatMap(section => section.items)
+    .find(item => item.to === pathname)?.label ?? 'Gestión'
+
   return (
     <div className="app">
       <a className="skip-link" href="#contenido">Ir al contenido</a>
       <aside className="sidebar">
-        {/* ACÁ ESTÁN LOS CAMBIOS DEL LOGO Y EL TEXTO */}
-        <NavLink to="/" className="brand" style={{ 
-          display: 'flex', 
-          flexDirection: 'column', /* <-- ESTO HACE QUE SE PONGAN UNO ARRIBA DEL OTRO */
-          alignItems: 'center', 
-          justifyContent: 'center',
-          gap: '0.5px', /* <-- Achiqué un poco el espacio para que no quede tan descolgado */
-          textDecoration: 'none',
-          padding: '10px 0' /* Un poquito de aire arriba y abajo */
-        }}>
-          <span className="brand-mark" aria-hidden="true" style={{ background: 'transparent', padding: 0 }}>
-            <img 
-              src="/android-chrome-192x192.png" 
-              alt="Logo AvixSoft" 
-              width="80" 
-              height="80" 
-              style={{ borderRadius: '6px', objectFit: 'contain' }} 
-            />
+        <NavLink to="/" className="brand">
+          <span className="brand-mark" aria-hidden="true">
+            <img src="/android-chrome-192x192.png" alt="" width="30" height="30" />
           </span>
-          <span style={{ 
-            color: 'rgb(255, 255, 255)', 
-            fontSize: '30px', 
-            fontWeight: 'bold', 
-            letterSpacing: '0.5px',
-            textAlign: 'center' /* Para asegurar que el texto quede centrado */
-          }}>
-            AvixSoft
+          <span className="brand-text">
+            <strong>AvixSoft</strong>
+            <small>La Nena · Pollería</small>
           </span>
         </NavLink>
 
-        <span className="nav-caption">PRINCIPAL</span>
-        <nav aria-label="Navegación principal">
-          {navigation.map(({ to, label, icon }) => (
-            <NavLink key={to} to={to} end={to === '/'}>
-              <Icon name={icon} />
-              <span>{label}</span>
-              {pathname === to && <span className="nav-dot" />}
-            </NavLink>
+        <nav className="sidebar-nav" aria-label="Navegación principal">
+          {navigation.map(section => (
+            <div className="nav-group" key={section.id} role="group" aria-labelledby={`nav-${section.id}`}>
+              <span className="nav-caption" id={`nav-${section.id}`}>{section.label}</span>
+              {section.items.map(({ to, label, icon }) => (
+                <NavLink key={to} to={to} end={to === '/'}>
+                  <Icon name={icon} />
+                  <span>{label}</span>
+                  {pathname === to && <span className="nav-dot" />}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
+
         <div className="sidebar-bottom">
           <div className="sprint-label">
             <span />AvixSoft · Sprint 4<small>Compras y reposición</small>
