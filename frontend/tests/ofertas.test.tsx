@@ -233,6 +233,37 @@ describe('Alta de oferta', () => {
     await user.click(screen.getByRole('button', { name: 'Quitar Suprema' }))
     expect(screen.getByText('Todavía no agregaste productos.')).toBeTruthy()
   })
+
+  it('bloquea el alta cuando el nombre de la oferta ya existe', async () => {
+    const user = userEvent.setup()
+    render(<OfertasPage />)
+    await screen.findByRole('button', { name: 'Fin de semana' })
+    await user.click(screen.getByRole('button', { name: 'Nueva oferta' }))
+
+    await user.type(await screen.findByLabelText('Nombre de la oferta *'), 'Fin de semana')
+    await user.click(await screen.findByRole('button', { name: 'Agregar Suprema' }))
+    await user.type(screen.getByLabelText('Precio final de la oferta *'), '3900')
+    await user.click(screen.getByRole('button', { name: 'Registrar oferta' }))
+
+    expect(screen.getByText('Ya existe una oferta con ese nombre.')).toBeTruthy()
+    const escrituras = fetchMock.mock.calls.filter(([, o]) => (o as RequestInit | undefined)?.method === 'POST')
+    expect(escrituras).toHaveLength(0)
+  })
+
+  it('bloquea el guardado cuando el precio final es igual o mayor a la suma de precios base', async () => {
+    const user = userEvent.setup()
+    render(<OfertasPage />)
+    await user.click(await screen.findByRole('button', { name: 'Nueva oferta' }))
+
+    await user.type(await screen.findByLabelText('Nombre de la oferta *'), 'Oferta cara')
+    await user.click(await screen.findByRole('button', { name: 'Agregar Suprema' }))
+    await user.type(screen.getByLabelText('Precio final de la oferta *'), '4500')
+    await user.click(screen.getByRole('button', { name: 'Registrar oferta' }))
+
+    expect(screen.getByText('El precio final debe ser menor a la suma de los precios base de los productos.')).toBeTruthy()
+    const escrituras = fetchMock.mock.calls.filter(([, o]) => (o as RequestInit | undefined)?.method === 'POST')
+    expect(escrituras).toHaveLength(0)
+  })
 })
 
 describe('Edición y detalle', () => {

@@ -21,6 +21,18 @@ export function fechaOferta(valor: unknown, fin = false): Date | null {
   if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor) || !Number.isFinite(new Date(valor).getTime()) || new Date(valor).toISOString().slice(0, 10) !== valor) throw new ErrorOperacion('Indicá fechas válidas para la oferta.');
   return new Date(`${valor}T${fin ? '23:59:59.999' : '00:00:00.000'}-03:00`);
 }
+
+function normalizeNombreOferta(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+async function validarNombreOfertaUnico(nombre: string, ofertaId: number | undefined, transaction: Transaction) {
+  const { rows } = await new OfertaRepository().findAll(1, 10000, 'id', 'ASC', transaction);
+  const objetivo = normalizeNombreOferta(nombre);
+  if (rows.some(oferta => oferta.id !== ofertaId && normalizeNombreOferta(oferta.nombre) === objetivo)) {
+    throw new ErrorOperacion('Ya existe una oferta con ese nombre.', 409);
+  }
+}
 export async function guardarOfertaGlobal(ofertaId: number | undefined, body: unknown) {
   const b = objeto(body);
   const nombre = typeof b.nombre === 'string' ? b.nombre.trim() : '';
@@ -36,6 +48,7 @@ export async function guardarOfertaGlobal(ofertaId: number | undefined, body: un
   if (new Set(items.map(p => p.productoId)).size !== items.length) throw new ErrorOperacion('Hay productos repetidos en la oferta.');
   return sequelize.transaction(async transaction => {
     const repositorio = new OfertaRepository();
+    await validarNombreOfertaUnico(nombre, ofertaId, transaction);
     await repositorio.validarSuperposicion(items.map(i => i.productoId), fechaInicio, fechaFin, ofertaId, transaction);
     let oferta = ofertaId === undefined ? null : await Oferta.findByPk(ofertaId, { transaction, lock: transaction.LOCK.UPDATE });
     if (ofertaId !== undefined && (!oferta || !oferta.activo)) throw new ErrorOperacion('Oferta no encontrada o dada de baja.', 404);
@@ -44,9 +57,14 @@ export async function guardarOfertaGlobal(ofertaId: number | undefined, body: un
     for (const item of items) {
       if (item.cantidad > 1000000 || Math.abs(item.cantidad * 1000000 - Math.round(item.cantidad * 1000000)) > 1e-5 || (productos.find(p => p.id === item.productoId)!.unidadVenta === 'UNIDADES' && !Number.isSafeInteger(item.cantidad))) throw new ErrorOperacion('Revisá las cantidades: unidades enteras o kilos con hasta seis decimales.');
     }
-    if (precioFinal === null) {
-      const precios = await new PrecioRepository().findAllVigentes(items.map(i => i.productoId), new Date(), transaction);
-      if (items.some(i => precios.filter(p => p.productoId === i.productoId).length !== 1)) throw new ErrorOperacion('Cada producto necesita un precio de lista vigente.');
+    const precios = await new PrecioRepository().findAllVigentes(items.map(i => i.productoId), new Date(), transaction);
+    if (items.some(i => precios.filter(p => p.productoId === i.productoId).length !== 1)) throw new ErrorOperacion('Cada producto necesita un precio de lista vigente.');
+    if (precioFinal !== null) {
+      const subtotalBase = items.reduce((s, item) => {
+        const precio = precios.find(p => p.productoId === item.productoId)!;
+        return s + centavos(item.cantidad, precio.precioMinorista);
+      }, 0n);
+      if (centavos(1, precioFinal) >= subtotalBase) throw new ErrorOperacion('El precio final debe ser menor a la suma de los precios base de los productos.');
     }
     const cambios = { nombre, descripcion, fechaInicio, fechaFin, descuentoPorcentaje, precioFinal };
     oferta = oferta ? await oferta.update(cambios, { transaction }) : await Oferta.create({ ...cambios, activo: true, fechaBaja: null }, { transaction });

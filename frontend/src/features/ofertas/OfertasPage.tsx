@@ -271,6 +271,7 @@ export function OfertasPage() {
 
       {editor?.modo === 'crear' && (
         <FormularioOfertaModal
+          ofertasExistentes={ofertas}
           onClose={() => setEditor(null)}
           onGuardado={() => { recargarOfertas(); setEditor(null) }}
         />
@@ -280,6 +281,7 @@ export function OfertasPage() {
       {editor?.modo === 'editar' && (
         <FormularioOfertaModal
           oferta={editor.oferta}
+          ofertasExistentes={ofertas}
           onClose={() => setEditor(null)}
           onGuardado={() => { recargarOfertas(); setEditor(null) }}
         />

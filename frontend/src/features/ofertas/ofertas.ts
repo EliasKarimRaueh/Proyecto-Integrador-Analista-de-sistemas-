@@ -2,6 +2,10 @@ import { fechaInputOferta } from './fechasOfertas'
 import { esFechaValida, fechaInputDesdeHoy, hoyComoFechaInput, parseMontoInput } from '../../shared/lib/money'
 import { cantidadInput } from '../../shared/lib/operaciones'
 
+export function normalize(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 /**
  * The offer endpoints send productoId as a string in the detail responses
  * and as a number in the per-product ones. Everything is normalized to a
