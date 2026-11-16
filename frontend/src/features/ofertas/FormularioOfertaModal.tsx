@@ -8,11 +8,10 @@ import { cantidadInput } from '../../shared/lib/operaciones'
 import { fetchProducts } from '../../shared/services/api'
 import { actualizarOferta, crearOferta, fetchOferta } from '../../shared/services/ofertas'
 import { fetchPreciosVigentes } from '../../shared/services/precios'
-import { normalize } from '../products/products'
-import type { Oferta } from './ofertas'
+import { normalize, type Oferta } from './ofertas'
 
 type Draft = { nombre: string; descripcion: string; fechaInicio: string; fechaFin: string; precioFinal: string; productos: { productoId: number; cantidad: string }[] }
-export function FormularioOfertaModal({ oferta, onClose, onGuardado }: { oferta?: Oferta; onClose: () => void; onGuardado: () => void }) {
+export function FormularioOfertaModal({ oferta, ofertasExistentes, onClose, onGuardado }: { oferta?: Oferta; ofertasExistentes?: Oferta[]; onClose: () => void; onGuardado: () => void }) {
   const carga = useApiResource(async () => {
     const [productos, precios, detalle] = await Promise.all([fetchProducts(), fetchPreciosVigentes(), oferta ? fetchOferta(oferta.id) : Promise.resolve(null)])
     return { productos, precios, detalle }
@@ -45,10 +44,13 @@ export function FormularioOfertaModal({ oferta, onClose, onGuardado }: { oferta?
     if (lock.current) return
     setError('')
     if (!draft.nombre.trim() || draft.nombre.trim().length > 50) { setError('Ingresá un nombre de hasta 50 caracteres.'); return }
+    if (ofertasExistentes?.some(o => o.id !== oferta?.id && normalize(o.nombre) === normalize(draft.nombre))) { setError('Ya existe una oferta con ese nombre.'); return }
     if (!esFechaValida(draft.fechaInicio) || draft.fechaFin && (!esFechaValida(draft.fechaFin) || draft.fechaFin <= draft.fechaInicio)) { setError('La fecha de fin debe ser posterior al inicio.'); return }
     if (!draft.productos.length) { setError('Agregá al menos un producto a la oferta.'); return }
     if (!precioFinal.ok) { setError(precioFinal.error); return }
     try { draft.productos.forEach(cantidad) } catch (fallo) { setError(fallo instanceof Error ? fallo.message : 'Revisá las cantidades.'); return }
+    if (subtotal === null) { setError('No se puede validar el precio final porque faltan precios de lista vigentes en uno o más productos.'); return }
+    if (Math.round(Number(precioFinal.value) * 100) >= subtotal) { setError('El precio final debe ser menor a la suma de los precios base de los productos.'); return }
     if (draft.productos.some(i => !productos.find(p => Number(p.id) === i.productoId)?.active)) { setError('Quitá los productos inactivos antes de guardar.'); return }
     const payload = { nombre: draft.nombre.trim(), descripcion: draft.descripcion.trim(), fechaInicio: draft.fechaInicio, fechaFin: draft.fechaFin || null, precioFinal: precioFinal.value, productos: draft.productos.map(i => ({ productoId: i.productoId, cantidad: cantidad(i) })) }
     lock.current = true; setSaving(true)
