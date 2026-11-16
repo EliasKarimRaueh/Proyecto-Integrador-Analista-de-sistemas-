@@ -18,14 +18,15 @@ type Detalle = { registro: Registro; cuenta?: { importePendiente: string; estado
 const titulos: Record<Tipo, string> = { pedidos: 'Pedidos a proveedores', compras: 'Compras', recepciones: 'Historial de recepciones' }
 export function HistorialAbastecimientoPage({ tipo }: { tipo: Tipo }) {
   const location = useLocation(), navigate = useNavigate()
-  const inicial = (location.state as { nuevoPedido?: InicioFormulario; nuevaCompra?: InicioFormulario } | null)
+  const parametros = new URLSearchParams(location.search)
+  const inicial = (location.state as { nuevoPedido?: InicioFormulario; nuevaCompra?: InicioFormulario } | null) ?? (tipo === 'compras' && parametros.get('nueva') === '1' ? { nuevaCompra: { proveedorId: Number(parametros.get('proveedorId')) || undefined } } : null)
   const [form, setForm] = useState<InicioFormulario | null>(tipo === 'pedidos' ? inicial?.nuevoPedido ?? null : tipo === 'compras' ? inicial?.nuevaCompra ?? null : null)
   const [filtros, setFiltros] = useState<FiltrosAbastecimiento>({ page: 1 })
   const proveedores = useApiResource(fetchProveedores)
   const recurso = useApiResource(() => listarAbastecimiento<Registro>(tipo, filtros), JSON.stringify({ tipo, filtros }))
   const [detalle, setDetalle] = useState<Detalle | null>(null), [recepcion, setRecepcion] = useState<Compra | null>(null), [cancelar, setCancelar] = useState<PedidoCompra | null>(null)
   const [error, setError] = useState(''), [notice, setNotice] = useState(''), [ocupado, setOcupado] = useState(false)
-  function cerrarFormulario() { setForm(null); if (location.state) navigate(location.pathname, { replace: true, state: null }) }
+  function cerrarFormulario() { setForm(null); if (location.state || parametros.has('nueva')) navigate(location.pathname, { replace: true, state: null }) }
   async function abrir(id: number, accion: 'detalle' | 'comprar' | 'recibir' = 'detalle') {
     if (ocupado) return
     setOcupado(true); setError('')
@@ -64,7 +65,7 @@ export function HistorialAbastecimientoPage({ tipo }: { tipo: Tipo }) {
   </section>
 }
 
-function DetalleAbastecimiento({ tipo, detalle: { registro: r, cuenta, totalRecibido }, onClose }: { tipo: Tipo; detalle: Detalle; onClose: () => void }) {
+export function DetalleAbastecimiento({ tipo, detalle: { registro: r, cuenta, totalRecibido }, onClose }: { tipo: Tipo; detalle: Detalle; onClose: () => void }) {
   const diferencia = totalRecibido != null && 'total' in r ? Number(r.total) - Number(totalRecibido) : 0
   return <Modal title={`${titulos[tipo]} · #${r.id}`} onClose={onClose}><p>{r.proveedor?.nombre} · {fechaTexto(r.fechaHora)}</p>{'estado' in r && <p>Estado: <strong>{estadoTexto(r.estado)}</strong></p>}{'conformidad' in r && <p>Conformidad: <strong>{conformidadTexto(r.conformidad)}</strong></p>}{'numeroComprobante' in r && <p>{r.tipoComprobante} {r.numeroComprobante ?? 'Sin número'}{'pedidoId' in r && r.pedidoId ? ` · Pedido #${r.pedidoId}` : ''}</p>}{'compraId' in r && <p>Compra #{r.compraId}</p>}{(r as PedidoCompra).compra && <p>Compra #{(r as PedidoCompra).compra!.id}</p>}
     <div className="table-scroll"><table><thead><tr><th>Producto</th>{tipo === 'recepciones' ? <><th>Aceptado</th><th>Rechazado</th><th>Faltante</th><th>Presentación</th><th>Motivo</th></> : <><th>Cantidad base</th><th>Costo base / subtotal</th></>}</tr></thead><tbody>{r.detalles?.map((d, i) => <tr key={d.id ?? i}><td>{d.producto?.nombre ?? 'Producto no disponible'}</td>{tipo === 'recepciones' ? <><td>{cantidadFormato(Number(d.cantidadBase ?? d.cantidad))} {d.producto?.unidadVenta === 'UNIDADES' ? 'un.' : 'kg'}</td><td>{cantidadFormato(Number(d.cantidadRechazadaBase ?? 0))}</td><td>{cantidadFormato(Number(d.cantidadFaltanteBase ?? 0))}</td><td>{d.cantidadPresentacion} {d.presentacion} × {d.factorConversion}</td><td>{d.motivo ?? '—'}</td></> : <><td>{cantidadFormato(Number(d.cantidadBase ?? d.cantidad))} {d.producto?.unidadVenta === 'UNIDADES' ? 'un.' : 'kg'}</td><td>{formatearMonto(d.costoUnitario ?? d.costoEstimado)}<strong className="supply-amount">{formatearMonto(d.subtotal)}</strong>{d.cantidadPresentacion != null && <small>{d.cantidadPresentacion} {d.presentacion} × {d.factorConversion}</small>}</td></>}</tr>)}</tbody></table></div>

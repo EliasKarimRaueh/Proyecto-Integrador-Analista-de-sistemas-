@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { Icon } from '../../shared/components/Icon'
 import { Modal } from '../../shared/components/Modal'
 import { useApiResource } from '../../shared/hooks/useApiResource'
-import { cambiarEstadoProveedor, fetchProveedores, guardarProveedor } from '../../shared/services/proveedores'
+import { activarCuentaProveedor, cambiarEstadoProveedor, fetchProveedores, guardarProveedor } from '../../shared/services/proveedores'
 import { normalize } from '../products/products'
 import { diasEntrega, editarProveedor, nuevoProveedor, validarProveedor, type Proveedor, type ProveedorDraft } from './proveedores'
 import '../../shared/styles/proveedores.css'
@@ -70,6 +70,7 @@ export function ProveedoresPage() {
       <div className="stat"><span className="stat-icon status-red"><Icon name="archive" /></span><div><span>Proveedores inactivos</span><strong>{proveedores.filter(p => !p.activo).length}</strong></div></div>
     </div>
     {aviso && <div className="notice success" role="status">{aviso}</div>}
+    {error && !editor && <div className="notice error" role="alert">{error}</div>}
     {recurso.error && <div className="notice error" role="alert">{recurso.error}<button className="button" onClick={recurso.refetch}>Reintentar</button></div>}
     {recurso.loading ? <p role="status">Cargando proveedores...</p> : !recurso.error && <div className="catalog-panel">
       <div className="catalog-title"><div><h2>Proveedores <span className="count">{proveedores.length}</span></h2><p>Los filtros se actualizan mientras escribís.</p></div></div>
@@ -83,7 +84,7 @@ export function ProveedoresPage() {
           <td><button className="product-link" onClick={() => abrir({ modo: 'detalle', proveedor: p })}>{p.nombre}</button><small className="product-description">{p.cuil || 'Sin CUIT'}</small></td>
           <td>{p.telefono || 'Sin teléfono'}<small className="product-description">{p.email || 'Sin email'}</small></td>
           <td>{p.direccion || 'Sin dirección'}<small className="product-description">{p.diasEntrega?.join(', ') || 'Días sin definir'}</small></td>
-          <td>{p.ctaCte ? 'Habilitada' : 'No habilitada'}</td>
+          <td>{p.ctaCte ? 'Habilitada' : <><span>No habilitada</span><button className="product-link" aria-label={`Activar cuenta corriente de ${p.nombre}`} disabled={guardando || !p.activo} onClick={() => ejecutar(() => activarCuentaProveedor(p.id), 'Cuenta corriente habilitada correctamente.')}>Activar cuenta corriente</button></>}</td>
           <td><span className={'badge ' + (p.activo ? 'product-active' : 'product-inactive')}>{p.activo ? 'Activo' : 'Inactivo'}</span></td>
           <td><div className="row-actions"><button className="icon-button" title="Productos asociados" aria-label={'Productos de ' + p.nombre} onClick={() => setModulo({ tipo: 'productos', proveedor: p })}><Icon name="box" /></button><button className="icon-button" title="Cuenta corriente" aria-label={'Cuenta de ' + p.nombre} onClick={() => setModulo({ tipo: 'cuenta', proveedor: p })}><Icon name="bag" /></button><button className="icon-button" aria-label={`Ver ${p.nombre}`} onClick={() => abrir({ modo: 'detalle', proveedor: p })}><Icon name="eye" /></button><button className="icon-button" aria-label={`Editar ${p.nombre}`} onClick={() => abrir({ modo: 'editar', proveedor: p })}><Icon name="edit" /></button><button className={'icon-button ' + (p.activo ? 'danger-text' : '')} aria-label={`${p.activo ? 'Dar de baja' : 'Reactivar'} ${p.nombre}`} onClick={() => abrir({ modo: 'estado', proveedor: p })}><Icon name={p.activo ? 'archive' : 'check'} /></button></div></td>
         </tr>)}

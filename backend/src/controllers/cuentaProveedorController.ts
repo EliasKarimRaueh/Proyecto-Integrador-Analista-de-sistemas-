@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { asociarProductos, estadoCuenta, productosProveedor, registrarComprobante, registrarPago } from '../services/proveedores.js';
+import { activarCuenta, aplicarCredito, comprobantePago, asociarProductos, estadoCuenta, productosProveedor, registrarComprobante, registrarPago } from '../services/proveedores.js';
 import { ErrorOperacion, id } from '../services/validacion.js';
 import { sendDatabaseError } from './controllerHelpers.js';
 
@@ -17,3 +17,6 @@ export const putProductosProveedor = endpoint((req, id) => asociarProductos(id, 
 export const getCuentaProveedor = endpoint((req, id) => estadoCuenta(id, req.query as Record<string, unknown>));
 export const postPagoProveedor = endpoint((req, id) => registrarPago(id, req.body), 201);
 export const postComprobanteProveedor = endpoint((req, id) => registrarComprobante(id, req.body), 201);
+export const postCreditoProveedor = endpoint((req, proveedorId) => aplicarCredito(proveedorId, id(req.params.pagoId, 'Pago'), req.body));
+export const getComprobantePago = endpoint((req, proveedorId) => comprobantePago(proveedorId, id(req.params.pagoId, 'Pago')));
+export const putActivarCuenta = endpoint((_req, proveedorId) => activarCuenta(proveedorId));

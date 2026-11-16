@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { Icon } from './Icon'
 
 type ModalProps = {
@@ -12,6 +12,7 @@ type ModalProps = {
 
 export function Modal({ title, onClose, eyebrow, children, busy = false }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     const dialog = ref.current!
@@ -19,11 +20,11 @@ export function Modal({ title, onClose, eyebrow, children, busy = false }: Modal
     return () => { dialog.close(); previous?.focus() }
   }, [])
   return (
-    <dialog ref={ref} className="modal" aria-labelledby="modal-title" onCancel={event => { event.preventDefault(); if (!busy) onClose() }}>
+    <dialog ref={ref} className="modal" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) onClose() }}>
       <div className="modal-heading">
         <div>
           {eyebrow && <span className="eyebrow">{eyebrow}</span>}
-          <h2 id="modal-title">{title}</h2>
+          <h2 id={titleId}>{title}</h2>
         </div>
         <button className="icon-button" disabled={busy} onClick={onClose} aria-label="Cerrar"><Icon name="close" /></button>
       </div>

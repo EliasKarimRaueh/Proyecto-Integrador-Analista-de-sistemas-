@@ -1,3 +1,4 @@
+import PagoPorCuentaRepository from 'polleria-database/repositories/pagoPorCuentaRepository';
 import sequelize from 'polleria-database/config/database';
 import { Op, Transaction } from 'sequelize';
 import Proveedor from 'polleria-database/models/Proveedor';
@@ -8,7 +9,7 @@ import CuentaProveedor from 'polleria-database/models/CuentaProveedor';
 import Pago from 'polleria-database/models/Pago';
 import PagoPorCuenta from 'polleria-database/models/PagoPorCuenta';
 import { ErrorOperacion, id, objeto } from './validacion.js';
-import { centavos, importe } from './dinero.js';
+import { centavos } from './dinero.js';
 
 export function montoPositivo(value: unknown): string {
   if ((typeof value !== 'string' && typeof value !== 'number') || !/^\d+(\.\d{1,2})?$/.test(String(value)) || Number(value) <= 0 || Number(value) > 99999999.99) throw new ErrorOperacion('Ingresá un importe positivo de hasta dos decimales.');
@@ -73,7 +74,8 @@ export async function estadoCuenta(proveedorId: number, query: Record<string, un
     const fechaWhere = Reflect.ownKeys(fechas).length ? { fechaHora: fechas } : {};
     const cuentas = await CuentaProveedor.findAndCountAll({ where: { proveedorId, ...(estado === 'TODAS' ? {} : { estado }) }, include: [{ model: Compra, as: 'compra', required: true, where: fechaWhere }], limit: limite, offset: (page - 1) * limite, order: [['id', 'DESC']], transaction });
     const pagos = await Pago.findAndCountAll({ where: { proveedorId, ...fechaWhere }, include: [{ model: PagoPorCuenta, as: 'pagosPorCuenta' }], distinct: true, limit: limite, offset: (page - 1) * limite, order: [['fechaHora', 'DESC'], ['id', 'DESC']], transaction });
-    return { proveedor, saldo: Number(saldo ?? 0).toFixed(2), credito: Number(credito ?? 0).toFixed(2), cuentas, pagos };
+    const creditos = await Pago.findAll({ where: { proveedorId, importePendiente: { [Op.gt]: 0 } }, order: [['fechaHora', 'ASC'], ['id', 'ASC']], transaction });
+    return { proveedor, creditos, saldo: Number(saldo ?? 0).toFixed(2), credito: Number(credito ?? 0).toFixed(2), cuentas, pagos };
   });
 }
 export async function registrarPago(proveedorId: number, body: unknown) {
@@ -88,42 +90,46 @@ export async function registrarPago(proveedorId: number, body: unknown) {
     }
     const cuentas = await CuentaProveedor.findAll({ where: { proveedorId, importePendiente: { [Op.gt]: 0 } }, include: [{ model: Compra, as: 'compra', required: true }], order: [[{ model: Compra, as: 'compra' }, 'fechaHora', 'ASC'], ['id', 'ASC']], transaction, lock: { level: transaction.LOCK.UPDATE, of: CuentaProveedor } });
     const saldo = cuentas.reduce((s, c) => s + centavos(1, c.importePendiente), 0n);
-    let restante = centavos(1, monto);
+    const restante = centavos(1, monto);
     if (restante > saldo) throw new ErrorOperacion('El pago supera la deuda pendiente. Actualizá el estado de cuenta.', 409);
-    const pago = await Pago.create({ proveedorId, importe: monto, importePendiente: '0.00', claveOperacion: clave }, { transaction });
-    const aplicaciones = [];
-    for (const cuenta of cuentas) {
-      if (!restante) break;
-      const pendiente = centavos(1, cuenta.importePendiente), aplicado = restante < pendiente ? restante : pendiente;
-      const nuevoSaldo = pendiente - aplicado;
-      await cuenta.update({ importePendiente: importe(nuevoSaldo), estado: nuevoSaldo === 0n ? 'PAGADO' : 'PAGO PARCIAL' }, { transaction });
-      aplicaciones.push(await PagoPorCuenta.create({ pagoId: pago.id, cuentaId: cuenta.id, importeAplicado: importe(aplicado) }, { transaction }));
-      restante -= aplicado;
-    }
+    const pago = await Pago.create({ proveedorId, importe: monto, importePendiente: monto, claveOperacion: clave }, { transaction });
+    await new PagoPorCuentaRepository().aplicarPagoAProveedor(pago.id, transaction);
+    await pago.reload({ transaction });
+    const aplicaciones = await PagoPorCuenta.findAll({ where: { pagoId: pago.id }, transaction });
     return { pago, aplicaciones };
   });
 }
-export async function registrarComprobante(proveedorId: number, body: unknown) {
-  const b = objeto(body), total = montoPositivo(b.total), clave = claveOperacion(b.claveOperacion);
-  const numero = typeof b.numeroComprobante === 'string' ? b.numeroComprobante.trim() : '';
-  if (!numero || numero.length > 80) throw new ErrorOperacion('Indicá un número de comprobante de hasta 80 caracteres.');
-  const fecha = typeof b.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.fecha) ? new Date(`${b.fecha}T12:00:00-03:00`) : new Date(NaN);
-  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());
-  if (!Number.isFinite(fecha.getTime()) || fecha.toISOString().slice(0, 10) !== b.fecha || String(b.fecha) > hoy) throw new ErrorOperacion('Indicá una fecha válida que no sea futura.');
+export async function registrarComprobante(_proveedorId: number, _body: unknown): Promise<never> {
+  throw new ErrorOperacion('Registrá una compra con sus productos desde Compras.', 410);
+}
+
+export async function aplicarCredito(proveedorId: number, pagoId: number, body: unknown) {
+  const b = objeto(body), esperado = montoPositivo(b.importePendiente);
+  return sequelize.transaction(async transaction => {
+    if (!await Proveedor.findByPk(proveedorId, { transaction, lock: transaction.LOCK.UPDATE })) throw new ErrorOperacion('Proveedor no encontrado.', 404);
+    const pago = await Pago.findOne({ where: { id: pagoId, proveedorId }, transaction, lock: transaction.LOCK.UPDATE });
+    if (!pago) throw new ErrorOperacion('Pago no encontrado.', 404);
+    if (centavos(1, pago.importePendiente) !== centavos(1, esperado)) throw new ErrorOperacion('El crédito cambió. Revisá el estado de cuenta antes de volver a aplicarlo.', 409);
+    const saldo = await CuentaProveedor.sum('importePendiente', { where: { proveedorId }, transaction });
+    if (Number(saldo ?? 0) <= 0) throw new ErrorOperacion('No hay deuda pendiente para aplicar el crédito.', 409);
+    await new PagoPorCuentaRepository().aplicarPagoAProveedor(pago.id, transaction);
+    await pago.reload({ transaction });
+    return { pago, aplicaciones: await PagoPorCuenta.findAll({ where: { pagoId }, transaction }) };
+  });
+}
+
+export async function comprobantePago(proveedorId: number, pagoId: number) {
+  const pago = await Pago.findOne({ where: { id: pagoId, proveedorId } });
+  if (!pago) throw new ErrorOperacion('Pago no encontrado.', 404);
+  const aplicaciones = await PagoPorCuenta.findAll({ where: { pagoId }, include: [{ model: CuentaProveedor, as: 'cuentaProveedor', include: [{ model: Compra, as: 'compra' }] }], order: [['fechaHora', 'ASC']] });
+  return { pago, aplicaciones };
+}
+
+export async function activarCuenta(proveedorId: number) {
   return sequelize.transaction(async transaction => {
     const proveedor = await Proveedor.findByPk(proveedorId, { transaction, lock: transaction.LOCK.UPDATE });
     if (!proveedor) throw new ErrorOperacion('Proveedor no encontrado.', 404);
-    const anterior = await Compra.findOne({ where: { claveOperacion: clave }, transaction });
-    if (anterior) {
-      if (anterior.proveedorId !== proveedorId || centavos(1, anterior.total) !== centavos(1, total) || anterior.numeroComprobante !== numero || anterior.fechaHora.getTime() !== fecha.getTime()) throw new ErrorOperacion('La clave ya se utilizó para otro comprobante.', 409);
-      return anterior;
-    }
-    if (!proveedor.activo || !proveedor.ctaCte) throw new ErrorOperacion('El proveedor debe estar activo y tener cuenta corriente habilitada.', 409);
-    if (await Compra.findOne({ where: { proveedorId, numeroComprobante: numero }, transaction })) throw new ErrorOperacion('El comprobante ya está registrado para este proveedor.', 409);
-    // Los comprobantes históricos de cuenta corriente no tienen mercadería
-    // pendiente: el circuito de recepción corresponde a las compras con detalle.
-    const compra = await Compra.create({ proveedorId, total, numeroComprobante: numero, claveOperacion: clave, fechaHora: fecha, estado: 'RECIBIDA', tipoComprobante: 'OTRO', formaPago: 'A CUENTA' }, { transaction });
-    await CuentaProveedor.create({ proveedorId, compraId: compra.id, importePendiente: total, estado: 'PAGO PENDIENTE' }, { transaction });
-    return compra;
+    if (!proveedor.activo) throw new ErrorOperacion('Reactivá el proveedor antes de habilitar la cuenta corriente.', 409);
+    return proveedor.update({ ctaCte: true }, { transaction });
   });
 }

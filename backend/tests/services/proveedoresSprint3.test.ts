@@ -1,10 +1,11 @@
+jest.mock('polleria-database/repositories/pagoPorCuentaRepository', () => require('../mocks/pagoPorCuentaRepository.js'));
 import { beforeEach, describe, expect, it } from '@jest/globals';
 jest.mock('polleria-database/models/Proveedor', () => ({ findByPk: jest.fn() }));
 jest.mock('polleria-database/models/Producto', () => ({ findAll: jest.fn(), update: jest.fn() }));
 jest.mock('polleria-database/models/ProductoProveedor', () => ({ findAll: jest.fn(), create: jest.fn() }));
 jest.mock('polleria-database/models/Compra', () => ({ findOne: jest.fn(), create: jest.fn() }));
 jest.mock('polleria-database/models/CuentaProveedor', () => ({ findAll: jest.fn(), create: jest.fn(), sum: jest.fn(), findAndCountAll: jest.fn() }));
-jest.mock('polleria-database/models/Pago', () => ({ findOne: jest.fn(), create: jest.fn(), sum: jest.fn(), findAndCountAll: jest.fn() }));
+jest.mock('polleria-database/models/Pago', () => ({ findAll: jest.fn(), findOne: jest.fn(), create: jest.fn(), sum: jest.fn(), findAndCountAll: jest.fn() }));
 jest.mock('polleria-database/models/PagoPorCuenta', () => ({ findAll: jest.fn(), create: jest.fn() }));
 import Proveedor from 'polleria-database/models/Proveedor';
 import Producto from 'polleria-database/models/Producto';
@@ -13,7 +14,8 @@ import Compra from 'polleria-database/models/Compra';
 import Cuenta from 'polleria-database/models/CuentaProveedor';
 import Pago from 'polleria-database/models/Pago';
 import Aplicacion from 'polleria-database/models/PagoPorCuenta';
-import { asociarProductos, estadoCuenta, filtrosCuenta, montoPositivo, registrarComprobante, registrarPago } from '../../src/services/proveedores.js';
+import { activarCuenta, aplicarCredito, comprobantePago, asociarProductos, estadoCuenta, filtrosCuenta, montoPositivo, registrarComprobante, registrarPago } from '../../src/services/proveedores.js';
+import { instancia as imputaciones } from '../mocks/pagoPorCuentaRepository.js';
 import { sequelize } from '../mocks/configDatabase.js';
 
 type Modelo = { findByPk: jest.Mock; findAll: jest.Mock; findOne: jest.Mock; create: jest.Mock; sum: jest.Mock; findAndCountAll: jest.Mock };
@@ -29,7 +31,9 @@ beforeEach(() => {
   cuenta1 = { id: 1, importePendiente: '10.10', update: jest.fn().mockResolvedValue({}) };
   cuenta2 = { id: 2, importePendiente: '20.20', update: jest.fn().mockResolvedValue({}) };
   cuentas.findAll.mockResolvedValue([cuenta1, cuenta2]);
-  pagos.create.mockResolvedValue({ id: 7, importe: '15.15' });
+  pagos.create.mockResolvedValue({ id: 7, importe: '15.15', reload: jest.fn() });
+  pagos.findAll.mockResolvedValue([]);
+  aplicaciones.findAll.mockResolvedValue([]);
   aplicaciones.create.mockImplementation(async datos => datos);
   relaciones.findAll.mockResolvedValue([]); producto.findAll.mockResolvedValue([{ id: 1, activo: true }]);
   cuentas.sum.mockResolvedValue('30.30'); pagos.sum.mockResolvedValue('0.00');
@@ -37,16 +41,31 @@ beforeEach(() => {
 });
 
 describe('Cuentas y pagos del Sprint 3', () => {
-  it('distribuye el pago entre las cuentas más antiguas con importes exactos', async () => {
-    const resultado = await registrarPago(5, { importe: '15.15', claveOperacion: clave });
-    expect(proveedor.findByPk).toHaveBeenCalledWith(5, { transaction: tx, lock: 'UPDATE' });
-    expect(cuenta1.update).toHaveBeenCalledWith({ importePendiente: '0.00', estado: 'PAGADO' }, { transaction: tx });
-    expect(cuenta2.update).toHaveBeenCalledWith({ importePendiente: '15.15', estado: 'PAGO PARCIAL' }, { transaction: tx });
-    expect(resultado.aplicaciones).toEqual([{ pagoId: 7, cuentaId: 1, importeAplicado: '10.10' }, { pagoId: 7, cuentaId: 2, importeAplicado: '5.05' }]);
+  it('aplica un crédito existente sin crear otro pago', async () => {
+    pagos.findOne.mockResolvedValue({ id: 7, proveedorId: 5, importePendiente: '20.00', reload: jest.fn() });
+    await aplicarCredito(5, 7, { importePendiente: '20.00' });
+    expect(imputaciones.aplicarPagoAProveedor).toHaveBeenCalledWith(7, tx);
+    expect(pagos.create).not.toHaveBeenCalled();
   });
-  it('cancela toda la deuda con un pago total', async () => {
-    await registrarPago(5, { importe: '30.30', claveOperacion: clave });
-    expect(cuenta2.update).toHaveBeenCalledWith({ importePendiente: '0.00', estado: 'PAGADO' }, { transaction: tx });
+  it('rechaza crédito desactualizado y pagos de otro proveedor', async () => {
+    pagos.findOne.mockResolvedValue({ id: 7, importePendiente: '10.00' });
+    await expect(aplicarCredito(5, 7, { importePendiente: '20.00' })).rejects.toMatchObject({ status: 409 });
+    expect(imputaciones.aplicarPagoAProveedor).not.toHaveBeenCalled();
+    pagos.findOne.mockResolvedValue(null);
+    await expect(aplicarCredito(5, 7, { importePendiente: '20.00' })).rejects.toMatchObject({ status: 404 });
+    await expect(comprobantePago(5, 7)).rejects.toMatchObject({ status: 404 });
+    expect(pagos.findOne).toHaveBeenLastCalledWith({ where: { id: 7, proveedorId: 5 } });
+  });
+  it('habilita la cuenta sin sobrescribir los datos del proveedor', async () => {
+    const update = jest.fn().mockResolvedValue({ id: 5, ctaCte: true });
+    proveedor.findByPk.mockResolvedValue({ id: 5, activo: true, update });
+    await activarCuenta(5);
+    expect(update).toHaveBeenCalledWith({ ctaCte: true }, { transaction: tx });
+  });
+  it('crea el pago con saldo disponible y delega la imputacion al repositorio', async () => {
+    await registrarPago(5, { importe: '15.15', claveOperacion: clave });
+    expect(pagos.create).toHaveBeenCalledWith({ proveedorId: 5, importe: '15.15', importePendiente: '15.15', claveOperacion: clave }, { transaction: tx });
+    expect(imputaciones.aplicarPagoAProveedor).toHaveBeenCalledWith(7, tx);
   });
   it('rechaza sobrepago sin registrar ni alterar cuentas', async () => {
     await expect(registrarPago(5, { importe: '30.31', claveOperacion: clave })).rejects.toMatchObject({ status: 409 });
@@ -63,7 +82,7 @@ describe('Cuentas y pagos del Sprint 3', () => {
     await expect(registrarPago(5, { importe: '15.15', claveOperacion: clave })).rejects.toMatchObject({ status: 409 });
   });
   it('propaga errores dentro de la transacción para revertir el pago', async () => {
-    cuenta1.update.mockRejectedValue(new Error('Fallo de escritura'));
+    imputaciones.aplicarPagoAProveedor.mockRejectedValue(new Error('Fallo de escritura'));
     await expect(registrarPago(5, { importe: '15.15', claveOperacion: clave })).rejects.toThrow('Fallo de escritura');
     expect(aplicaciones.create).not.toHaveBeenCalled();
   });
@@ -71,18 +90,10 @@ describe('Cuentas y pagos del Sprint 3', () => {
   it('requiere clave de operación para registrar pagos', async () => {
     await expect(registrarPago(5, { importe: '1.00' })).rejects.toThrow('clave válida');
   });
-  it('crea comprobante y deuda en la misma transacción', async () => {
-    compras.create.mockResolvedValue({ id: 10 });
-    await registrarComprobante(5, { total: '100.50', numeroComprobante: '  A-123  ', fecha: '2020-01-01', claveOperacion: clave });
-    expect(compras.create).toHaveBeenCalledWith(expect.objectContaining({ total: '100.50', numeroComprobante: 'A-123' }), { transaction: tx });
-    expect(cuentas.create).toHaveBeenCalledWith({ proveedorId: 5, compraId: 10, importePendiente: '100.50', estado: 'PAGO PENDIENTE' }, { transaction: tx });
-  });
-  it('rechaza comprobantes duplicados y proveedores inactivos', async () => {
-    const body = { total: '1.00', numeroComprobante: 'A-123', fecha: '2020-01-01', claveOperacion: clave };
-    compras.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 1 });
-    await expect(registrarComprobante(5, body)).rejects.toThrow('ya está registrado');
-    proveedor.findByPk.mockResolvedValue({ id: 5, activo: false, ctaCte: true });
-    await expect(registrarComprobante(5, body)).rejects.toThrow('activo');
+  it('rechaza comprobantes sin compra ni productos', async () => {
+    await expect(registrarComprobante(5, {})).rejects.toMatchObject({ status: 410 });
+    expect(compras.create).not.toHaveBeenCalled();
+    expect(cuentas.create).not.toHaveBeenCalled();
   });
   it('los filtros del historial no alteran el saldo total', async () => {
     const datos = await estadoCuenta(5, { estado: 'PAGADO', desde: '2020-01-01', hasta: '2020-01-02', page: 2 });

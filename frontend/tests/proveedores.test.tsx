@@ -26,6 +26,7 @@ beforeEach(() => {
     const p = proveedores.find(item => item.id === id)!
     if (method === 'DELETE') { p.activo = false; p.fechaBaja = '2026-10-19' }
     else if (path.endsWith('/reactivar')) { p.activo = true; p.fechaBaja = null }
+    else if (path.endsWith('/cuenta/activar')) p.ctaCte = true
     else Object.assign(p, JSON.parse(String(options?.body)))
     return json(p)
   })
@@ -34,6 +35,15 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('Directorio de proveedores', () => {
+  it('habilita la cuenta corriente desde el listado sin cambiar otros datos', async () => {
+    proveedores[0].ctaCte = false
+    const user = userEvent.setup(); render(<ProveedoresPage/> )
+    await user.click(await screen.findByRole('button', { name: 'Activar cuenta corriente de Distribuidora Sur' }))
+    await screen.findByText('Cuenta corriente habilitada correctamente.')
+    expect(proveedores[0].ctaCte).toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith('/api/proveedores/1/cuenta/activar', expect.objectContaining({ method: 'PUT' }))
+    expect(screen.queryByRole('button', { name: 'Activar cuenta corriente de Distribuidora Sur' })).toBeNull()
+  })
   it('registra y edita datos completos, normalizando CUIT y teléfono', async () => {
     const user = userEvent.setup()
     render(<ProveedoresPage />)

@@ -13,6 +13,7 @@ import Compra from 'polleria-database/models/Compra';
 import { migrateCuentasProveedores } from 'polleria-database/migrations/cuentasProveedores';
 import { migrateProveedores } from 'polleria-database/migrations/proveedores';
 import { asociarProductos, registrarComprobante, registrarPago, estadoCuenta } from '../src/services/proveedores.js';
+import { registrarCompra } from '../src/services/compras.js';
 import { guardarOfertaGlobal } from '../src/services/ofertasGlobales.js';
 import { vender } from '../src/services/operaciones.js';
 import type { Transaction } from 'sequelize';
@@ -44,8 +45,8 @@ test('Sprint 3 en PostgreSQL: migración, asociaciones, comprobantes, pagos y of
     await t.test('comprobante y pago son idempotentes, parciales y totales', async () => {
       const clave = randomUUID();
       const body = { total: '100.50', numeroComprobante: 'S3-001', fecha: '2020-01-01', claveOperacion: clave };
-      const compra = await registrarComprobante(proveedor.id, body);
-      assert.equal((await registrarComprobante(proveedor.id, body)).id, compra.id);
+      await assert.rejects(() => registrarComprobante(proveedor.id, body), /Compras/);
+      await registrarCompra({ proveedorId: proveedor.id, fechaHora: '2020-01-01', tipoComprobante: 'FACTURA', numeroComprobante: 'S3-001', detalles: [{ productoId: producto.id, cantidad: 1, costoUnitario: '100.50' }] });
       assert.equal(await Compra.count({ ...opciones, where: { proveedorId: proveedor.id } }), 1);
       const pagoBody = { importe: '25.25', claveOperacion: randomUUID() };
       const pago = await registrarPago(proveedor.id, pagoBody);
@@ -76,7 +77,8 @@ test('Sprint 3 en PostgreSQL: migración, asociaciones, comprobantes, pagos y of
         assert.equal((await request('/productos')).status, 200);
         assert.equal((await request('/cuenta?desde=2026-02-30')).status, 400);
         const compra = await post('/comprobantes', { total: '5.50', fecha: '2020-01-01', numeroComprobante: 'S3-HTTP', claveOperacion: randomUUID() });
-        assert.equal(compra.status, 201);
+        assert.equal(compra.status, 410);
+        await registrarCompra({ proveedorId: proveedor.id, fechaHora: '2020-01-01', tipoComprobante: 'FACTURA', numeroComprobante: 'S3-HTTP', detalles: [{ productoId: producto.id, cantidad: 1, costoUnitario: '5.50' }] });
         const body = { importe: '5.50', claveOperacion: randomUUID() };
         const pago = await post('/pagos', body); assert.equal(pago.status, 201);
         const id = (await pago.json()).pago.id;

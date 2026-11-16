@@ -241,6 +241,7 @@ class PagoPorCuentaRepository extends BaseRepository<PagoPorCuenta> {
             const cuenta = await CuentaProveedor.findOne({
                 where: {
                     proveedorId,
+                    importePendiente: { [Op.gt]: 0 },
                     estado: {
                         [Op.in]: ['PAGO PENDIENTE', 'PAGO PARCIAL']
                     }
@@ -258,7 +259,7 @@ class PagoPorCuentaRepository extends BaseRepository<PagoPorCuenta> {
                     ['id', 'ASC']
                 ],
                 transaction,
-                lock: transaction.LOCK.UPDATE
+                lock: { level: transaction.LOCK.UPDATE, of: CuentaProveedor }
             });
 
             // No quedan cuentas pendientes: conservar el saldo del pago.
@@ -302,7 +303,11 @@ class PagoPorCuentaRepository extends BaseRepository<PagoPorCuenta> {
             }
 
             // Registrar la aplicación del pago a la cuenta.
-            await this.crear(
+            const anterior = await this.buscarPorPagoYCuenta(pagoId, cuenta.id, transaction);
+            if (anterior) {
+                const total = Math.round(Number(anterior.importeAplicado) * 100) + importeAplicarCentavos;
+                await this.actualizar(pagoId, cuenta.id, { importeAplicado: (total / 100).toFixed(2) }, transaction);
+            } else await this.crear(
                 {
                     pagoId,
                     cuentaId: cuenta.id,
