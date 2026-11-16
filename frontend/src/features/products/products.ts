@@ -28,7 +28,7 @@ export const emptyDraft: ProductDraft = {
 }
 
 export function normalize(value: string) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 export function validateProduct(draft: ProductDraft, products: Product[], editingId?: string) {
@@ -36,6 +36,7 @@ export function validateProduct(draft: ProductDraft, products: Product[], editin
   if ((editingId || draft.code.trim()) && !/^[A-Z0-9-]{2,20}$/i.test(draft.code.trim())) errors.code = 'Usá entre 2 y 20 letras, números o guiones.'
   else if (draft.code.trim() && products.some(p => p.id !== editingId && normalize(p.code) === normalize(draft.code))) errors.code = 'Este código ya existe, incluso entre los productos inactivos.'
   if (draft.name.trim().length < 2 || draft.name.trim().length > 50) errors.name = 'Ingresá un nombre de entre 2 y 50 caracteres.'
+  else if (products.some(p => p.id !== editingId && normalize(p.name) === normalize(draft.name))) errors.name = 'Ya existe un producto con ese nombre.'
   if (!categories.includes(draft.category)) errors.category = 'Seleccioná una categoría válida.'
   if (!units.includes(draft.unit)) errors.unit = 'Seleccioná una unidad válida.'
   if (draft.description.length > 300) errors.description = 'La descripción admite hasta 300 caracteres.'

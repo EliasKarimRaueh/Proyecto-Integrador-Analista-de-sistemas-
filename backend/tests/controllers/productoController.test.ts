@@ -46,7 +46,10 @@ const BODY_VALIDO = {
 
 beforeEach(() => {
   tipoProductoRepo.findAll.mockResolvedValue(CATEGORIAS);
-  productoRepo.findAll.mockResolvedValue({ rows: [producto()], count: 1 });
+  productoRepo.findAll.mockImplementation((page: number, limit: number) => {
+    if (limit === 10000) return Promise.resolve({ rows: [], count: 0 });
+    return Promise.resolve({ rows: [producto()], count: 1 });
+  });
   productoRepo.findAllActivos.mockResolvedValue({ rows: [producto()], count: 1 });
   productoRepo.findAllBy.mockResolvedValue({ rows: [producto()], count: 1 });
   productoRepo.findById.mockResolvedValue(producto());
@@ -338,6 +341,32 @@ describe('createProducto', () => {
     expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese código.' });
   });
 
+  it('responde 409 cuando el nombre ya existe', async () => {
+    productoRepo.findAll.mockImplementation((page: number, limit: number) => {
+      if (limit === 10000) return Promise.resolve({ rows: [producto({ id: 99, nombre: 'Pollo entero' })], count: 1 });
+      return Promise.resolve({ rows: [producto()], count: 1 });
+    });
+    const res = crearRes();
+    await createProducto(crearReq({ body: BODY_VALIDO }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese nombre.' });
+    expect(productoRepo.create).not.toHaveBeenCalled();
+  });
+
+  it('responde 409 cuando el nombre ya existe con mayúsculas o acentos distintos', async () => {
+    productoRepo.findAll.mockImplementation((page: number, limit: number) => {
+      if (limit === 10000) return Promise.resolve({ rows: [producto({ id: 99, nombre: 'PÓLLO  ENTERO' })], count: 1 });
+      return Promise.resolve({ rows: [producto()], count: 1 });
+    });
+    const res = crearRes();
+    await createProducto(crearReq({ body: { ...BODY_VALIDO, name: '  pollo entero  ' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese nombre.' });
+    expect(productoRepo.create).not.toHaveBeenCalled();
+  });
+
   it('autogenera un código cuando el cuerpo no lo trae', async () => {
     const { code: _code, ...sinCode } = BODY_VALIDO;
     const res = crearRes();
@@ -493,15 +522,38 @@ describe('updateProducto', () => {
   });
 
   it('traduce el código duplicado a 409 sin consola', async () => {
-    // sendDatabaseError (productoController.ts:75) reconoce el choque de código
-    // y responde 409; el 500 de la rama anterior solo cubre el nombre del error
-    // cuando no es Error.
+    // sendDatabaseError reconoce el choque de código y responde 409.
     productoRepo.updateById.mockRejectedValue(new Error('productos_codigo_unique'));
     const res = crearRes();
     await updateProducto(crearReq({ params: { id: '10' }, body: BODY_VALIDO }), res);
 
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese código.' });
+  });
+
+  it('responde 409 cuando el nuevo nombre ya lo usa otro producto', async () => {
+    productoRepo.findAll.mockImplementation((page: number, limit: number) => {
+      if (limit === 10000) return Promise.resolve({ rows: [producto({ id: 10, nombre: 'Pollo entero' }), producto({ id: 99, nombre: 'Pechuga' })], count: 2 });
+      return Promise.resolve({ rows: [producto()], count: 1 });
+    });
+    const res = crearRes();
+    await updateProducto(crearReq({ params: { id: '10' }, body: { ...BODY_VALIDO, name: 'Pechuga' } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese nombre.' });
+    expect(productoRepo.updateById).not.toHaveBeenCalled();
+  });
+
+  it('permite actualizar conservando el mismo nombre del producto', async () => {
+    productoRepo.findAll.mockImplementation((page: number, limit: number) => {
+      if (limit === 10000) return Promise.resolve({ rows: [producto({ id: 10, nombre: 'Pollo entero' })], count: 1 });
+      return Promise.resolve({ rows: [producto()], count: 1 });
+    });
+    const res = crearRes();
+    await updateProducto(crearReq({ params: { id: '10' }, body: BODY_VALIDO }), res);
+
+    expect(res.status).not.toHaveBeenCalledWith(409);
+    expect(productoRepo.updateById).toHaveBeenCalledWith(10, expect.objectContaining({ nombre: 'Pollo entero' }));
   });
 
   it('actualiza la unidad de venta sin sobrescribir la log?stica omitida', async () => {
