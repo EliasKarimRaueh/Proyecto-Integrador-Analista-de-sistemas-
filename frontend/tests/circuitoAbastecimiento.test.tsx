@@ -119,3 +119,8 @@ it('abre pedidos y compras asociados desde el detalle de la recepción', async (
   const compraModal = await screen.findByRole('dialog', { name: /Compras.*#8/ })
   expect(within(compraModal).getByText('Total')).toBeTruthy()
 })
+it('no ofrece el botón Nueva compra en el historial de compras', async () => {
+  render(<MemoryRouter><HistorialAbastecimientoPage tipo="compras"/></MemoryRouter>)
+  expect(await screen.findByRole('heading', { name: 'Compras' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Nueva compra' })).toBeNull()
+})
