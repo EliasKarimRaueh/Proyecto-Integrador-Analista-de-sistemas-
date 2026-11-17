@@ -12,6 +12,47 @@
 .supply-line h3 { margin: 0 0 .5rem; }
 .supply-line .operation-actions { justify-content: space-between; margin-top: .8rem; }
 .supply-amount { display: block; margin-top: .35rem; }
-.supply-observations { display: grid; gap: .5rem; margin-top: 1rem; }
+.supply-observations {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 1rem;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: #17243b;
+  text-align: left;
+}
+
+.supply-observations textarea {
+  width: 100%;
+  border: 1px solid #dce2ec;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13px;
+  color: #263550;
+  resize: vertical;
+}
+
+.compra-costo-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.compra-costo-label input {
+  width: 140px;
+  padding: 6px 10px;
+  border: 1px solid #dce2ec;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  color: #17243b;
+}
 .sidebar nav { overflow-y: auto; min-height: 0; }
 @media (max-width: 700px) { .supply-toolbar { flex-direction: column; align-items: stretch; } .supply-filters label { width: 100%; } }
