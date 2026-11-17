@@ -43,6 +43,28 @@ test('recibe sobrantes y productos extra sin compra y genera solo los ingresos a
   expect(productoUpdate).not.toHaveBeenCalled(); expect(CuentaProveedor.create).not.toHaveBeenCalled();
   expect(pedidoUpdate).toHaveBeenCalledWith(expect.objectContaining({ estado: 'RECIBIDO' }), expect.any(Object));
 });
+test('rechaza una recepción cuando no se acepta ninguna mercadería', async () => {
+  await expect(servicio.crearRecepcion({
+    pedidoId: 42,
+    observaciones: 'Rechazo total del pedido',
+    detalles: [{ productoId: 1, presentacion: 'UNIDAD', cantidadPresentacion: 0, factorConversion: 1, cantidadRechazadaBase: 100, motivo: 'Mercadería vencida' }],
+  })).rejects.toMatchObject({ status: 409, message: /sin mercadería aceptada/ });
+  expect(recepcionCrear).not.toHaveBeenCalled();
+  expect(DetalleRecepcion.bulkCreate).not.toHaveBeenCalled();
+  expect(movimientos.registrarIngreso).not.toHaveBeenCalled();
+  expect(pedidoUpdate).not.toHaveBeenCalled();
+});
+test('admite recepciones parciales con algún producto rechazado', async () => {
+  await servicio.crearRecepcion({
+    pedidoId: 42,
+    detalles: [
+      { productoId: 1, presentacion: 'UNIDAD', cantidadPresentacion: 0, factorConversion: 1, cantidadRechazadaBase: 100, motivo: 'Mercadería vencida' },
+      { productoId: 2, presentacion: 'UNIDAD', cantidadPresentacion: 50, factorConversion: 1 },
+    ],
+  });
+  expect(recepcionCrear).toHaveBeenCalledWith(expect.objectContaining({ pedidoId: 42, conformidad: 'CON_DIFERENCIAS' }), expect.any(Object));
+  expect(movimientos.registrarIngreso).toHaveBeenCalledTimes(1);
+});
 test('compra lo aceptado, calcula el costo unitario, crea deuda y enlaza los movimientos existentes', async () => {
   await servicio.crearCompra(comprar);
   expect(compraCrear).toHaveBeenCalledWith(expect.objectContaining({ recepcionId: 7, pedidoId: 42, total: '2200.00', formaPago: 'A CUENTA', tipoComprobante: null, numeroComprobante: null }), expect.any(Object));
