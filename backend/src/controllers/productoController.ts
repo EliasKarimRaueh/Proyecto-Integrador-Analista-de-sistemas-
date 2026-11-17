@@ -79,9 +79,6 @@ function presentProduct(product: StoredProduct, category: string) {
     tipoReposicion: product.tipoReposicion,
     proveedorHabitualId: product.proveedorHabitualId,
     costoActual: product.costoActual,
-    imagenNombre: product.imagenNombre,
-    imagenMime: product.imagenMime,
-    imagenBytes: product.imagenBytes,
   };
 }
 

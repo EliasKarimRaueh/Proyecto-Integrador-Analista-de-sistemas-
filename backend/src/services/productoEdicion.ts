@@ -20,17 +20,7 @@ export function camposProducto(body: Record<string, unknown>, unidad: unknown) {
     data.tipoReposicion = body.tipoReposicion as Producto['tipoReposicion'];
   }
   if (body.costoActual !== undefined) data.costoActual = monto(body.costoActual);
-  if (body.imagenBase64 !== undefined) {
-    if (body.imagenBase64 === null) Object.assign(data, { imagen: null, imagenNombre: null, imagenMime: null, imagenBytes: null });
-    else {
-      if (typeof body.imagenBase64 !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(body.imagenBase64)) throw new ErrorOperacion('Imagen inválida.');
-      const imagen = Buffer.from(body.imagenBase64, 'base64');
-      const mime = String(body.imagenMime);
-      const valido = mime === 'image/png' ? imagen.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) : mime === 'image/jpeg' ? imagen[0] === 255 && imagen[1] === 216 && imagen[2] === 255 : mime === 'image/webp' && imagen.toString('ascii', 0, 4) === 'RIFF' && imagen.toString('ascii', 8, 12) === 'WEBP';
-      if (!valido || imagen.length > 48000 || typeof body.imagenNombre !== 'string' || body.imagenNombre.length > 255) throw new ErrorOperacion('Usá una imagen PNG, JPEG o WebP de hasta 48 KB.');
-      Object.assign(data, { imagen, imagenNombre: body.imagenNombre, imagenMime: mime, imagenBytes: imagen.length });
-    }
-  }
+  if (['imagenBase64', 'imagenNombre', 'imagenMime', 'imagenBytes'].some(campo => body[campo] !== undefined)) throw new ErrorOperacion('No se permiten imágenes de producto.');
   if (body.proveedorHabitualId !== undefined) {
     if (body.proveedorHabitualId !== null && (!Number.isSafeInteger(body.proveedorHabitualId) || Number(body.proveedorHabitualId) <= 0)) throw new ErrorOperacion('Proveedor habitual inválido.');
     data.proveedorHabitualId = body.proveedorHabitualId as number | null;
