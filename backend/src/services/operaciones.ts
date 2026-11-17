@@ -134,6 +134,11 @@ export async function vender(body: unknown, cotizacion = false) {
           if (item.producto.unidadVenta === 'UNIDADES' && cantidad !== cantidadPromocional) throw new ErrorOperacion('Los componentes por unidad deben coincidir con la cantidad promocional.');
           numero(item.relacion.precioOferta, 'precio del componente', true);
           validarCantidad(item.producto, cantidad);
+          if (Math.abs(cantidad - cantidadPromocional) >= 0.15) {
+            throw new ErrorOperacion(
+              `La diferencia entre la cantidad promocional y el movimiento de stock de ${item.producto.nombre} supera la tolerancia permitida de 150 gr.`
+            );
+          }
           consumos.set(item.producto.id, (consumos.get(item.producto.id) ?? 0) + cantidad);
           despacho.push({ productoId: item.producto.id, nombre: item.producto.nombre, unidadVenta: item.producto.unidadVenta, cantidadPromocional, cantidadReal: cantidad });
         }

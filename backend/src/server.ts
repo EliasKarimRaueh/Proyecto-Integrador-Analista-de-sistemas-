@@ -14,22 +14,93 @@ import { migrateRecepcionConformidad } from 'polleria-database/migrations/recepc
 
 const PORT = process.env.PORT || 3000;
 
+const inicioTotal = Date.now();
+
 try {
+
+  // AUTENTICACION
+  let tiempoInicio = Date.now()
   await sequelize.authenticate();
-  await migrateProductCatalog();
-  await migratePreciosOfertas();
-  await migrateComprasSprint4();
-  await migrateProveedores();
-  await migrateCuentasProveedores();
-  await migrateZonaHorariaRecepcion();
-  await migrateLimpiezaEsquema();
-  await migratePresentacionPedidos();
-  await migrateRecepcionConformidad();
+  let tiempoFin = Date.now();
+  console.log(`Conexión con la base de datos realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  //MIGRACION CATALOGO PRODUCTOS
+  //tiempoInicio = Date.now();
+  //await migrateProductCatalog();
+  //tiempoFin = Date.now();
+  //console.log(`Migración Product Catalog realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  //MIGRACION PRECIOS OFERTA
+  //tiempoInicio = Date.now();
+  //await migratePreciosOfertas();
+  //tiempoFin = Date.now();
+  //console.log(`Migración Precios y Ofertas realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  //MIGRACION COMPRAS SPRINT 4
+  //tiempoInicio = Date.now();
+  //await migrateComprasSprint4();
+  //tiempoFin = Date.now();
+  //console.log(`Migración Compras Sprint 4 realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  //MIGRACION PROVEEDORES
+  //tiempoInicio = Date.now();
+  //await migrateProveedores();
+  //tiempoFin = Date.now();
+  //console.log(`Migración Proveedores realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  //MIGRACION CUENTAS PROVEEDORES
+  //tiempoInicio = Date.now();
+  //await migrateCuentasProveedores();
+  //tiempoFin = Date.now();
+  //console.log(`Migración Cuentas Proveedores realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  //MIGRACION ZONA HORARIA RECEPCION
+  //tiempoInicio = Date.now();
+  //await migrateZonaHorariaRecepcion();
+  //tiempoFin = Date.now();
+  //console.log(`Migración Zona Horaria Recepción realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  //MIGRACION LIMPIEZA ESQUEMAS
+  //tiempoInicio = Date.now();
+  //await migrateLimpiezaEsquema();
+  //tiempoFin = Date.now();
+  //console.log(`Migración Limpieza Esquema realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  //MIGRACION PRESENTACION PEDIDOS
+  //tiempoInicio = Date.now();
+  //await migratePresentacionPedidos();
+  //tiempoFin = Date.now();
+  //console.log(`Migración Presentación Pedidos realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  //MIGRACION RECEPCION CONFORMIDAD
+  //tiempoInicio = Date.now();
+  //await migrateRecepcionConformidad();
+  //tiempoFin = Date.now();
+  //console.log(`Migración Recepción Conformidad realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
+  console.log(`Tiempo total de inicialización: ${((Date.now() - inicioTotal) / 1000).toFixed(2)} segundos`);
   console.log('Conexión exitosa con la base de datos');
 
+
+  //Escuchar puerto
+  tiempoInicio = Date.now();
   app.listen(PORT, () => {
     console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
   });
+  tiempoFin = Date.now();
+  console.log(`Duración para la escucha: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+
 } catch (error) {
   console.error('No se pudo conectar con la base de datos:', error);
   process.exit(1);
