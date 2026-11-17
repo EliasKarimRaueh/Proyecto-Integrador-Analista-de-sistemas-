@@ -32,10 +32,12 @@
     "./repositories/pagoPorCuentaRepository": "./src/repositories/pagoPorCuentaRepository.ts",
     "./repositories/productoProveedorRepository": "./src/repositories/productoProveedorRepository.ts",
     "./repositories/pedidosRepository": "./src/repositories/pedidoRepository.ts",
+    "./repositories/pedidoRepository": "./src/repositories/pedidoRepository.ts",
     "./repositories/detallePedidoRepository": "./src/repositories/detallePedidoRepository.ts",
     "./repositories/detalleCompraRepository": "./src/repositories/detalleCompraRepository.ts",
     "./repositories/recepcionRepository": "./src/repositories/recepcionRepository.ts",
-    "./repositories/detalleRecepcionRepository": "./src/repositories/detalleRecepcionRepository.ts"
+    "./repositories/detalleRecepcionRepository": "./src/repositories/detalleRecepcionRepository.ts",
+    "./repositories/circuitoAbastecimientoRepository": "./src/repositories/circuitoAbastecimientoRepository.ts"
   },
   "scripts": {
     "build": "tsc",

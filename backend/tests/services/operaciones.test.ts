@@ -590,6 +590,7 @@ describe('vender', () => {
     });
     expect(movimientosRepo.registrarEgreso).not.toHaveBeenCalled();
     expect(ofertasRepo.listarDetalleProductos).toHaveBeenCalledWith(7, true, transaccion);
+    expect(OfertaModel.findByPk).toHaveBeenCalledTimes(1);
     expect(OfertaModel.findByPk).toHaveBeenCalledWith(7, { transaction: transaccion, lock: transaccion.LOCK.SHARE });
   });
 

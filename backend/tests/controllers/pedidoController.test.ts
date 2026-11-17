@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
-jest.mock('../../../database/src/repositories/pedidoRepository.js', () => require('../mocks/pedidoRepository.js'));
-jest.mock('../../../database/src/repositories/detallePedidoRepository.js', () => require('../mocks/detallePedidoRepository.js'));
+jest.mock('polleria-database/repositories/pedidoRepository', () => require('../mocks/pedidoRepository.js'));
+jest.mock('polleria-database/repositories/detallePedidoRepository', () => require('../mocks/detallePedidoRepository.js'));
 jest.mock('polleria-database/repositories/compraRepository', () => require('../mocks/compraRepository.js'));
 jest.mock('polleria-database/repositories/productoRepository', () => require('../mocks/productoRepository.js'));
 jest.mock('polleria-database/repositories/productoProveedorRepository', () => require('../mocks/productoProveedorRepository.js'));

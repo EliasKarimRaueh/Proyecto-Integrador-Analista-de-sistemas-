@@ -431,3 +431,14 @@ MovimientoStock.belongsTo(Recepcion, {
     foreignKey: 'recepcionId',
     as: 'recepcion'
 });
+
+// Recepcion 1 ─── 0..1 Compra (via compras.recepcionId)
+Recepcion.hasOne(Compra, {
+    foreignKey: 'recepcionId',
+    as: 'compra'
+});
+
+Compra.belongsTo(Recepcion, {
+    foreignKey: 'recepcionId',
+    as: 'recepcion'
+});

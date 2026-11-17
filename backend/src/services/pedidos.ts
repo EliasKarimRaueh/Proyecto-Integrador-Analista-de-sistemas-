@@ -1,7 +1,7 @@
-import CircuitoRepository from '../../../database/src/repositories/circuitoAbastecimientoRepository.js';
+import CircuitoRepository from 'polleria-database/repositories/circuitoAbastecimientoRepository';
 import sequelize from 'polleria-database/config/database';
-import PedidoRepository from '../../../database/src/repositories/pedidoRepository.js';
-import DetallePedidoRepository from '../../../database/src/repositories/detallePedidoRepository.js';
+import PedidoRepository from 'polleria-database/repositories/pedidoRepository';
+import DetallePedidoRepository from 'polleria-database/repositories/detallePedidoRepository';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import ProductoProveedorRepository from 'polleria-database/repositories/productoProveedorRepository';
 import ProveedorRepository from 'polleria-database/repositories/proveedorRepository';
@@ -170,7 +170,16 @@ export async function listarPedidos(
   }
 
   const resultado = await pedidos.listar({ proveedorId, estado, desde, hasta }, page, limit);
-  return { ...resultado, rows: await Promise.all(resultado.rows.map(async p => ({ ...p.toJSON(), ...await new CircuitoRepository().relacionadas(p.id) }))) };
+  const pedidoIds = resultado.rows.map(p => p.id);
+  const relacionadas = await new CircuitoRepository().relacionadasPorPedidos(pedidoIds);
+  const vacio = { recepciones: [], compras: [], recepcion: null, compra: null };
+  return {
+    ...resultado,
+    rows: resultado.rows.map(p => ({
+      ...(typeof (p as { toJSON?: () => Record<string, unknown> }).toJSON === 'function' ? p.toJSON() : p),
+      ...(relacionadas.get(p.id) ?? vacio)
+    }))
+  };
 }
 
 export async function detallePedido(pedidoId: number) {

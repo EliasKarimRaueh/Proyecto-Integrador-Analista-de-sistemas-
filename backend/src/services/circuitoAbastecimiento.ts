@@ -1,5 +1,5 @@
 import sequelize from 'polleria-database/config/database';
-import CircuitoRepository from '../../../database/src/repositories/circuitoAbastecimientoRepository.js';
+import CircuitoRepository from 'polleria-database/repositories/circuitoAbastecimientoRepository';
 import Producto from 'polleria-database/models/Producto';
 import Proveedor from 'polleria-database/models/Proveedor';
 import Pedido from 'polleria-database/models/Pedido';

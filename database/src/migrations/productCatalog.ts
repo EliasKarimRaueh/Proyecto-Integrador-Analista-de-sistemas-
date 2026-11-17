@@ -26,5 +26,13 @@ export async function migrateProductCatalog() {
              ADD COLUMN IF NOT EXISTS descripcion VARCHAR(300) NOT NULL DEFAULT ''`,
             { transaction }
         );
+        await sequelize.query(
+            `ALTER TABLE productos
+             ADD COLUMN IF NOT EXISTS imagen BYTEA,
+             ADD COLUMN IF NOT EXISTS "imagenNombre" VARCHAR(255),
+             ADD COLUMN IF NOT EXISTS "imagenMime" VARCHAR(255),
+             ADD COLUMN IF NOT EXISTS "imagenBytes" INTEGER`,
+            { transaction }
+        );
     });
 }

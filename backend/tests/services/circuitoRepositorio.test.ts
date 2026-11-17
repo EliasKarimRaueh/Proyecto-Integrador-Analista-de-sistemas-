@@ -27,3 +27,13 @@ test('bloquea la recepción y relee la compra asociada después del bloqueo', as
   expect(query.mock.calls[1][0]).not.toContain('r."compraId"');
   expect(resultado?.compra?.id).toBe(8);
 });
+test('relacionadasPorPedidos agrupa recepciones y compras en lote sin consultas N+1', async () => {
+  query
+    .mockResolvedValueOnce([{ id: 10, pedidoId: 1 }, { id: 11, pedidoId: 2 }])
+    .mockResolvedValueOnce([{ id: 20, pedidoId: 1, recepcionId: 10 }, { id: 21, pedidoId: null, recepcionId: 11 }]);
+  const mapa = await new CircuitoRepository().relacionadasPorPedidos([1, 2, 3]);
+  expect(query).toHaveBeenCalledTimes(2);
+  expect(mapa.get(1)).toMatchObject({ recepcion: { id: 10 }, compra: { id: 20 } });
+  expect(mapa.get(2)).toMatchObject({ recepcion: { id: 11 }, compra: { id: 21 } });
+  expect(mapa.get(3)).toEqual({ recepciones: [], compras: [], recepcion: null, compra: null });
+});

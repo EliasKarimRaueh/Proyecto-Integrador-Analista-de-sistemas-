@@ -344,6 +344,26 @@ describe('createProducto', () => {
     expect(res.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese código.' });
   });
 
+  it('mapea SequelizeUniqueConstraintError por fields y SequelizeForeignKeyConstraintError', async () => {
+    const errUnique = Object.assign(new Error('Validation error'), {
+      name: 'SequelizeUniqueConstraintError',
+      fields: { nombre: 'Pollo entero' },
+    });
+    productoRepo.create.mockRejectedValueOnce(errUnique);
+    const resUnique = crearRes();
+    await createProducto(crearReq({ body: BODY_VALIDO }), resUnique);
+    expect(resUnique.status).toHaveBeenCalledWith(409);
+    expect(resUnique.json).toHaveBeenCalledWith({ message: 'Ya existe un producto con ese nombre.' });
+
+    const errFk = Object.assign(new Error('violates foreign key constraint'), {
+      name: 'SequelizeForeignKeyConstraintError',
+    });
+    productoRepo.create.mockRejectedValueOnce(errFk);
+    const resFk = crearRes();
+    await createProducto(crearReq({ body: BODY_VALIDO }), resFk);
+    expect(resFk.status).toHaveBeenCalledWith(400);
+  });
+
   it('responde 409 cuando el nombre ya existe', async () => {
     productoRepo.findAll.mockImplementation((page: number, limit: number) => {
       if (limit === 10000) return Promise.resolve({ rows: [producto({ id: 99, nombre: 'Pollo entero' })], count: 1 });

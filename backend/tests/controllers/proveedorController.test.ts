@@ -289,6 +289,40 @@ describe('createProveedor', () => {
     });
   });
 
+  it('traduce SequelizeUniqueConstraintError de nombre a 409 y FK error a 400', async () => {
+    const errNombre = Object.assign(new Error('Validation error'), {
+      name: 'SequelizeUniqueConstraintError',
+      fields: { nombre: 'Distribuidora Sur' },
+    });
+    proveedorRepo.crear.mockRejectedValueOnce(errNombre);
+    const resNombre = crearRes();
+    await createProveedor(crearReq({ body: BODY_VALIDO }), resNombre);
+    expect(resNombre.status).toHaveBeenCalledWith(409);
+    expect(resNombre.json).toHaveBeenCalledWith({
+      message: 'Ya existe un proveedor registrado con ese nombre.',
+    });
+
+    const errFk = Object.assign(new Error('insert violates foreign key constraint'), {
+      name: 'SequelizeForeignKeyConstraintError',
+    });
+    proveedorRepo.crear.mockRejectedValueOnce(errFk);
+    const resFk = crearRes();
+    await createProveedor(crearReq({ body: BODY_VALIDO }), resFk);
+    expect(resFk.status).toHaveBeenCalledWith(400);
+
+    const errNombreErrors = Object.assign(new Error('Validation error'), {
+      name: 'SequelizeUniqueConstraintError',
+      errors: [{ path: 'nombre' }],
+    });
+    proveedorRepo.crear.mockRejectedValueOnce(errNombreErrors);
+    const resNombreErrors = crearRes();
+    await createProveedor(crearReq({ body: BODY_VALIDO }), resNombreErrors);
+    expect(resNombreErrors.status).toHaveBeenCalledWith(409);
+    expect(resNombreErrors.json).toHaveBeenCalledWith({
+      message: 'Ya existe un proveedor registrado con ese nombre.',
+    });
+  });
+
   it('responde 500 aunque la base rechace con un valor que no es Error', async () => {
     const consola = jest.spyOn(console, 'error').mockImplementation(() => {});
     proveedorRepo.crear.mockRejectedValue('boom');

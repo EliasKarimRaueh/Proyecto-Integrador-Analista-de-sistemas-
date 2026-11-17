@@ -1,4 +1,4 @@
-jest.mock('../../../database/src/repositories/circuitoAbastecimientoRepository.js', () => ({ __esModule: true, default: jest.fn(() => ({ esquemaDisponible: esquema, relacionadas, crearRecepcion: recepcionCrear, recepcion: recepcionBuscar, crearCompra: compraCrear, crearDetalleCompra: detalleCrear })) }));
+jest.mock('polleria-database/repositories/circuitoAbastecimientoRepository', () => ({ __esModule: true, default: jest.fn(() => ({ esquemaDisponible: esquema, relacionadas, crearRecepcion: recepcionCrear, recepcion: recepcionBuscar, crearCompra: compraCrear, crearDetalleCompra: detalleCrear })) }));
 jest.mock('polleria-database/models/Producto', () => ({ findByPk: jest.fn() }));
 jest.mock('polleria-database/models/Proveedor', () => ({ findByPk: jest.fn() }));
 jest.mock('polleria-database/models/Pedido', () => ({ findByPk: jest.fn() }));

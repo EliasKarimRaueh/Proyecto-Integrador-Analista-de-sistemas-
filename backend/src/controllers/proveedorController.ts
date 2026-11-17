@@ -51,12 +51,36 @@ function parseId(req: Request, res: Response) {
 }
 
 function sendDatabaseError(res: Response, error: unknown) {
+  const nombre = error instanceof Error ? error.name : '';
   const details = error instanceof Error ? error.message : String(error);
-  // Captura errores de unicidad si intentan registrar un CUIL, Teléfono o Email que ya existe
-  if (/unique|cuil|email|telefono/i.test(details)) {
+  const campos = error && typeof error === 'object' && 'fields' in error && error.fields && typeof error.fields === 'object'
+    ? Object.keys(error.fields as Record<string, unknown>).join(' ')
+    : '';
+  const errores = error && typeof error === 'object' && 'errors' in error && Array.isArray((error as { errors?: unknown[] }).errors)
+    ? (error as { errors: Array<{ path?: string }> }).errors.map(e => e.path ?? '').join(' ')
+    : '';
+  const textoError = `${details} ${campos} ${errores}`;
+
+  // Captura errores de unicidad por nombre, CUIL, teléfono o email
+  if (nombre === 'SequelizeUniqueConstraintError' || /unique|duplicate key/i.test(details)) {
+    if (/\bnombre\b|proveedores_nombre/i.test(textoError)) {
+      res.status(409).json({ message: 'Ya existe un proveedor registrado con ese nombre.' });
+      return;
+    }
     res.status(409).json({ message: 'Ya existe un proveedor registrado con ese CUIL, email o teléfono.' });
     return;
   }
+
+  if (nombre === 'SequelizeForeignKeyConstraintError' || /violates foreign key constraint/i.test(details)) {
+    res.status(400).json({ message: 'Uno de los valores enviados no existe en la base de datos.' });
+    return;
+  }
+
+  if (nombre === 'SequelizeValidationError' || /Validation error/i.test(details)) {
+    res.status(400).json({ message: details });
+    return;
+  }
+
   console.error('Error al operar sobre proveedores:', error);
   res.status(500).json({ message: 'No se pudo guardar el proveedor en la base de datos.' });
 }

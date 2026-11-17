@@ -15,13 +15,15 @@ export async function migrateLimpiezaEsquema() {
     await sequelize.transaction(async transaction => {
         const query = (sql: string) => sequelize.query(sql, { transaction });
 
-        // 1. Elimina la columna id muerta y garantiza la PK compuesta.
+        // 1. Elimina la columna id muerta sólo si existe y garantiza la PK compuesta.
         await query(`
             DO $$
             DECLARE
                 pk_name text;
                 pk_cols text[];
+                tiene_id boolean;
                 tiene_numero_item boolean;
+                duplicados_pk integer;
             BEGIN
                 SELECT c.conname,
                        array_agg(a.attname ORDER BY array_position(c.conkey, a.attnum))
@@ -34,16 +36,13 @@ export async function migrateLimpiezaEsquema() {
                    AND c.contype = 'p'
                  GROUP BY c.conname;
 
-                IF pk_cols = ARRAY['id'] THEN
-                    EXECUTE format(
-                        'ALTER TABLE %I DROP CONSTRAINT %I',
-                        'detallesPedido',
-                        pk_name
-                    );
-                    pk_cols := NULL;
-                END IF;
-
-                ALTER TABLE "detallesPedido" DROP COLUMN IF EXISTS id;
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM information_schema.columns
+                     WHERE table_schema = 'public'
+                       AND table_name = 'detallesPedido'
+                       AND column_name = 'id'
+                ) INTO tiene_id;
 
                 SELECT EXISTS (
                     SELECT 1
@@ -53,8 +52,29 @@ export async function migrateLimpiezaEsquema() {
                        AND column_name = 'numeroItem'
                 ) INTO tiene_numero_item;
 
+                SELECT COUNT(*) INTO duplicados_pk FROM (
+                    SELECT "pedidoId", "numeroItem"
+                      FROM "detallesPedido"
+                     GROUP BY "pedidoId", "numeroItem"
+                    HAVING COUNT(*) > 1 OR "pedidoId" IS NULL OR "numeroItem" IS NULL
+                ) t;
+
+                IF pk_cols = ARRAY['id'] AND tiene_numero_item AND duplicados_pk = 0 THEN
+                    EXECUTE format(
+                        'ALTER TABLE %I DROP CONSTRAINT %I',
+                        'detallesPedido',
+                        pk_name
+                    );
+                    pk_cols := NULL;
+                END IF;
+
+                IF tiene_id AND pk_cols IS DISTINCT FROM ARRAY['id'] THEN
+                    ALTER TABLE "detallesPedido" DROP COLUMN IF EXISTS id;
+                END IF;
+
                 IF pk_cols IS NULL
                    AND tiene_numero_item
+                   AND duplicados_pk = 0
                    AND NOT EXISTS (
                        SELECT 1
                          FROM pg_constraint
@@ -74,8 +94,12 @@ export async function migrateLimpiezaEsquema() {
             DECLARE
                 pk_name text;
                 pk_cols text[];
+                tiene_id boolean;
                 tiene_numero_item boolean;
                 tiene_importe_unitario boolean;
+                tiene_costo_unitario boolean;
+                duplicados_pk integer;
+                sin_importe integer;
             BEGIN
                 SELECT c.conname,
                        array_agg(a.attname ORDER BY array_position(c.conkey, a.attnum))
@@ -88,16 +112,13 @@ export async function migrateLimpiezaEsquema() {
                    AND c.contype = 'p'
                  GROUP BY c.conname;
 
-                IF pk_cols = ARRAY['id'] THEN
-                    EXECUTE format(
-                        'ALTER TABLE %I DROP CONSTRAINT %I',
-                        'detallesCompra',
-                        pk_name
-                    );
-                    pk_cols := NULL;
-                END IF;
-
-                ALTER TABLE "detallesCompra" DROP COLUMN IF EXISTS id;
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM information_schema.columns
+                     WHERE table_schema = 'public'
+                       AND table_name = 'detallesCompra'
+                       AND column_name = 'id'
+                ) INTO tiene_id;
 
                 SELECT EXISTS (
                     SELECT 1
@@ -107,8 +128,29 @@ export async function migrateLimpiezaEsquema() {
                        AND column_name = 'numeroItem'
                 ) INTO tiene_numero_item;
 
+                SELECT COUNT(*) INTO duplicados_pk FROM (
+                    SELECT "compraId", "numeroItem"
+                      FROM "detallesCompra"
+                     GROUP BY "compraId", "numeroItem"
+                    HAVING COUNT(*) > 1 OR "compraId" IS NULL OR "numeroItem" IS NULL
+                ) t;
+
+                IF pk_cols = ARRAY['id'] AND tiene_numero_item AND duplicados_pk = 0 THEN
+                    EXECUTE format(
+                        'ALTER TABLE %I DROP CONSTRAINT %I',
+                        'detallesCompra',
+                        pk_name
+                    );
+                    pk_cols := NULL;
+                END IF;
+
+                IF tiene_id AND pk_cols IS DISTINCT FROM ARRAY['id'] THEN
+                    ALTER TABLE "detallesCompra" DROP COLUMN IF EXISTS id;
+                END IF;
+
                 IF pk_cols IS NULL
                    AND tiene_numero_item
+                   AND duplicados_pk = 0
                    AND NOT EXISTS (
                        SELECT 1
                          FROM pg_constraint
@@ -121,8 +163,8 @@ export async function migrateLimpiezaEsquema() {
                         PRIMARY KEY ("compraId", "numeroItem");
                 END IF;
 
-                -- La columna vieja costoUnitario sólo se elimina cuando ya
-                -- existe importeUnitario, para no perder datos.
+                -- La columna vieja costoUnitario sólo se elimina si existe, ya existe
+                -- importeUnitario y ninguna fila perdería datos no migrados.
                 SELECT EXISTS (
                     SELECT 1
                       FROM information_schema.columns
@@ -131,9 +173,22 @@ export async function migrateLimpiezaEsquema() {
                        AND column_name = 'importeUnitario'
                 ) INTO tiene_importe_unitario;
 
-                IF tiene_importe_unitario THEN
-                    ALTER TABLE "detallesCompra"
-                        DROP COLUMN IF EXISTS "costoUnitario";
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM information_schema.columns
+                     WHERE table_schema = 'public'
+                       AND table_name = 'detallesCompra'
+                       AND column_name = 'costoUnitario'
+                ) INTO tiene_costo_unitario;
+
+                IF tiene_importe_unitario AND tiene_costo_unitario THEN
+                    EXECUTE 'SELECT COUNT(*) FROM "detallesCompra" WHERE "importeUnitario" IS NULL AND "costoUnitario" IS NOT NULL' INTO sin_importe;
+                    IF sin_importe = 0 THEN
+                        ALTER TABLE "detallesCompra"
+                            DROP COLUMN IF EXISTS "costoUnitario";
+                    ELSE
+                        RAISE WARNING 'detallesCompra tiene % filas con costoUnitario sin importeUnitario; se conserva costoUnitario.', sin_importe;
+                    END IF;
                 END IF;
             END $$;
         `);
@@ -165,7 +220,7 @@ export async function migrateLimpiezaEsquema() {
         await query('ALTER TABLE productos DROP CONSTRAINT IF EXISTS productos_codigo_key');
         await query('DROP INDEX IF EXISTS compras_comprobante_unique');
 
-        // 4. Alinea defaults y tipos con los modelos.
+        // 4. Alinea defaults y tipos con los modelos sin truncar ni sobreescribir datos válidos.
         await query("ALTER TABLE pedidos ALTER COLUMN estado SET DEFAULT 'REALIZADO'");
 
         await query(`
@@ -178,8 +233,15 @@ export async function migrateLimpiezaEsquema() {
                        AND table_name = 'pedidos'
                        AND column_name = 'estado'
                        AND data_type = 'character varying'
+                ) AND EXISTS (
+                    SELECT 1 FROM pedidos WHERE estado = 'PENDIENTE'
                 ) THEN
-                    UPDATE pedidos SET estado = 'REALIZADO' WHERE estado = 'PENDIENTE';
+                    UPDATE pedidos p
+                       SET estado = 'REALIZADO'
+                     WHERE p.estado = 'PENDIENTE'
+                       AND NOT EXISTS (
+                           SELECT 1 FROM recepciones r WHERE r."pedidoId" = p.id
+                       );
                 END IF;
             END $$;
         `);
@@ -187,8 +249,36 @@ export async function migrateLimpiezaEsquema() {
         await query('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS total NUMERIC(12,2)');
         await query('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS "usuarioRecepcion" BIGINT');
         await query('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS "fechaHoraRecepcion" TIMESTAMP WITH TIME ZONE');
-        await query('ALTER TABLE pedidos ALTER COLUMN observaciones TYPE VARCHAR(300)');
-        await query('ALTER TABLE compras ALTER COLUMN "numeroComprobante" TYPE VARCHAR(80)');
+
+        await query(`
+            DO $$
+            DECLARE
+                len_obs integer;
+                max_obs integer;
+                len_comp integer;
+                max_comp integer;
+            BEGIN
+                SELECT character_maximum_length INTO len_obs
+                  FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'pedidos' AND column_name = 'observaciones';
+                IF len_obs IS DISTINCT FROM 300 THEN
+                    SELECT COALESCE(MAX(LENGTH(observaciones)), 0) INTO max_obs FROM pedidos;
+                    IF max_obs <= 300 THEN
+                        ALTER TABLE pedidos ALTER COLUMN observaciones TYPE VARCHAR(300);
+                    END IF;
+                END IF;
+
+                SELECT character_maximum_length INTO len_comp
+                  FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'compras' AND column_name = 'numeroComprobante';
+                IF len_comp IS DISTINCT FROM 80 THEN
+                    SELECT COALESCE(MAX(LENGTH("numeroComprobante")), 0) INTO max_comp FROM compras;
+                    IF max_comp <= 80 THEN
+                        ALTER TABLE compras ALTER COLUMN "numeroComprobante" TYPE VARCHAR(80);
+                    END IF;
+                END IF;
+            END $$;
+        `);
 
         // Completa el total de pedidos viejos desde sus detalles y lo alinea
         // con el modelo (no nulo, con default 0).

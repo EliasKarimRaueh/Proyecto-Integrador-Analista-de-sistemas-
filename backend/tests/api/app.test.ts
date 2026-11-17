@@ -24,8 +24,8 @@ jest.mock('polleria-database/repositories/pagoRepository', () => require('../moc
 jest.mock('polleria-database/repositories/pagoPorCuentaRepository', () => require('../mocks/pagoPorCuentaRepository.js'));
 
 // Sprint 4: pedidos, reposición y recepciones.
-jest.mock('../../../database/src/repositories/pedidoRepository.js', () => require('../mocks/pedidoRepository.js'));
-jest.mock('../../../database/src/repositories/detallePedidoRepository.js', () => require('../mocks/detallePedidoRepository.js'));
+jest.mock('polleria-database/repositories/pedidoRepository', () => require('../mocks/pedidoRepository.js'));
+jest.mock('polleria-database/repositories/detallePedidoRepository', () => require('../mocks/detallePedidoRepository.js'));
 jest.mock('polleria-database/repositories/detalleCompraRepository', () => require('../mocks/detalleCompraRepository.js'));
 jest.mock('polleria-database/repositories/recepcionRepository', () => require('../mocks/recepcionRepository.js'));
 jest.mock('polleria-database/repositories/detalleRecepcionRepository', () => require('../mocks/detalleRecepcionRepository.js'));

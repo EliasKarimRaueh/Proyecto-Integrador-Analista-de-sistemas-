@@ -102,17 +102,39 @@ async function hasDuplicateName(name: string, excludeId?: number) {
 
 function sendDatabaseError(res: Response, error: unknown) {
   if (error instanceof ErrorOperacion) { res.status(error.status).json({ message: error.message }); return; }
+  const nombre = error instanceof Error ? error.name : '';
   const details = error instanceof Error ? error.message : String(error);
-  if (/unique|duplicate key|productos_codigo_unique|productos_nombre_unique/i.test(details)) {
-    if (/nombre/i.test(details)) {
+  const campos = error && typeof error === 'object' && 'fields' in error && error.fields && typeof error.fields === 'object'
+    ? Object.keys(error.fields as Record<string, unknown>).join(' ')
+    : '';
+  const errores = error && typeof error === 'object' && 'errors' in error && Array.isArray((error as { errors?: unknown[] }).errors)
+    ? (error as { errors: Array<{ path?: string }> }).errors.map(e => e.path ?? '').join(' ')
+    : '';
+  const textoError = `${details} ${campos} ${errores}`;
+
+  if (nombre === 'SequelizeUniqueConstraintError' || /unique|duplicate key|productos_codigo_unique|productos_nombre_unique/i.test(details)) {
+    if (/nombre/i.test(textoError)) {
       res.status(409).json({ message: 'Ya existe un producto con ese nombre.' });
       return;
     }
-    if (/codigo|productos_codigo_unique/i.test(details)) {
+    if (/codigo|productos_codigo_unique/i.test(textoError)) {
       res.status(409).json({ message: 'Ya existe un producto con ese código.' });
       return;
     }
+    res.status(409).json({ message: 'Ya existe un producto con ese nombre o código.' });
+    return;
   }
+
+  if (nombre === 'SequelizeForeignKeyConstraintError' || /violates foreign key constraint/i.test(details)) {
+    res.status(400).json({ message: 'Uno de los valores enviados no existe en la base de datos.' });
+    return;
+  }
+
+  if (nombre === 'SequelizeValidationError' || /Validation error/i.test(details)) {
+    res.status(400).json({ message: details });
+    return;
+  }
+
   console.error('Error al operar sobre productos:', error);
   res.status(500).json({ message: 'No se pudo guardar el producto en la base de datos.' });
 }

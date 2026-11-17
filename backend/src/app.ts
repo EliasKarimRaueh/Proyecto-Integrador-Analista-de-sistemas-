@@ -15,12 +15,31 @@ import pagoRoutes from './routes/pagoRoutes.js';
 
 const app: Application = express();
 
-const corsOptions = {
-  origin: 'http://localhost:5173',
+const DEFAULT_CORS_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
+const parsedOrigins = (process.env.CORS_ORIGIN ?? '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = parsedOrigins.length > 0 ? parsedOrigins : DEFAULT_CORS_ORIGINS;
+
+const corsOptions: cors.CorsOptions = {
+  origin(requestOrigin, callback) {
+    if (requestOrigin === undefined) {
+      callback(null, allowedOrigins[0]);
+      return;
+    }
+    if (allowedOrigins.includes(requestOrigin)) {
+      callback(null, requestOrigin);
+      return;
+    }
+    callback(null, false);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['X-Total-Count'],
-  credentials: true 
+  credentials: true
 };
 
 app.use(cors(corsOptions));

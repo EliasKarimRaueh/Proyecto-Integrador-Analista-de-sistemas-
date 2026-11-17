@@ -163,7 +163,7 @@ export async function vender(body: unknown, cotizacion = false) {
         importeUnitario = oferta.precioFinal != null ? Number(oferta.precioFinal) : oferta.descuentoPorcentaje == null
           ? componentes.get(l.ofertaId!)!.reduce((s, i) => s + Number(i.relacion.precioOferta), 0)
           : Number((await precioCombo(componentes.get(l.ofertaId!)!.map(i => ({ productoId: i.producto.id, cantidad: i.relacion.cantidad })), oferta.descuentoPorcentaje, l.tipoPrecio, transaction)).resumen.total);
-        nombre = (await Oferta.findByPk(l.ofertaId!, { transaction }))!.nombre;
+        nombre = oferta.nombre;
       }
       if (!Number.isFinite(importeUnitario) || importeUnitario < 0) throw new ErrorOperacion('Precio inválido.');
       const precioRedondeado = formatearImporte(centavos(1, importeUnitario));

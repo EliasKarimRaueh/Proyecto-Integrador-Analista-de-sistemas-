@@ -13,30 +13,35 @@ export async function migrateZonaHorariaRecepcion() {
     await sequelize.transaction(async transaction => {
         const query = (sql: string) => sequelize.query(sql, { transaction });
 
-        // Idempotente: sólo convierte si la columna sigue siendo timestamp naive.
+        // Idempotente: sólo convierte si la columna sigue siendo timestamp naive
+        // y sólo en ese caso realinea contra recepciones (más valores NULL).
         await query(`
             DO $$
+            DECLARE
+                convirtio_tz BOOLEAN := false;
             BEGIN
                 IF EXISTS (
                     SELECT 1 FROM information_schema.columns
-                    WHERE table_name = 'pedidos'
+                    WHERE table_schema = 'public'
+                      AND table_name = 'pedidos'
                       AND column_name = 'fechaHoraRecepcion'
                       AND data_type = 'timestamp without time zone'
                 ) THEN
                     ALTER TABLE pedidos
                     ALTER COLUMN "fechaHoraRecepcion" TYPE TIMESTAMP WITH TIME ZONE
                     USING "fechaHoraRecepcion" AT TIME ZONE 'UTC';
+                    convirtio_tz := true;
                 END IF;
-            END $$;
-        `);
 
-        // Backfill desde recepciones (timestamptz): corrige cualquier desfase previo.
-        await query(`
-            UPDATE pedidos p
-               SET "fechaHoraRecepcion" = r."fechaHora"
-              FROM recepciones r
-             WHERE r."pedidoId" = p.id
-               AND p."fechaHoraRecepcion" IS DISTINCT FROM r."fechaHora"
+                UPDATE pedidos p
+                   SET "fechaHoraRecepcion" = r."fechaHora"
+                  FROM recepciones r
+                 WHERE r."pedidoId" = p.id
+                   AND (
+                       p."fechaHoraRecepcion" IS NULL
+                       OR (convirtio_tz AND p."fechaHoraRecepcion" IS DISTINCT FROM r."fechaHora")
+                   );
+            END $$;
         `);
     });
 }

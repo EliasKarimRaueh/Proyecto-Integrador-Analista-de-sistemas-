@@ -105,47 +105,44 @@ export async function migrateComprasSprint4() {
         await query("ALTER TABLE compras ALTER COLUMN estado SET DEFAULT 'PENDIENTE_RECEPCION'");
         await query('ALTER TABLE compras ALTER COLUMN estado SET NOT NULL');
 
-        // 1. Elimina cualquier clave foránea previa sobre compras.pedidoId que no apunte a pedidos
+        // 1. Si aún no existe la FK compras_pedido_fk, limpia FKs heredadas que no apunten a pedidos
+        // y valida integridad antes de crear la FK (sin anular pedidoId existentes silenciosamente).
         await query(`
             DO $$
             DECLARE
                 r RECORD;
-            BEGIN
-                FOR r IN (
-                    SELECT tc.constraint_name
-                    FROM information_schema.table_constraints tc
-                    JOIN information_schema.key_column_usage kcu
-                      ON tc.constraint_name = kcu.constraint_name
-                    JOIN information_schema.constraint_column_usage ccu
-                      ON ccu.constraint_name = tc.constraint_name
-                    WHERE tc.constraint_type = 'FOREIGN KEY'
-                      AND tc.table_name = 'compras'
-                      AND kcu.column_name = 'pedidoId'
-                      AND ccu.table_name <> 'pedidos'
-                ) LOOP
-                    EXECUTE 'ALTER TABLE compras DROP CONSTRAINT ' || quote_ident(r.constraint_name);
-                END LOOP;
-            END $$;
-        `);
-
-        // 2. Limpia los pedidoId huérfanos que no existen en pedidos
-        await query(`
-            UPDATE compras
-            SET "pedidoId" = NULL
-            WHERE "pedidoId" IS NOT NULL
-              AND "pedidoId" NOT IN (SELECT id FROM pedidos);
-        `);
-
-        // 3. Aplica la clave foránea hacia pedidos
-        await query(`
-            DO $$
+                huerfanos INTEGER;
             BEGIN
                 IF NOT EXISTS (
                     SELECT 1 FROM pg_constraint WHERE conname = 'compras_pedido_fk'
                 ) THEN
-                    ALTER TABLE compras
-                    ADD CONSTRAINT compras_pedido_fk
-                    FOREIGN KEY ("pedidoId") REFERENCES pedidos(id);
+                    FOR r IN (
+                        SELECT tc.constraint_name
+                        FROM information_schema.table_constraints tc
+                        JOIN information_schema.key_column_usage kcu
+                          ON tc.constraint_name = kcu.constraint_name
+                        JOIN information_schema.constraint_column_usage ccu
+                          ON ccu.constraint_name = tc.constraint_name
+                        WHERE tc.constraint_type = 'FOREIGN KEY'
+                          AND tc.table_name = 'compras'
+                          AND kcu.column_name = 'pedidoId'
+                          AND ccu.table_name <> 'pedidos'
+                    ) LOOP
+                        EXECUTE 'ALTER TABLE compras DROP CONSTRAINT ' || quote_ident(r.constraint_name);
+                    END LOOP;
+
+                    SELECT COUNT(*) INTO huerfanos
+                    FROM compras
+                    WHERE "pedidoId" IS NOT NULL
+                      AND "pedidoId" NOT IN (SELECT id FROM pedidos);
+
+                    IF huerfanos = 0 THEN
+                        ALTER TABLE compras
+                        ADD CONSTRAINT compras_pedido_fk
+                        FOREIGN KEY ("pedidoId") REFERENCES pedidos(id);
+                    ELSE
+                        RAISE WARNING 'compras tiene % pedidoId sin fila en pedidos; se omite compras_pedido_fk para preservar datos.', huerfanos;
+                    END IF;
                 END IF;
             END $$;
         `);

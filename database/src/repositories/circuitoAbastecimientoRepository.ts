@@ -44,6 +44,51 @@ export default class CircuitoAbastecimientoRepository {
         return { recepciones, compras, recepcion: recepciones[0] ?? null, compra: compras[0] ?? null };
     }
 
+    async relacionadasPorPedidos(pedidoIds: number[], transaction?: Transaction) {
+        type RelacionPedido = { recepciones: { id: number }[]; compras: { id: number }[]; recepcion: { id: number } | null; compra: { id: number } | null };
+        const resultado = new Map<number, RelacionPedido>();
+        const ids = [...new Set(pedidoIds)];
+        if (ids.length === 0) return resultado;
+
+        for (const pedidoId of ids) {
+            resultado.set(pedidoId, { recepciones: [], compras: [], recepcion: null, compra: null });
+        }
+
+        const recepciones = await sequelize.query<{ id: number; pedidoId: number }>(
+            'SELECT id, "pedidoId" FROM recepciones WHERE "pedidoId" IN (:pedidoIds) ORDER BY id',
+            { replacements: { pedidoIds: ids }, type: QueryTypes.SELECT, transaction }
+        );
+        const pedidoPorRecepcion = new Map<number, number>();
+        for (const r of recepciones) {
+            pedidoPorRecepcion.set(r.id, r.pedidoId);
+            const entry = resultado.get(r.pedidoId);
+            if (entry) {
+                const item = { id: r.id };
+                entry.recepciones.push(item);
+                if (!entry.recepcion) entry.recepcion = item;
+            }
+        }
+
+        const compras = await sequelize.query<{ id: number; pedidoId: number | null; recepcionId: number | null }>(
+            `SELECT c.id, c."pedidoId", ${relacionRecepcion} AS "recepcionId" FROM compras c WHERE c."pedidoId" IN (:pedidoIds) OR ${relacionRecepcion} IN (SELECT id FROM recepciones WHERE "pedidoId" IN (:pedidoIds)) ORDER BY c.id`,
+            { replacements: { pedidoIds: ids }, type: QueryTypes.SELECT, transaction }
+        );
+        for (const c of compras) {
+            const targetPedidoId = (c.pedidoId != null && resultado.has(c.pedidoId))
+                ? c.pedidoId
+                : (c.recepcionId != null ? pedidoPorRecepcion.get(c.recepcionId) : undefined);
+            if (targetPedidoId === undefined) continue;
+            const entry = resultado.get(targetPedidoId);
+            if (entry && !entry.compras.some(existing => existing.id === c.id)) {
+                const item = { id: c.id };
+                entry.compras.push(item);
+                if (!entry.compra) entry.compra = item;
+            }
+        }
+
+        return resultado;
+    }
+
     async crearCompra(datos: { recepcionId: number; pedidoId: number; proveedorId: number; tipoComprobante: string | null; numeroComprobante: string | null; formaPago: string; observaciones: string | null; total: string }, transaction: Transaction) {
         const rows = await sequelize.query<CabeceraCircuito>(`INSERT INTO compras ("recepcionId", "pedidoId", "proveedorId", "fechaHora", "tipoComprobante", "numeroComprobante", "formaPago", observaciones, total, estado)
             VALUES (:recepcionId, :pedidoId, :proveedorId, CURRENT_TIMESTAMP, :tipoComprobante, :numeroComprobante, :formaPago, :observaciones, :total, 'RECIBIDA') RETURNING *`, { replacements: datos, type: QueryTypes.SELECT, transaction });
