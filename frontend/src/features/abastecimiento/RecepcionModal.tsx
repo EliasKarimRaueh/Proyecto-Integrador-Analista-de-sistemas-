@@ -3,6 +3,7 @@ import { Modal } from '../../shared/components/Modal'
 import { ErrorCarga } from '../../shared/components/OperacionesUI'
 import { useApiResource } from '../../shared/hooks/useApiResource'
 import { fetchProducts, ApiError } from '../../shared/services/api'
+import { fetchProductosProveedor } from '../../shared/services/proveedores'
 import { guardarRecepcion, type PedidoCompra } from '../../shared/services/abastecimiento'
 import { cantidadFormato, cantidadInput, errorMensaje } from '../../shared/lib/operaciones'
 import { fechaTexto } from './calculos'
@@ -13,6 +14,21 @@ const redondear = (n: number) => Number(n.toFixed(3))
 
 export function RecepcionModal({ pedido, onClose, onGuardado }: { pedido: PedidoCompra; onClose: () => void; onGuardado: (id: number) => void }) {
   const productos = useApiResource(fetchProducts)
+
+  const relaciones = useApiResource(
+    () => pedido.proveedorId != null
+      ? fetchProductosProveedor(Number(pedido.proveedorId))
+      : Promise.resolve([]),
+    pedido.proveedorId
+  )
+
+  const disponibles = (productos.data ?? []).filter(p =>
+    p.active &&
+    (relaciones.data ?? []).some(r =>
+      r.activo && r.productoId === Number(p.id)
+    )
+  )
+  
   const [lineas, setLineas] = useState<Linea[]>(() => pedido.detalles.map(d => ({ productoId: d.productoId, presentacion: d.cantidadPresentacion != null ? presentaciones[d.presentacion ?? ''] ?? d.presentacion ?? 'KILOS' : d.producto?.unidadVenta === 'UNIDADES' ? 'UNIDAD' : 'KILOS', cantidad: String(d.cantidadPresentacion ?? d.cantidad), rechazado: '0', factor: String(d.factorConversion ?? 1), motivo: '' })))
   const [extra, setExtra] = useState(''), [observaciones, setObservaciones] = useState(''), [error, setError] = useState(''), [saving, setSaving] = useState(false), [incierto, setIncierto] = useState(false)
   const [ahora] = useState(() => new Date().toISOString()), lock = useRef(false)
@@ -44,7 +60,7 @@ export function RecepcionModal({ pedido, onClose, onGuardado }: { pedido: Pedido
     finally { lock.current = false; setSaving(false) }
   }
   return <Modal title={`Recibir pedido #${pedido.id}`} onClose={onClose} busy={saving}><form onSubmit={enviar} noValidate>
-    <ErrorCarga error={error}/><ErrorCarga error={productos.error} retry={productos.refetch}/>
+    <ErrorCarga error={error}/><ErrorCarga error={productos.error} retry={productos.refetch}/><ErrorCarga error={relaciones.error} retry={relaciones.refetch}/>
     <p>Pedido de origen: #{pedido.id} · Fecha y hora actual: {fechaTexto(ahora)} · Recibe: Dueño</p>
     <p>Se toma la fecha y hora automáticamente al confirmar. Solo lo aceptado ingresa al stock; la compra se registra después.</p>
     {incierto && <p role="alert">No se pudo confirmar el resultado. Revisá el historial de recepciones antes de volver a registrarla.</p>}
@@ -58,7 +74,16 @@ export function RecepcionModal({ pedido, onClose, onGuardado }: { pedido: Pedido
       {(d.faltante > 0 || d.rechazada > 0 || d.sobrante > 0) && <label>Motivo de la diferencia<input aria-label={`Motivo producto ${i + 1}`} maxLength={200} value={l.motivo} onChange={e => patch(i, { motivo: e.target.value })}/></label>}
       {!pedido.detalles.some(p => p.productoId === l.productoId) && <button className="button" type="button" onClick={() => setLineas(actual => actual.filter(p => p.productoId !== l.productoId))}>Quitar producto extra</button>}
       </div> })}</div>
-      <div className="form-grid"><label>Producto no incluido en el pedido<select aria-label="Producto adicional recibido" value={extra} onChange={e => setExtra(e.target.value)}><option value="">Seleccionar producto</option>{(productos.data ?? []).filter(p => p.active && !lineas.some(l => l.productoId === Number(p.id))).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><button type="button" className="button" disabled={!extra} onClick={() => { const p = productos.data?.find(p => p.id === extra); if (!p) return; setLineas(actual => [...actual, { productoId: Number(extra), cantidad: '1', rechazado: '0', factor: '1', presentacion: p.unit === 'unidad' ? 'UNIDAD' : 'KILOS', motivo: '' }]); setExtra('') }}>Agregar producto recibido</button></div>
+      <div className="form-grid"><label>Producto no incluido en el pedido<select aria-label="Producto adicional recibido" value={extra} onChange={e => setExtra(e.target.value)}>
+        <option value="">Seleccionar producto</option>
+      {disponibles
+        .filter(p => !lineas.some(l => l.productoId === Number(p.id)))
+        .map(p => (
+          <option key={p.id} value={p.id}>
+          {p.name}
+        </option>
+        ))}
+      </select></label><button type="button" className="button" disabled={!extra} onClick={() => { const p = disponibles.find(p => Number(p.id) === Number(extra)); if (!p) return; setLineas(actual => [...actual, { productoId: Number(extra), cantidad: '1', rechazado: '0', factor: '1', presentacion: p.unit === 'unidad' ? 'UNIDAD' : 'KILOS', motivo: '' }]); setExtra('') }}>Agregar producto recibido</button></div>
       <label>Observaciones (opcional)<textarea rows={3} maxLength={300} value={observaciones} onChange={e => setObservaciones(e.target.value)}/></label>
     </fieldset><div className="modal-footer"><button className="button" type="button" disabled={saving} onClick={onClose}>Cancelar</button><button className="button primary" disabled={saving || incierto || productos.loading || !!productos.error}>{saving ? 'Registrando...' : 'Confirmar recepción e ingresar stock'}</button></div>
   </form></Modal>
