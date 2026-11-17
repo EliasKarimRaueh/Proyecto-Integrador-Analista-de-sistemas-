@@ -99,7 +99,8 @@
 .inventory-count { max-height: 420px; overflow: auto; }
 
 /* Modal de ofertas ampliado para mostrar todos los campos de la subtabla sin scroll horizontal */
-.modal.modal-oferta {
+.modal.modal-oferta,
+.modal.modal-oferta-detalle {
   width: min(780px, calc(100% - 32px));
 }
 

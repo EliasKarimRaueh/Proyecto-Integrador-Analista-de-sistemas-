@@ -150,17 +150,17 @@ export function DetalleOfertaModal({ oferta, onClose, onCambio }: Props) {
     }
   }
 
-  if (detalle && (detalle.precioFinal != null || detalle.descuentoPorcentaje != null)) return <Modal eyebrow="CATÁLOGO DE OFERTAS" title={oferta.nombre} onClose={onClose}>
+  if (detalle && (detalle.precioFinal != null || detalle.descuentoPorcentaje != null)) return <Modal className="modal-oferta-detalle" eyebrow="CATÁLOGO DE OFERTAS" title={oferta.nombre} onClose={onClose}>
     <p>{detalle.descripcion || 'Sin descripción'}</p>
     <p>{formatearFecha(detalle.fechaInicio)} — {detalle.fechaFin ? formatearFecha(detalle.fechaFin) : 'Sin fecha de fin'} · {ETIQUETA_ESTADO[estado]}</p>
-    <div className="table-scroll"><table><thead><tr><th>Producto</th><th>Cantidad por combo</th><th>Precio de lista</th><th>Subtotal de lista</th><th>Estado</th></tr></thead><tbody>{productos.map(p => <tr key={p.productoId}><td>{p.nombre}</td><td>{p.cantidad ?? 1} {p.unidadVenta}</td><td>{formatearMonto(p.precioLista)}</td><td>{p.precioLista && p.activo ? formatearMonto(subtotalListaCentavos(p.precioLista, p.cantidad ?? 1) / 100) : '—'}</td><td>{p.activo ? 'Incluido' : 'Quitado'}</td></tr>)}</tbody></table></div>
+    <div className="table-scroll oferta-table-scroll"><table className="oferta-subtabla"><thead><tr><th>Producto</th><th>Cantidad por combo</th><th>Precio de lista</th><th>Subtotal de lista</th><th>Estado</th></tr></thead><tbody>{productos.map(p => <tr key={p.productoId}><td><strong>{p.nombre}</strong></td><td>{p.cantidad ?? 1} {p.unidadVenta}</td><td>{formatearMonto(p.precioLista)}</td><td>{p.precioLista && p.activo ? formatearMonto(subtotalListaCentavos(p.precioLista, p.cantidad ?? 1) / 100) : '—'}</td><td><span className={p.activo ? 'badge-activo' : 'subtle'}>{p.activo ? 'Incluido' : 'Quitado'}</span></td></tr>)}</tbody></table></div>
     <ResumenOferta detalle={detalle} />
     <p className="form-note">Para cambiar productos, cantidades o el precio final, usá Editar oferta.</p>
     <div className="modal-footer"><button className="button" onClick={onClose}>Cerrar detalle</button></div>
   </Modal>
 
   return (
-    <Modal eyebrow="CATÁLOGO DE OFERTAS" title={oferta.nombre} onClose={onClose}>
+    <Modal className="modal-oferta-detalle" eyebrow="CATÁLOGO DE OFERTAS" title={oferta.nombre} onClose={onClose}>
       {notice !== '' && <div className="notice success" role="status"><Icon name="check" />{notice}</div>}
       {error !== '' && <div className="notice error" role="alert">{error}</div>}
       {actionError !== '' && <div className="notice error" role="alert">{actionError}</div>}
@@ -191,8 +191,8 @@ export function DetalleOfertaModal({ oferta, onClose, onCambio }: Props) {
             {productos.length === 0
               ? <p className="modal-empty">Esta oferta no tiene productos.</p>
               : (
-                <div className="table-scroll">
-                  <table>
+                <div className="table-scroll oferta-table-scroll">
+                  <table className="oferta-subtabla">
                     <thead>
                       <tr>
                         <th scope="col">Producto</th>
