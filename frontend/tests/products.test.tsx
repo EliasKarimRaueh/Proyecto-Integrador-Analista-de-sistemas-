@@ -101,6 +101,24 @@ describe('Catálogo de productos conectado a la API', () => {
     expect(JSON.parse(String(llamada[1]?.body))).toMatchObject({ costoActual: '1500', precioMinorista: '2500', precioMayorista: '2200', stockActual: 12.5, proveedorIds: [1], proveedorHabitualId: 1 })
   })
 
+  it('no permite adjuntar imágenes ni en alta, edición o detalle', async () => {
+    const user = userEvent.setup()
+    render(<ProductsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Nuevo producto' }))
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    expect(screen.queryByLabelText('Imagen del producto')).toBeNull()
+    expect(screen.queryByText(/PNG, JPEG o WebP/)).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    await user.click(screen.getByRole('button', { name: 'Editar Suprema' }))
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    expect(screen.queryByLabelText('Imagen del producto')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    await user.click(screen.getByRole('button', { name: 'Ver Suprema' }))
+    expect(screen.queryByText('Imagen')).toBeNull()
+  })
+
   it('precarga los precios y limpia el habitual al quitar su relación', async () => {
     products[0] = { ...products[0], costoActual: '1500', proveedorIds: [1], proveedorHabitualId: 1 }
     const user = userEvent.setup()

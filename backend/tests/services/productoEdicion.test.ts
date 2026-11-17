@@ -17,6 +17,9 @@ test('valida precios, cantidades, reposición y proveedores antes de escribir', 
   expect(() => camposProducto({ stockActual: 1.5 }, 'unidad')).toThrow();
   expect(camposProducto({ costoActual: '1500.50', stockActual: 2.125, stockMinimo: null }, 'kg')).toMatchObject({ costoActual: '1500.50', stockActual: 2.125, stockMinimo: null });
 });
+test('rechaza cualquier campo de imagen', () => {
+  for (const datos of [{ imagenBase64: 'abc' }, { imagenBase64: null }, { imagenNombre: 'foto.png' }, { imagenMime: 'image/png' }, { imagenBytes: 10 }]) expect(() => camposProducto(datos, 'kg')).toThrow('No se permiten imágenes de producto.');
+});
 test('rechaza un habitual que no está asociado', async () => {
   jest.mocked(ProductoProveedor.findOne).mockResolvedValue(null);
   await expect(guardarComplementos({ id: 1, proveedorHabitualId: 9 } as Producto, {}, tx)).rejects.toThrow('relacionado');

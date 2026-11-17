@@ -23,7 +23,6 @@ function DatosProducto({ producto, minorista, mayorista, proveedores }: { produc
     <div><dt>Reposición</dt><dd>{producto.tipoReposicion === 'stockMinimo' ? 'Por stock mínimo' : producto.tipoReposicion === 'semanal' ? 'Semanal' : 'Diaria'}</dd></div>
     <div><dt>Proveedores relacionados</dt><dd>{proveedores.filter(p => producto.proveedorIds?.includes(p.id)).map(p => p.nombre).join(', ') || 'Sin proveedores'}</dd></div>
     <div><dt>Proveedor habitual</dt><dd>{proveedores.find(p => p.id === producto.proveedorHabitualId)?.nombre ?? 'Sin proveedor habitual'}</dd></div>
-    <div><dt>Imagen</dt><dd>{producto.imagenNombre ?? 'Sin imagen'}</dd></div>
   </dl>
 }
 
@@ -198,14 +197,6 @@ export function ProductsPage() {
             <label>Código<input maxLength={20} value={draft.code ?? ''} onChange={e => field('code', e.target.value)} placeholder="Automático si se deja vacío" />{errors.code && <small className="field-error">{errors.code}</small>}</label>
             <label>Tipo de reposición<select value={draft.tipoReposicion ?? 'diario'} onChange={e => field('tipoReposicion', e.target.value as ProductDraft['tipoReposicion'])}><option value="diario">Diaria</option><option value="semanal">Semanal</option><option value="stockMinimo">Por stock mínimo</option></select></label>
             {(['stockActual', 'stockMinimo', 'margenStock'] as const).map(key => <label key={key}>{key === 'stockActual' ? 'Stock actual' : key === 'stockMinimo' ? 'Stock mínimo' : 'Margen de stock'} ({draft.unit})<input type="number" min="0" max="1000000" step={draft.unit === 'kg' ? '0.001' : '1'} value={draft[key] ?? ''} onChange={e => field(key, e.target.value === '' ? key === 'stockActual' ? 0 : null : Number(e.target.value))} />{errors[key] && <small className="field-error">{errors[key]}</small>}</label>)}
-            <label className="full-width">Imagen del producto<input type="file" accept="image/png,image/jpeg,image/webp" onChange={async e => {
-              const archivo = e.target.files?.[0]; if (!archivo) return
-              if (archivo.size > 48000) { setApiError('La imagen debe pesar hasta 48 KB.'); e.target.value = ''; return }
-              try {
-                const base64 = await new Promise<string>((resolve, reject) => { const lector = new FileReader(); lector.onload = () => resolve(String(lector.result).split(',')[1]); lector.onerror = reject; lector.readAsDataURL(archivo) })
-                setDraft(actual => ({ ...actual, imagenBase64: base64, imagenNombre: archivo.name, imagenMime: archivo.type, imagenBytes: archivo.size })); setApiError('')
-              } catch { setApiError('No se pudo leer la imagen.') }
-            }} /><small>PNG, JPEG o WebP, hasta 48 KB. {draft.imagenNombre}</small>{draft.imagenNombre && <button type="button" className="button" onClick={() => setDraft(actual => ({ ...actual, imagenBase64: null, imagenNombre: null, imagenMime: null, imagenBytes: null }))}>Quitar imagen</button>}</label>
             <fieldset className="full-width product-suppliers"><legend>Proveedores relacionados</legend>{proveedores.error && <p role="alert">{proveedores.error}</p>}{proveedores.loading ? <p>Cargando proveedores...</p> : (proveedores.data ?? []).filter(p => p.activo || draft.proveedorIds?.includes(p.id)).map(p => <label key={p.id}><input type="checkbox" checked={draft.proveedorIds?.includes(p.id) ?? false} onChange={e => { field('proveedorIds', e.target.checked ? [...(draft.proveedorIds ?? []), p.id] : (draft.proveedorIds ?? []).filter(id => id !== p.id)); if (!e.target.checked && draft.proveedorHabitualId === p.id) field('proveedorHabitualId', null) }} />{p.nombre}{!p.activo && ' (inactivo)'}</label>)}</fieldset>
             <label>Proveedor habitual<select value={draft.proveedorHabitualId ?? ''} onChange={e => field('proveedorHabitualId', e.target.value ? Number(e.target.value) : null)}><option value="">Sin proveedor habitual</option>{(proveedores.data ?? []).filter(p => p.activo && draft.proveedorIds?.includes(p.id)).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select>{errors.proveedorHabitualId && <small className="field-error">{errors.proveedorHabitualId}</small>}</label>
           </div>}

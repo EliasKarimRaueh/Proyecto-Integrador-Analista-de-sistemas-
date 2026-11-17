@@ -76,14 +76,13 @@ describe('getEstadoStock', () => {
 
     expect(ProductoModel.findAndCountAll).toHaveBeenCalledWith(expect.objectContaining({
       where: { activo: true },
-      attributes: { exclude: ['imagen'] },
       order: [['id', 'ASC']],
       limit: 20,
       offset: 40,
     }));
   });
 
-  it('expone la imagen pero no filtra el estado calculado', async () => {
+  it('no filtra el estado calculado', async () => {
     ProductoModel.findAndCountAll.mockResolvedValue({
       rows: [
         producto({ id: 1, stockActual: 0, stockMinimo: 10 }),
