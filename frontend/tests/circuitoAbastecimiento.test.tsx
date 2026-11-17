@@ -15,7 +15,7 @@ let proveedor: any, pedido: any, recepcion: any, fetchMock: ReturnType<typeof vi
 const productoDetalle = (id: number) => ({ id, nombre: productos[id - 1].name, unidadVenta: 'UNIDADES', unidadCompra: productos[id - 1].unidadCompra, factorConversion: productos[id - 1].factorConversion, costoActual: productos[id - 1].costoActual })
 beforeEach(() => {
   proveedor = { id: 5, nombre: 'Proveedor Sur', activo: true, ctaCte: false }
-  pedido = { id: 42, proveedorId: 5, proveedor, fechaHora: '2026-11-16T10:00:00Z', estado: 'REALIZADO', totalEstimado: '1000', recepcion: null, detalles: [{ productoId: 1, cantidad: 100, costoEstimado: '10.00', subtotal: '1000', producto: productoDetalle(1) }] }
+  pedido = { id: 42, proveedorId: 5, proveedor, fechaHora: '2026-11-16T10:00:00Z', estado: 'REALIZADO', total: '0.00', totalEstimado: '1000', recepcion: null, detalles: [{ productoId: 1, cantidad: 100, costoEstimado: '10.00', subtotal: '1000', producto: productoDetalle(1) }] }
   recepcion = { id: 7, pedidoId: 42, proveedorId: 5, proveedor, fechaHora: '2026-11-16T11:00:00Z', conformidad: 'CON_DIFERENCIAS', compra: null, detalles: [{ productoId: 1, cantidadBase: 110, cantidadPresentacion: 110, factorConversion: 1, presentacion: 'UNIDAD', cantidadSobranteBase: 10, producto: productoDetalle(1) }] }
   fetchMock = vi.fn((input, options?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost'), method = options?.method ?? 'GET', body = options?.body ? JSON.parse(String(options.body)) : {}
@@ -112,7 +112,10 @@ it('abre pedidos y compras asociados desde el detalle de la recepción', async (
   await user.click(await screen.findByRole('button', { name: 'Ver pedido #42' }))
   expect(await screen.findByRole('dialog', { name: /Pedidos a proveedores.*#42/ })).toBeTruthy()
   const pedidoModal = screen.getByRole('dialog', { name: /Pedidos a proveedores.*#42/ })
+  expect(within(pedidoModal).queryByText('Total')).toBeNull()
+  expect(within(pedidoModal).getByText('Total estimado')).toBeTruthy()
   await user.click(within(pedidoModal).getAllByRole('button', { name: 'Cerrar' })[0])
   await user.click(screen.getByRole('button', { name: 'Ver compra #8' }))
-  expect(await screen.findByRole('dialog', { name: /Compras.*#8/ })).toBeTruthy()
+  const compraModal = await screen.findByRole('dialog', { name: /Compras.*#8/ })
+  expect(within(compraModal).getByText('Total')).toBeTruthy()
 })
