@@ -216,3 +216,51 @@
   white-space: normal;
   min-width: 130px;
 }
+
+/* Badges de alerta en tarjetas de estadísticas de Inventario */
+.stat-alert-badge {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  width: 38px;
+  height: 38px;
+  display: block;
+  flex-shrink: 0;
+  border-radius: 50%;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+
+/* Botón de la ruedita (configurar stock mínimo) en tabla de Inventario */
+.btn-ruedita-inventario {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 1px solid #dce2eb !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+  color: #4b5563 !important;
+  padding: 0 !important;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-ruedita-inventario:hover {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+  transform: scale(1.08);
+}
+
+.btn-ruedita-inventario:active {
+  transform: scale(0.96);
+}
+
+.btn-ruedita-inventario svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+

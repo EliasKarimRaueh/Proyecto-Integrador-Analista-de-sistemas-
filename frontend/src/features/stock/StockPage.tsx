@@ -14,6 +14,52 @@ const tipos: { value: TipoMovimiento; label: string }[] = [
   { value: 'AJUSTE_NEGATIVO', label: 'Ajuste negativo' }, { value: 'MERMA', label: 'Merma' },
   { value: 'VENCIMIENTO', label: 'Baja por vencimiento' }, { value: 'ROTURA', label: 'Baja por rotura' }, { value: 'PERDIDA', label: 'Otra pérdida' },
 ]
+
+function AlertaVerde() {
+  return (
+    <svg className="stat-alert-badge" viewBox="0 0 100 100" aria-label="Alerta verde: 1 signo de exclamación" aria-hidden="true">
+      <circle cx="50" cy="50" r="50" fill="#67c75c" />
+      <rect x="43.5" y="22" width="13" height="34" rx="6.5" fill="#ffffff" />
+      <circle cx="50" cy="70.5" r="6.5" fill="#ffffff" />
+    </svg>
+  )
+}
+
+function AlertaAmarilla() {
+  return (
+    <svg className="stat-alert-badge" viewBox="0 0 100 100" aria-label="Alerta amarilla: 2 signos de exclamación" aria-hidden="true">
+      <circle cx="50" cy="50" r="50" fill="#ffae31" />
+      <rect x="34.5" y="22" width="13" height="34" rx="6.5" fill="#ffffff" />
+      <circle cx="41" cy="70.5" r="6.5" fill="#ffffff" />
+      <rect x="52.5" y="22" width="13" height="34" rx="6.5" fill="#ffffff" />
+      <circle cx="59" cy="70.5" r="6.5" fill="#ffffff" />
+    </svg>
+  )
+}
+
+function AlertaRoja() {
+  return (
+    <svg className="stat-alert-badge" viewBox="0 0 100 100" aria-label="Alerta roja: 3 signos de exclamación" aria-hidden="true">
+      <circle cx="50" cy="50" r="50" fill="#ff2630" />
+      <rect x="25" y="22" width="12" height="34" rx="6" fill="#ffffff" />
+      <circle cx="31" cy="70.5" r="6" fill="#ffffff" />
+      <rect x="44" y="22" width="12" height="34" rx="6" fill="#ffffff" />
+      <circle cx="50" cy="70.5" r="6" fill="#ffffff" />
+      <rect x="63" y="22" width="12" height="34" rx="6" fill="#ffffff" />
+      <circle cx="69" cy="70.5" r="6" fill="#ffffff" />
+    </svg>
+  )
+}
+
+function IconoRuedita() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
 type Editor = { producto: StockProducto; mode: 'movimiento' | 'minimo' }
 export function StockPage() {
   const resource = useApiResource(fetchStock)
@@ -51,13 +97,24 @@ export function StockPage() {
   return <section>
     <Encabezado title="Inventario" description="Existencias, alertas de reposición y movimientos de mercadería." actions={<><button className="button primary" disabled={resource.loading || !!resource.error || !productos.length} onClick={() => { setNotice(''); setInventario(true) }}>Registrar nuevo inventario</button><Link className="button" to="/reposicion">Preparar reposición</Link><Link className="button" to="/movimientos">Ver movimientos</Link><Link className="button primary" to="/desposte">Desposte</Link></>} />
     <div className="stats-grid">
-      {[['Productos activos', productos.length], ['Próximos al mínimo', productos.filter(p => p.estado === 'Próximo al Mínimo').length], ['Stock crítico', productos.filter(p => p.estado === 'Crítico').length]].map(([label, count]) => <div className="stat" key={label}><div><span>{label}</span><strong>{count}</strong></div></div>)}
+      <div className="stat">
+        <div><span>Productos activos</span><strong>{productos.length}</strong></div>
+        <AlertaVerde />
+      </div>
+      <div className="stat">
+        <div><span>Próximos al mínimo</span><strong>{productos.filter(p => p.estado === 'Próximo al Mínimo').length}</strong></div>
+        <AlertaAmarilla />
+      </div>
+      <div className="stat">
+        <div><span>Stock crítico</span><strong>{productos.filter(p => p.estado === 'Crítico').length}</strong></div>
+        <AlertaRoja />
+      </div>
     </div>
     <ErrorCarga error={resource.error} retry={resource.refetch}/>
     {notice && <div className="notice success" role="status">{notice}</div>}
     <div className="catalog-panel">
       <div className="filters"><label className="search-field"><input aria-label="Buscar stock por nombre" placeholder="Buscar por nombre…" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}/></label><label className="status-filter">Estado<select value={estado} onChange={e => { setEstado(e.target.value); setPage(1) }}>{['Todos', 'Normal', 'Próximo al Mínimo', 'Crítico'].map(s => <option key={s}>{s}</option>)}</select></label></div>
-      {resource.loading ? <p className="operation-loading" role="status">Cargando inventario…</p> : <><div className="table-scroll"><table><thead><tr><th>Producto</th><th>Existencias</th><th>Mínimo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{visible.map(p => <tr key={p.id}><td><strong>{p.nombre}</strong></td><td>{cantidadFormato(p.stockActual)} {unidadCorta(p.unidadVenta)}</td><td>{p.stockMinimo === null ? 'Sin configurar' : `${cantidadFormato(p.stockMinimo)} ${unidadCorta(p.unidadVenta)}`}</td><td><EstadoStock estado={p.estado}/></td><td><div className="operation-actions"><button className="button" onClick={() => abrir(p, 'movimiento')}>Registrar movimiento</button><button className="icon-button" aria-label={`Configurar mínimo de ${p.nombre}`} title="Configurar mínimo" onClick={() => abrir(p, 'minimo')}>⚙</button><Link className="button" to={`/movimientos?productoId=${p.id}`}>Historial</Link></div></td></tr>)}</tbody></table></div>{!visible.length && <Vacio>{productos.length ? 'No hay productos que coincidan con los filtros.' : 'Registrá productos en el catálogo para comenzar.'}</Vacio>}<Paginacion page={page} count={filtered.length} onChange={setPage}/></>}
+      {resource.loading ? <p className="operation-loading" role="status">Cargando inventario…</p> : <><div className="table-scroll"><table><thead><tr><th>Producto</th><th>Existencias</th><th>Mínimo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{visible.map(p => <tr key={p.id}><td><strong>{p.nombre}</strong></td><td>{cantidadFormato(p.stockActual)} {unidadCorta(p.unidadVenta)}</td><td>{p.stockMinimo === null ? 'Sin configurar' : `${cantidadFormato(p.stockMinimo)} ${unidadCorta(p.unidadVenta)}`}</td><td><EstadoStock estado={p.estado}/></td><td><div className="operation-actions"><button className="button" onClick={() => abrir(p, 'movimiento')}>Registrar movimiento</button><button className="icon-button btn-ruedita-inventario" aria-label={`Configurar mínimo de ${p.nombre}`} title="Configurar mínimo" onClick={() => abrir(p, 'minimo')}><IconoRuedita /></button><Link className="button" to={`/movimientos?productoId=${p.id}`}>Historial</Link></div></td></tr>)}</tbody></table></div>{!visible.length && <Vacio>{productos.length ? 'No hay productos que coincidan con los filtros.' : 'Registrá productos en el catálogo para comenzar.'}</Vacio>}<Paginacion page={page} count={filtered.length} onChange={setPage}/></>}
     </div>
     {inventario && <InventarioModal productos={productos} onClose={() => { setInventario(false); resource.refetch() }} onGuardado={ajustes => { setInventario(false); setNotice(`Inventario registrado: ${ajustes} ajustes de stock.`); resource.refetch() }}/>}
     {editor && <Modal title={editor.mode === 'minimo' ? `Reposición · ${editor.producto.nombre}` : `Movimiento · ${editor.producto.nombre}`} onClose={() => setEditor(null)} busy={saving}>
