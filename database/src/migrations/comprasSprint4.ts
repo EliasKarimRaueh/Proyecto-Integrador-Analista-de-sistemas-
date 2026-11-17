@@ -157,6 +157,8 @@ export async function migrateComprasSprint4() {
         `);
 
         await query('ALTER TABLE movimientos_stock ADD COLUMN IF NOT EXISTS "recepcionId" INTEGER');
+        await query('ALTER TABLE compras ADD COLUMN IF NOT EXISTS "recepcionId" INTEGER REFERENCES recepciones(id)');
+        await query('ALTER TABLE recepciones ALTER COLUMN "compraId" DROP NOT NULL');
 
         await query(`
             DO $$

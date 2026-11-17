@@ -8,9 +8,10 @@ type ModalProps = {
   eyebrow?: string
   children: ReactNode
   busy?: boolean
+  className?: string
 }
 
-export function Modal({ title, onClose, eyebrow, children, busy = false }: ModalProps) {
+export function Modal({ title, onClose, eyebrow, children, busy = false, className }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   useEffect(() => {
@@ -20,7 +21,7 @@ export function Modal({ title, onClose, eyebrow, children, busy = false }: Modal
     return () => { dialog.close(); previous?.focus() }
   }, [])
   return (
-    <dialog ref={ref} className="modal" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) onClose() }}>
+    <dialog ref={ref} className={`modal ${className ?? ''}`.trim()} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) onClose() }}>
       <div className="modal-heading">
         <div>
           {eyebrow && <span className="eyebrow">{eyebrow}</span>}

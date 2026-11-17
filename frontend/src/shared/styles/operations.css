@@ -97,3 +97,122 @@
 .form-grid .product-suppliers input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; }
 .modal .product-picker { max-height: 280px; overflow-y: auto; overscroll-behavior: contain; }
 .inventory-count { max-height: 420px; overflow: auto; }
+
+/* Modal de ofertas ampliado para mostrar todos los campos de la subtabla sin scroll horizontal */
+.modal.modal-oferta,
+.modal.modal-oferta-detalle {
+  width: min(780px, calc(100% - 32px));
+}
+
+.oferta-table-scroll {
+  overflow-x: auto;
+  margin: 12px 0;
+  border-radius: 8px;
+  border: 1px solid #edf0f5;
+}
+
+.oferta-subtabla {
+  width: 100%;
+  table-layout: auto;
+}
+
+.oferta-subtabla th,
+.oferta-subtabla td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+.oferta-subtabla th:first-child,
+.oferta-subtabla td:first-child {
+  padding-left: 14px;
+}
+
+.oferta-cantidad-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.oferta-cantidad-input {
+  width: 70px !important;
+  max-width: 70px !important;
+  padding: 6px 8px !important;
+  font-size: 13px !important;
+  text-align: right;
+}
+
+.actions-heading-center {
+  text-align: center !important;
+  width: 80px;
+}
+
+.actions-cell-center {
+  text-align: center !important;
+  width: 80px;
+}
+
+/* Botón llamativo y accesible para eliminar producto de la oferta */
+.oferta-quitar-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  color: #dc2626 !important;
+  border-radius: 8px;
+  border: 1px solid #fca5a5;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  padding: 0;
+  margin: 0 auto;
+}
+
+.oferta-quitar-btn:hover {
+  background: #fecaca;
+  color: #b91c1c !important;
+  border-color: #f87171;
+  transform: scale(1.08);
+}
+
+.oferta-quitar-btn svg {
+  stroke-width: 2.2;
+}
+
+/* Modal de detalle de abastecimiento ampliado (pedidos, recepciones, compras) */
+.modal.modal-abastecimiento-detalle {
+  width: min(880px, calc(100% - 32px));
+}
+
+.detalle-abastecimiento-actions {
+  margin: 14px 0 20px 0;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detalle-abastecimiento-table-scroll {
+  overflow-x: auto;
+  margin: 14px 0 18px 0;
+  border-radius: 8px;
+  border: 1px solid #edf0f5;
+}
+
+.detalle-abastecimiento-tabla {
+  width: 100%;
+  table-layout: auto;
+}
+
+.detalle-abastecimiento-tabla th,
+.detalle-abastecimiento-tabla td {
+  padding: 10px 14px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.detalle-abastecimiento-tabla th:first-child,
+.detalle-abastecimiento-tabla td:first-child {
+  padding-left: 16px;
+  white-space: normal;
+  min-width: 130px;
+}

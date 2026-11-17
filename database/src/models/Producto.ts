@@ -26,6 +26,10 @@ class Producto extends Model {
         | 'diario'
         | 'semanal';
     declare stockMinimo: number | null;
+    declare imagen: Buffer | null;
+    declare imagenNombre: string | null;
+    declare imagenMime: string | null;
+    declare imagenBytes: number | null;
     declare margenStock: number | null
 }
 
@@ -182,6 +186,27 @@ Producto.init({
                 }
             }
         }
+    },
+
+    imagen: {
+        type: DataTypes.BLOB,
+        allowNull: true,
+        defaultValue: null
+    },
+    imagenNombre: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: null
+    },
+    imagenMime: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: null
+    },
+    imagenBytes: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null
     },
 
 }, {
