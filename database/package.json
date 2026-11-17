@@ -44,6 +44,7 @@
     "test:connection": "tsx src/test/test-connection.ts",
     "test:repositories": "tsx src/test/test-repositories.ts",
     "test:repositories2": "npx jest src/test/test-repositories2.test.ts",
+    "db:init":"tsx src/seeders/seedInicializarDatabaseDesdeExcel.ts",
     "db:seed": "tsx src/seeders/seedDatabase.ts",
     "seed:productos": "tsx src/seeders/seederProductos.ts",
     "seed:proveedores": "tsx src/seeders/seederProveedores.ts",
@@ -54,7 +55,8 @@
     "@supabase/supabase-js": "^2.110.3",
     "dotenv": "^17.4.2",
     "pg": "^8.x",
-    "sequelize": "^6.37.8"
+    "sequelize": "^6.37.8",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@swc/core": "^1.16.13",

@@ -24,10 +24,6 @@ Recepcion.init({
         type: DataTypes.INTEGER,
         allowNull: false,
         unique: true,
-        references: {
-            model: 'compras',
-            key: 'id'
-        }
     },
 
     pedidoId: {

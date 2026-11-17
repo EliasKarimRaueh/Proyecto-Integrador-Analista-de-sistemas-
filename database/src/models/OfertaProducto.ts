@@ -78,14 +78,6 @@ OfertaProducto.init({
 
     timestamps: false,
 
-    indexes: [
-        {
-            name: 'oferta_producto_unico',
-            unique: true,
-            fields: ['ofertaId', 'productoId']
-        }
-    ]
-
 });
 
 export default OfertaProducto;

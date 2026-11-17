@@ -381,17 +381,6 @@ MovimientoStock.belongsTo(Compra, {
     as: 'compra'
 });
 
-// Compra 1 - 1 Recepcion
-Compra.hasOne(Recepcion, {
-    foreignKey: 'compraId',
-    as: 'recepcion'
-});
-
-Recepcion.belongsTo(Compra, {
-    foreignKey: 'compraId',
-    as: 'compra'
-});
-
 Pedido.hasMany(Recepcion, {
     foreignKey: 'pedidoId',
     as: 'recepciones'
