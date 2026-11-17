@@ -71,7 +71,14 @@ export function ProductsPage() {
     if ((next.mode === 'create' || next.mode === 'edit') && (cargandoPrecios || errorPrecios)) {
       setApiError(errorPrecios || 'Esperá a que terminen de cargar los precios.'); return
     }
-    setDraft(next.mode === 'create' ? { ...emptyDraft } : { ...next.product, unidadCompra: next.product.unidadCompra ?? (next.product.unit === 'kg' ? 'KILOS' : 'UNIDADES'), factorConversion: next.product.factorConversion ?? 1 })
+    setDraft(next.mode === 'create' ? { ...emptyDraft } : {
+      ...next.product,
+      code: next.product.code ?? '',
+      name: next.product.name ?? '',
+      description: next.product.description ?? '',
+      unidadCompra: next.product.unidadCompra ?? (next.product.unit === 'kg' ? 'KILOS' : 'UNIDADES'),
+      factorConversion: next.product.factorConversion ?? 1,
+    })
     if (next.mode === 'create' || next.mode === 'edit') {
       const precio = next.mode === 'edit' ? precioPorProducto.get(Number(next.product.id)) : undefined
       setDraft(current => ({ ...current, precioMinorista: precio ? String(precio.precioMinorista) : undefined, precioMayorista: precio?.precioMayorista == null ? null : String(precio.precioMayorista) }))
@@ -90,7 +97,7 @@ export function ProductsPage() {
     if (editing && precioPorProducto.has(Number(editing.id)) && draft.precioMinorista === undefined) nextErrors.precioMinorista = 'Ingresá el precio minorista vigente.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) { setVerMas(true); return }
-    const payload = { ...draft, code: draft.code.trim().toUpperCase(), name: draft.name.trim(), description: draft.description.trim() }
+    const payload = { ...draft, code: (draft.code ?? '').trim().toUpperCase(), name: (draft.name ?? '').trim(), description: (draft.description ?? '').trim() }
     setSaving(true)
     setApiError('')
     try {
@@ -176,19 +183,19 @@ export function ProductsPage() {
         {(editor.mode === 'create' || editor.mode === 'edit') && <form onSubmit={submit} noValidate>
           <p className="form-intro">Completá los datos del producto. Los campos con * son obligatorios.</p>
           <div className="form-grid">
-            <label>Nombre del producto *<input autoFocus value={draft.name} maxLength={50} onChange={e => field('name', e.target.value)} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'error-name' : undefined} placeholder="Ej. Suprema de pollo" />{errors.name && <small id="error-name" className="field-error">{errors.name}</small>}</label>
+            <label>Nombre del producto *<input autoFocus value={draft.name ?? ''} maxLength={50} onChange={e => field('name', e.target.value)} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'error-name' : undefined} placeholder="Ej. Suprema de pollo" />{errors.name && <small id="error-name" className="field-error">{errors.name}</small>}</label>
             <label>Categoría *<select value={draft.category} onChange={e => field('category', e.target.value as Product['category'])}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>
             <label>Unidad de venta *<select value={draft.unit} onChange={e => field('unit', e.target.value as Product['unit'])}>{units.map(u => <option key={u} value={u}>{u === 'kg' ? 'Kilogramo (kg)' : u}</option>)}</select></label>
             <label>Unidad de compra *<select value={draft.unidadCompra} onChange={e => field('unidadCompra', e.target.value as Product['unidadCompra'])}>{purchaseUnits.map(u => <option key={u}>{u}</option>)}</select>{errors.unidadCompra && <small className="field-error">{errors.unidadCompra}</small>}</label>
             <label>Factor de conversión *<input type="number" min="0.001" max="1000000" step={draft.unit === 'kg' ? '0.001' : '1'} value={draft.factorConversion ?? ''} onChange={e => field('factorConversion', Number(e.target.value))}/>{errors.factorConversion && <small className="field-error">{errors.factorConversion}</small>}<small>1 unidad de compra equivale a {draft.factorConversion || '…'} {draft.unit} de inventario.</small></label>
-            <label className="full-width">Descripción<textarea value={draft.description} maxLength={300} rows={3} onChange={e => field('description', e.target.value)} placeholder="Agregá detalles para identificar el producto" /><small>{draft.description.length}/300 caracteres</small></label>
+            <label className="full-width">Descripción<textarea value={draft.description ?? ''} maxLength={300} rows={3} onChange={e => field('description', e.target.value)} placeholder="Agregá detalles para identificar el producto" /><small>{(draft.description ?? '').length}/300 caracteres</small></label>
           </div>
           <div className="form-grid">
             {(['costoActual', 'precioMinorista', 'precioMayorista'] as const).map(key => <label key={key}>{key === 'costoActual' ? 'Precio de compra' : key === 'precioMinorista' ? 'Precio de venta minorista' : 'Precio de venta mayorista (opcional)'} (por {draft.unit})<input type="number" min="0" step="0.01" value={draft[key] ?? ''} onChange={e => field(key, e.target.value || (key === 'precioMayorista' ? null : undefined))} />{errors[key] && <small className="field-error">{errors[key]}</small>}</label>)}
           </div>
           <button type="button" className="button" aria-expanded={verMas} aria-controls="producto-mas" onClick={() => setVerMas(valor => !valor)}>{verMas ? 'Ver menos' : 'Ver más'}</button>
           {verMas && <div id="producto-mas" className="form-grid">
-            <label>Código<input maxLength={20} value={draft.code} onChange={e => field('code', e.target.value)} placeholder="Automático si se deja vacío" />{errors.code && <small className="field-error">{errors.code}</small>}</label>
+            <label>Código<input maxLength={20} value={draft.code ?? ''} onChange={e => field('code', e.target.value)} placeholder="Automático si se deja vacío" />{errors.code && <small className="field-error">{errors.code}</small>}</label>
             <label>Tipo de reposición<select value={draft.tipoReposicion ?? 'diario'} onChange={e => field('tipoReposicion', e.target.value as ProductDraft['tipoReposicion'])}><option value="diario">Diaria</option><option value="semanal">Semanal</option><option value="stockMinimo">Por stock mínimo</option></select></label>
             {(['stockActual', 'stockMinimo', 'margenStock'] as const).map(key => <label key={key}>{key === 'stockActual' ? 'Stock actual' : key === 'stockMinimo' ? 'Stock mínimo' : 'Margen de stock'} ({draft.unit})<input type="number" min="0" max="1000000" step={draft.unit === 'kg' ? '0.001' : '1'} value={draft[key] ?? ''} onChange={e => field(key, e.target.value === '' ? key === 'stockActual' ? 0 : null : Number(e.target.value))} />{errors[key] && <small className="field-error">{errors[key]}</small>}</label>)}
             <label className="full-width">Imagen del producto<input type="file" accept="image/png,image/jpeg,image/webp" onChange={async e => {

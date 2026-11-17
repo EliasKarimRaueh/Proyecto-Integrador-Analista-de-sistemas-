@@ -60,13 +60,16 @@ export function validateProduct(draft: ProductDraft, products: Product[], editin
   }
   if (draft.tipoReposicion === 'stockMinimo' && draft.stockMinimo == null) errors.stockMinimo = 'Indicá el stock mínimo.'
   if (draft.proveedorHabitualId != null && !draft.proveedorIds?.includes(draft.proveedorHabitualId)) errors.proveedorHabitualId = 'Elegí un proveedor relacionado.'
-  if ((editingId || draft.code.trim()) && !/^[A-Z0-9-]{2,20}$/i.test(draft.code.trim())) errors.code = 'Usá entre 2 y 20 letras, números o guiones.'
-  else if (draft.code.trim() && products.some(p => p.id !== editingId && normalize(p.code) === normalize(draft.code))) errors.code = 'Este código ya existe, incluso entre los productos inactivos.'
-  if (draft.name.trim().length < 2 || draft.name.trim().length > 50) errors.name = 'Ingresá un nombre de entre 2 y 50 caracteres.'
-  else if (products.some(p => p.id !== editingId && normalize(p.name) === normalize(draft.name))) errors.name = 'Ya existe un producto con ese nombre.'
+  const code = (draft.code ?? '').trim()
+  const name = (draft.name ?? '').trim()
+  const description = draft.description ?? ''
+  if ((editingId || code) && !/^[A-Z0-9-]{2,20}$/i.test(code)) errors.code = 'Usá entre 2 y 20 letras, números o guiones.'
+  else if (code && products.some(p => p.id !== editingId && normalize(p.code) === normalize(code))) errors.code = 'Este código ya existe, incluso entre los productos inactivos.'
+  if (name.length < 2 || name.length > 50) errors.name = 'Ingresá un nombre de entre 2 y 50 caracteres.'
+  else if (products.some(p => p.id !== editingId && normalize(p.name) === normalize(name))) errors.name = 'Ya existe un producto con ese nombre.'
   if (!categories.includes(draft.category)) errors.category = 'Seleccioná una categoría válida.'
   if (!units.includes(draft.unit)) errors.unit = 'Seleccioná una unidad válida.'
-  if (draft.description.length > 300) errors.description = 'La descripción admite hasta 300 caracteres.'
+  if (description.length > 300) errors.description = 'La descripción admite hasta 300 caracteres.'
   if (draft.unidadCompra !== undefined && !purchaseUnits.includes(draft.unidadCompra)) errors.unidadCompra = 'Seleccioná una unidad de compra válida.'
   if (draft.factorConversion !== undefined && (!Number.isFinite(draft.factorConversion) || draft.factorConversion <= 0 || draft.factorConversion > 1000000 || draft.unit === 'unidad' && !Number.isSafeInteger(draft.factorConversion))) errors.factorConversion = 'Ingresá un factor positivo; para venta por unidad debe ser entero.'
   if ((draft.unidadCompra === 'KILOS' || draft.unidadCompra === 'UNIDADES') && (draft.unidadCompra !== (draft.unit === 'kg' ? 'KILOS' : 'UNIDADES') || (draft.factorConversion ?? 1) !== 1)) errors.unidadCompra = 'La compra en kilos/unidades debe coincidir con la venta y usar factor 1. Elegí cajones o bultos para otra equivalencia.'

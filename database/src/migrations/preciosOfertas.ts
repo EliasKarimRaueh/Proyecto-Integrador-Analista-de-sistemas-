@@ -67,6 +67,17 @@ export async function migratePreciosOfertas() {
             { transaction }
         );
 
+        // Limpiar registros duplicados históricos en ofertas_productos si existen, conservando el más reciente (mayor id)
+        await sequelize.query(
+            `DELETE FROM ofertas_productos
+             WHERE id NOT IN (
+                 SELECT MAX(id)
+                 FROM ofertas_productos
+                 GROUP BY "ofertaId", "productoId"
+             )`,
+            { transaction }
+        );
+
         await sequelize.query(
             'CREATE UNIQUE INDEX IF NOT EXISTS oferta_producto_unico ON ofertas_productos ("ofertaId", "productoId")',
             { transaction }

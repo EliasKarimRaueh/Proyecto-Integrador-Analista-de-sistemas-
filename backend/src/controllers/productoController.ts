@@ -67,9 +67,9 @@ type StoredProduct = NonNullable<Awaited<ReturnType<typeof productoRepository.fi
 
 function presentProduct(product: StoredProduct, category: string) {
   return {
-    id: String(product.id), code: product.codigo, name: product.nombre, category,
+    id: String(product.id), code: product.codigo ?? '', name: product.nombre, category,
     unit: product.unidadVenta === 'KILOS' ? 'kg' : 'unidad',
-    description: product.descripcion, active: product.activo,
+    description: product.descripcion ?? '', active: product.activo,
     unidadCompra: product.unidadCompra,
     unidadVenta: product.unidadVenta,
     factorConversion: product.factorConversion,
