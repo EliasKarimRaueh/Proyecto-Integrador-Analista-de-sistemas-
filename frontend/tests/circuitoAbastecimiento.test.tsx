@@ -90,6 +90,14 @@ it('recibe desde el pedido, acepta sobrantes y extras, y propone registrar la co
   expect(JSON.parse(String(comprada[1]?.body))).toMatchObject({ recepcionId: 7, formaPago: 'PAGADO', tipoComprobante: null, numeroComprobante: null, detalles: [{ productoId: 1, costo: '2200.00' }, { productoId: 2, costo: '6000.00' }] })
   expect(JSON.parse(String(comprada[1]?.body))).not.toHaveProperty('fechaHora')
 })
+it('rechaza costos iguales o menores a cero al registrar la compra', async () => {
+  const user = userEvent.setup(); render(<CompraRecepcionModal recepcionId={7} onClose={() => {}} onGuardado={() => {}}/>)
+  const costo = await screen.findByLabelText('Costo producto 1')
+  await user.clear(costo); await user.type(costo, '0')
+  await user.click(screen.getByRole('button', { name: 'Registrar compra' }))
+  expect(await screen.findByText('Ingresá un costo total mayor a cero para cada producto.')).toBeTruthy()
+  expect(fetchMock.mock.calls.some(([url, o]) => String(url).endsWith('/compras') && o?.method === 'POST')).toBe(false)
+})
 it('permite pagar en el momento una compra de un proveedor con cuenta corriente', async () => {
   proveedor.ctaCte = true
   const user = userEvent.setup(); render(<CompraRecepcionModal recepcionId={7} onClose={() => {}} onGuardado={() => {}}/>)

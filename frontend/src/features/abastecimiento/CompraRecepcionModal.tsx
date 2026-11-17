@@ -35,7 +35,7 @@ export function CompraRecepcionModal({ recepcionId, onClose, onGuardado }: { rec
       if (!recibidos.length) throw new Error('La recepción no tiene mercadería aceptada para comprar.')
       const detalles = recibidos.map(d => {
         const valor = costo(d.productoId, Number(d.cantidadBase), d.producto?.costoActual).replace(',', '.')
-        if (!/^\d+(\.\d{1,2})?$/.test(valor) || Number(valor) > 99999999.99) throw new Error('Ingresá costos válidos de hasta dos decimales.')
+        if (!/^\d+(\.\d{1,2})?$/.test(valor) || !Number.isFinite(Number(valor)) || Number(valor) <= 0 || Number(valor) > 99999999.99) throw new Error('Ingresá un costo total mayor a cero para cada producto.')
         return { productoId: d.productoId, costo: Number(valor).toFixed(2) }
       })
       lock.current = true; setSaving(true)
