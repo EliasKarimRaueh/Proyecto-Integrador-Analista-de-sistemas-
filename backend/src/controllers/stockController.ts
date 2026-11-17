@@ -11,7 +11,7 @@ export const registrarInventario = (req: Request, res: Response) => ejecutar(res
 
 export const getEstadoStock = (req: Request, res: Response) => ejecutar(res, async () => {
   const { page, limit } = paginacion(req);
-  const resultado = await Producto.findAndCountAll({ where: { activo: true }, attributes: { exclude: ['imagen'] }, order: [['id', 'ASC']], limit, offset: (page - 1) * limit });
+  const resultado = await Producto.findAndCountAll({ where: { activo: true }, order: [['id', 'ASC']], limit, offset: (page - 1) * limit });
   res.setHeader('X-Total-Count', resultado.count);
   return resultado.rows.map(p => ({ id: p.id, codigo: p.codigo, nombre: p.nombre, stockActual: p.stockActual, stockMinimo: p.stockMinimo, margenStock: p.margenStock, unidadVenta: p.unidadVenta, unidadCompra: p.unidadCompra, factorConversion: p.factorConversion, estado: estadoStock(p.stockActual, p.stockMinimo) }));
 });

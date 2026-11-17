@@ -19,12 +19,9 @@ export type Product = {
   tipoReposicion?: 'diario' | 'semanal' | 'stockMinimo'
   proveedorIds?: number[]
   proveedorHabitualId?: number | null
-  imagenNombre?: string | null
-  imagenMime?: string | null
-  imagenBytes?: number | null
 }
 
-export type ProductDraft = Omit<Product, 'id' | 'active'> & { precioMinorista?: string; precioMayorista?: string | null; imagenBase64?: string | null }
+export type ProductDraft = Omit<Product, 'id' | 'active'> & { precioMinorista?: string; precioMayorista?: string | null }
 
 export const emptyDraft: ProductDraft = {
   code: '',
