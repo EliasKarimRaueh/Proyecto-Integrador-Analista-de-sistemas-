@@ -67,6 +67,7 @@ export async function crearRecepcion(body: unknown) {
       lineas.push({ productoId, presentacion, factorConversion, cantidadPresentacion, cantidadBase, cantidadRechazadaBase, cantidadFaltanteBase, cantidadSobranteBase, motivo, costoUnitario: null });
     }
     if (pedidos.some(p => !lineas.some(l => l.productoId === p.productoId))) throw new ErrorOperacion('Incluí todos los productos del pedido, con cantidad cero si no llegaron.');
+    if (!lineas.some(l => l.cantidadBase > 0)) throw new ErrorOperacion('No se puede registrar una recepción sin mercadería aceptada. Cancelá el pedido desde la pestaña de pedidos.', 409);
     const conformidad = lineas.some(l => l.cantidadFaltanteBase > 0 || l.cantidadRechazadaBase > 0 || l.cantidadSobranteBase > 0) ? 'CON_DIFERENCIAS' : 'COMPLETA';
     const recepcion = await circuito.crearRecepcion({ pedidoId, proveedorId: pedido.proveedorId, observaciones, usuarioId, conformidad }, transaction);
     const detalles = await DetalleRecepcion.bulkCreate(lineas.map(({ cantidadSobranteBase: _sobrante, ...l }) => ({ ...l, recepcionId: recepcion.id })), { transaction });

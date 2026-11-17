@@ -11,6 +11,7 @@ import { fechaTexto } from './calculos'
 const presentaciones: Record<string, string> = { KILOS: 'KILOS', UNIDADES: 'UNIDAD', CAJONES: 'CAJON', CAJAS: 'CAJA', BOLSAS: 'BOLSA', BULTOS: 'BULTO' }
 type Linea = { productoId: number; presentacion: string; cantidad: string; rechazado: string; factor: string; motivo: string }
 const redondear = (n: number) => Number(n.toFixed(3))
+const sinMercaderia = 'No se puede registrar una recepción sin mercadería aceptada. Cancelá el pedido desde la pestaña de pedidos.'
 
 export function RecepcionModal({ pedido, onClose, onGuardado }: { pedido: PedidoCompra; onClose: () => void; onGuardado: (id: number) => void }) {
   const productos = useApiResource(fetchProducts)
@@ -41,9 +42,11 @@ export function RecepcionModal({ pedido, onClose, onGuardado }: { pedido: Pedido
     const aceptada = redondear(Number(l.cantidad.replace(',', '.')) * factor), rechazada = redondear(Number(l.rechazado.replace(',', '.')) * factor)
     return { nombre: producto?.name ?? detalle?.producto?.nombre ?? `Producto #${l.productoId}`, unit, pedida, factor, aceptada, rechazada, faltante: redondear(Math.max(0, pedida - aceptada - rechazada)), sobrante: redondear(Math.max(0, aceptada + rechazada - pedida)), producto }
   }
+  const totalAceptado = redondear(lineas.reduce((suma, l) => suma + datos(l).aceptada, 0))
   async function enviar(e: FormEvent) {
     e.preventDefault(); if (lock.current || incierto) return
     setError('')
+    if (totalAceptado === 0) { setError(sinMercaderia); return }
     try {
       const detalles = lineas.map(l => {
         const d = datos(l)
@@ -63,6 +66,7 @@ export function RecepcionModal({ pedido, onClose, onGuardado }: { pedido: Pedido
     <ErrorCarga error={error}/><ErrorCarga error={productos.error} retry={productos.refetch}/><ErrorCarga error={relaciones.error} retry={relaciones.refetch}/>
     <p>Pedido de origen: #{pedido.id} · Fecha y hora actual: {fechaTexto(ahora)} · Recibe: Dueño</p>
     <p>Se toma la fecha y hora automáticamente al confirmar. Solo lo aceptado ingresa al stock; la compra se registra después.</p>
+    {totalAceptado === 0 && <p role="alert">No hay mercadería aceptada. Si se rechazó todo el pedido, cancelalo desde la pestaña de pedidos.</p>}
     {incierto && <p role="alert">No se pudo confirmar el resultado. Revisá el historial de recepciones antes de volver a registrarla.</p>}
     <fieldset className="operation-fieldset" disabled={saving || incierto}>
       <div className="supply-lines">{lineas.map((l, i) => { const d = datos(l); return <div className="supply-line" key={l.productoId}><h3>{d.nombre}</h3><p>Pedido: {cantidadFormato(d.pedida)} {d.unit === 'unidad' ? 'un.' : 'kg'}</p><div className="form-grid">

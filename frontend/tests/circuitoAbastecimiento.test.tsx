@@ -90,6 +90,18 @@ it('recibe desde el pedido, acepta sobrantes y extras, y propone registrar la co
   expect(JSON.parse(String(comprada[1]?.body))).toMatchObject({ recepcionId: 7, formaPago: 'PAGADO', tipoComprobante: null, numeroComprobante: null, detalles: [{ productoId: 1, costo: '2200.00' }, { productoId: 2, costo: '6000.00' }] })
   expect(JSON.parse(String(comprada[1]?.body))).not.toHaveProperty('fechaHora')
 })
+it('rechaza una recepción sin mercadería aceptada y sugiere cancelar el pedido', async () => {
+  const user = userEvent.setup(); render(<MemoryRouter><HistorialAbastecimientoPage tipo="pedidos"/></MemoryRouter>)
+  await user.click(await screen.findByRole('button', { name: 'Registrar recepción' }))
+  const aceptada = await screen.findByLabelText('Cantidad aceptada producto 1')
+  await user.clear(aceptada); await user.type(aceptada, '0')
+  const rechazada = screen.getByLabelText('Cantidad rechazada producto 1')
+  await user.clear(rechazada); await user.type(rechazada, '100')
+  await user.type(screen.getByLabelText('Motivo producto 1'), 'Mercadería vencida')
+  await user.click(screen.getByRole('button', { name: 'Confirmar recepción e ingresar stock' }))
+  expect(await screen.findByText('No se puede registrar una recepción sin mercadería aceptada. Cancelá el pedido desde la pestaña de pedidos.')).toBeTruthy()
+  expect(fetchMock.mock.calls.some(([url, o]) => String(url).endsWith('/recepciones') && o?.method === 'POST')).toBe(false)
+})
 it('rechaza costos iguales o menores a cero al registrar la compra', async () => {
   const user = userEvent.setup(); render(<CompraRecepcionModal recepcionId={7} onClose={() => {}} onGuardado={() => {}}/>)
   const costo = await screen.findByLabelText('Costo producto 1')
