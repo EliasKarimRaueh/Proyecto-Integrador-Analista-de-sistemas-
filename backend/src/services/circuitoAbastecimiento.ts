@@ -87,7 +87,7 @@ export async function crearCompra(body: unknown) {
   if (!Array.isArray(b.detalles) || !b.detalles.length || b.detalles.length > 100) throw new ErrorOperacion('Indicá los costos de los productos recibidos.');
   const costos = b.detalles.map(crudo => {
     const d = objeto(crudo), productoId = id(d.productoId, 'productoId');
-    if ((typeof d.costo !== 'string' && typeof d.costo !== 'number') || !/^\d+(\.\d{1,2})?$/.test(String(d.costo)) || Number(d.costo) > 99999999.99) throw new ErrorOperacion('Indicá el costo total de cada producto con hasta dos decimales.');
+    if ((typeof d.costo !== 'string' && typeof d.costo !== 'number') || !/^\d+(\.\d{1,2})?$/.test(String(d.costo)) || !Number.isFinite(Number(d.costo)) || Number(d.costo) <= 0 || Number(d.costo) > 99999999.99) throw new ErrorOperacion('El costo total de cada producto debe ser mayor a cero.');
     if (['cantidad', 'cantidadPresentacion', 'factorConversion', 'presentacion'].some(k => d[k] !== undefined)) throw new ErrorOperacion('La presentación y la cantidad se toman de la recepción y no se pueden modificar.');
     return { productoId, costo: Number(d.costo).toFixed(2) };
   });

@@ -64,6 +64,13 @@ test('sin cuenta corriente queda pagado; pagar en el momento no genera deuda', a
   expect(CuentaProveedor.create).not.toHaveBeenCalled();
   await expect(servicio.crearCompra({ ...comprar, formaPago: 'A CUENTA' })).rejects.toThrow('PAGADO');
 });
+test('rechaza costos iguales o menores a cero', async () => {
+  for (const costo of [0, '0', '0.00', -1, '-1']) {
+    await expect(servicio.crearCompra({ ...comprar, detalles: [{ productoId: 1, costo }] })).rejects.toThrow('mayor a cero');
+  }
+  expect(compraCrear).not.toHaveBeenCalled();
+  expect(detalleCrear).not.toHaveBeenCalled();
+});
 test('rechaza compra sin recepción, cantidades editadas y una segunda compra de la misma recepción', async () => {
   await expect(servicio.crearCompra({ pedidoId: 42, detalles: comprar.detalles })).rejects.toThrow('recepcionId');
   await expect(servicio.crearCompra({ ...comprar, detalles: [{ ...comprar.detalles[0], cantidad: 5 }] })).rejects.toThrow('no se pueden modificar');

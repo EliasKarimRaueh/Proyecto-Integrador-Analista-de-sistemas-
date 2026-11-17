@@ -30,6 +30,10 @@ async function simularApi(page: Page, inactiva = false) {
       else data = { total, detalles }
     } else if (path === '/api/stock') data = [{ id: 1, codigo: producto.code, nombre: producto.name, unidadVenta: 'KILOS', unidadCompra: 'CAJONES', factorConversion: 20, stockActual: 5, stockMinimo: 10, estado: 'Crítico' }]
     else if (path === '/api/compras/reposicion') data = [{ id: 1, codigo: producto.code, nombre: producto.name, unidadCompra: 'CAJONES', unidadVenta: 'KILOS', factorConversion: 20, costoActual: '1000.00', stockActual: 5, stockMinimo: 10, faltante: 5, cantidadSugerida: 20, estado: 'Crítico', proveedorHabitualId: 5, proveedores: [proveedor] }]
+    else if (path === '/api/recepciones' || path === '/api/recepciones/7') {
+      const recepcion = { id: 7, pedidoId: 42, proveedorId: 5, proveedor, fechaHora: '2026-11-16T11:00:00Z', conformidad: 'CONFORME', compra: null, detalles: [{ productoId: 1, cantidadBase: 20, cantidadPresentacion: 1, factorConversion: 20, presentacion: 'CAJONES', producto: { ...producto, nombre: producto.name } }] }
+      data = path === '/api/recepciones' ? [recepcion] : recepcion
+    }
     await route.fulfill({ status, headers: { 'Content-Type': 'application/json', 'X-Total-Count': Array.isArray(data) ? String(data.length) : '1' }, body: JSON.stringify(data) })
   })
   return control
@@ -110,10 +114,10 @@ test('oculta códigos en catálogo, edición, inventario, reposición, compras y
     await expect(page.locator('body')).not.toContainText('SKU-OCULTO-001')
   }
   await page.goto('/compras')
-  await page.getByRole('button', { name: 'Nueva compra', exact: true }).click()
-  await page.getByRole('dialog').getByLabel('Proveedor', { exact: true }).selectOption('5')
-  await page.getByRole('button', { name: 'Agregar producto' }).click()
-  await expect(page.getByLabel('Producto 1', { exact: true })).not.toContainText('SKU-OCULTO-001')
+  await expect(page.getByRole('button', { name: 'Nueva compra', exact: true })).toHaveCount(0)
+  await page.goto('/recepciones')
+  await page.getByRole('button', { name: 'Registrar compra', exact: true }).click()
+  await expect(page.getByRole('dialog')).not.toContainText('SKU-OCULTO-001')
   await page.goto('/ofertas')
   await page.getByRole('button', { name: 'Ver Promo 3 kilos', exact: true }).click()
   await expect(page.getByRole('dialog')).toContainText('Pollo entero')

@@ -15,7 +15,7 @@ let proveedor: any, pedido: any, recepcion: any, fetchMock: ReturnType<typeof vi
 const productoDetalle = (id: number) => ({ id, nombre: productos[id - 1].name, unidadVenta: 'UNIDADES', unidadCompra: productos[id - 1].unidadCompra, factorConversion: productos[id - 1].factorConversion, costoActual: productos[id - 1].costoActual })
 beforeEach(() => {
   proveedor = { id: 5, nombre: 'Proveedor Sur', activo: true, ctaCte: false }
-  pedido = { id: 42, proveedorId: 5, proveedor, fechaHora: '2026-11-16T10:00:00Z', estado: 'REALIZADO', totalEstimado: '1000', recepcion: null, detalles: [{ productoId: 1, cantidad: 100, costoEstimado: '10.00', subtotal: '1000', producto: productoDetalle(1) }] }
+  pedido = { id: 42, proveedorId: 5, proveedor, fechaHora: '2026-11-16T10:00:00Z', estado: 'REALIZADO', total: '0.00', totalEstimado: '1000', recepcion: null, detalles: [{ productoId: 1, cantidad: 100, costoEstimado: '10.00', subtotal: '1000', producto: productoDetalle(1) }] }
   recepcion = { id: 7, pedidoId: 42, proveedorId: 5, proveedor, fechaHora: '2026-11-16T11:00:00Z', conformidad: 'CON_DIFERENCIAS', compra: null, detalles: [{ productoId: 1, cantidadBase: 110, cantidadPresentacion: 110, factorConversion: 1, presentacion: 'UNIDAD', cantidadSobranteBase: 10, producto: productoDetalle(1) }] }
   fetchMock = vi.fn((input, options?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost'), method = options?.method ?? 'GET', body = options?.body ? JSON.parse(String(options.body)) : {}
@@ -90,6 +90,14 @@ it('recibe desde el pedido, acepta sobrantes y extras, y propone registrar la co
   expect(JSON.parse(String(comprada[1]?.body))).toMatchObject({ recepcionId: 7, formaPago: 'PAGADO', tipoComprobante: null, numeroComprobante: null, detalles: [{ productoId: 1, costo: '2200.00' }, { productoId: 2, costo: '6000.00' }] })
   expect(JSON.parse(String(comprada[1]?.body))).not.toHaveProperty('fechaHora')
 })
+it('rechaza costos iguales o menores a cero al registrar la compra', async () => {
+  const user = userEvent.setup(); render(<CompraRecepcionModal recepcionId={7} onClose={() => {}} onGuardado={() => {}}/>)
+  const costo = await screen.findByLabelText('Costo producto 1')
+  await user.clear(costo); await user.type(costo, '0')
+  await user.click(screen.getByRole('button', { name: 'Registrar compra' }))
+  expect(await screen.findByText('Ingresá un costo total mayor a cero para cada producto.')).toBeTruthy()
+  expect(fetchMock.mock.calls.some(([url, o]) => String(url).endsWith('/compras') && o?.method === 'POST')).toBe(false)
+})
 it('permite pagar en el momento una compra de un proveedor con cuenta corriente', async () => {
   proveedor.ctaCte = true
   const user = userEvent.setup(); render(<CompraRecepcionModal recepcionId={7} onClose={() => {}} onGuardado={() => {}}/>)
@@ -104,7 +112,15 @@ it('abre pedidos y compras asociados desde el detalle de la recepción', async (
   await user.click(await screen.findByRole('button', { name: 'Ver pedido #42' }))
   expect(await screen.findByRole('dialog', { name: /Pedidos a proveedores.*#42/ })).toBeTruthy()
   const pedidoModal = screen.getByRole('dialog', { name: /Pedidos a proveedores.*#42/ })
+  expect(within(pedidoModal).queryByText('Total')).toBeNull()
+  expect(within(pedidoModal).getByText('Total estimado')).toBeTruthy()
   await user.click(within(pedidoModal).getAllByRole('button', { name: 'Cerrar' })[0])
   await user.click(screen.getByRole('button', { name: 'Ver compra #8' }))
-  expect(await screen.findByRole('dialog', { name: /Compras.*#8/ })).toBeTruthy()
+  const compraModal = await screen.findByRole('dialog', { name: /Compras.*#8/ })
+  expect(within(compraModal).getByText('Total')).toBeTruthy()
+})
+it('no ofrece el botón Nueva compra en el historial de compras', async () => {
+  render(<MemoryRouter><HistorialAbastecimientoPage tipo="compras"/></MemoryRouter>)
+  expect(await screen.findByRole('heading', { name: 'Compras' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Nueva compra' })).toBeNull()
 })
