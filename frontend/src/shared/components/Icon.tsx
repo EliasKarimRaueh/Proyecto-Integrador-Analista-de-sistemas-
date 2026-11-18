@@ -1,4 +1,4 @@
-export type IconName = 'home' | 'box' | 'bag' | 'users' | 'key' | 'search' | 'plus' | 'edit' | 'eye' | 'close' | 'archive' | 'check' | 'arrow' | 'tag' | 'percent' | 'calendar'
+export type IconName = 'home' | 'box' | 'bag' | 'users' | 'key' | 'search' | 'plus' | 'edit' | 'eye' | 'close' | 'archive' | 'check' | 'arrow' | 'tag' | 'percent' | 'calendar' | 'cart' | 'cut' | 'refresh'
 const paths: Record<IconName, string> = {
   home: 'm3 10 9-7 9 7v10H14v-7h-4v7H3Z',
   box: 'm3 7 9-4 9 4v10l-9 4-9-4Zm0 0 9 4 9-4M12 11v10M7 5l10 4',
@@ -16,6 +16,9 @@ const paths: Record<IconName, string> = {
   tag: 'M20.6 13.4 12 22l-9-9V3h10ZM7.5 7.5h.01',
   percent: 'M18 6 6 18M7.5 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM16.5 13.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z',
   calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
+  cart: 'M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 8H6.1M9.5 19.5h.01M17.5 19.5h.01',
+  cut: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12',
+  refresh: 'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5',
 }
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>

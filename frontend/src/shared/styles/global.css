@@ -54,72 +54,123 @@
                                   inset:0 auto 0 0;
                                   display:flex;
                                   flex-direction:column;
-                                  padding:30px 14px 0}
+                                  padding:16px 12px 10px}
                                   .brand{
                                     display:flex;
-                                    gap:10px;
+                                    flex-direction:column;
                                     align-items:center;
+                                    gap:2px;
+                                    padding:0 4px 12px;
+                                    margin-bottom:12px;
+                                    border-bottom:1px solid #243b55;
                                     text-decoration:none;
-                                    padding:0 9px 42px;
-                                    font-size:23px;
-                                    font-weight:750;
-                                    letter-spacing:-.6px}
-                                    .brand small{
-                                      display:block;
-                                      font-size:11px;
-                                      letter-spacing:2px;
-                                      font-weight:500;
-                                      margin-top:5px}
-                                      .brand-mark{
-                                        font-size:38px}
+                                    text-align:center;
+                                    flex-shrink:0}
+                                    .brand-mark{
+                                      width:44px;
+                                      height:44px;
+                                      flex-shrink:0;
+                                      display:grid;
+                                      place-items:center;
+                                      padding:3px;
+                                      border-radius:10px;
+                                      background:#ffcb32}
+                                      .brand-mark img{
+                                        display:block;
+                                        width:100%;
+                                        height:100%;
+                                        object-fit:contain;
+                                        border-radius:7px}
+                                        .brand-text{
+                                          display:flex;
+                                          flex-direction:column;
+                                          align-items:center;
+                                          min-width:0;
+                                          line-height:1.2}
+                                          .brand-text strong{
+                                            font-size:20px;
+                                            font-weight:750;
+                                            letter-spacing:-.3px;
+                                            white-space:nowrap;
+                                            overflow:hidden;
+                                            text-overflow:ellipsis}
+                                            .brand-text small{
+                                              margin-top:2px;
+                                              font-size:10px;
+                                              font-weight:500;
+                                              letter-spacing:.3px;
+                                              color:#8da0b5;
+                                              white-space:nowrap;
+                                              overflow:hidden;
+                                              text-overflow:ellipsis}
+                                        .sidebar-nav{
+                                          flex:1;
+                                          min-height:0;
+                                          display:flex;
+                                          flex-direction:column;
+                                          gap:8px;
+                                          overflow-y:auto;
+                                          scrollbar-width:none;
+                                          -ms-overflow-style:none;
+                                          padding:0 2px 8px}
+                                          .sidebar-nav::-webkit-scrollbar{
+                                            display:none}
+                                          .nav-group{
+                                            display:flex;
+                                            flex-direction:column;
+                                            gap:1px}
                                         .nav-caption{
-                                          font-size:10px;
-                                          letter-spacing:1.8px;
+                                          display:block;
+                                          font-size:11px;
+                                          font-weight:600;
+                                          letter-spacing:1.4px;
+                                          text-transform:uppercase;
                                           color:#8da0b5;
-                                          padding:0 17px;
-                                          margin-bottom:15px}
-                                          .sidebar nav{
-                                            display:grid;
-                                            gap:8px}
-                                            .sidebar nav a{
-                                              display:flex;
-                                              align-items:center;
-                                              gap:13px;
-                                              padding:15px;
-                                              border-radius:8px;
-                                              text-decoration:none;
-                                              font-weight:550;
-                                              color:#d9e1ec}
-                                              .sidebar nav a:hover{
-                                                background:#ffffff0c}
-                                                .sidebar nav a.active{
-                                                  background:#ffcb32;
-                                                  color:#182633;
-                                                  box-shadow:0 4px 14px #0002}
-                                                  .nav-dot{
-                                                    margin-left:auto;
-                                                    width:6px;
-                                                    height:6px;
-                                                    border-radius:50%;
-                                                    background:#17243b}
+                                          padding:0 10px;
+                                          margin-bottom:2px}
+                                        .sidebar-nav a{
+                                          display:flex;
+                                          align-items:center;
+                                          gap:10px;
+                                          min-height:32px;
+                                          padding:6px 10px;
+                                          border-radius:8px;
+                                          text-decoration:none;
+                                          font-size:14px;
+                                          font-weight:550;
+                                          line-height:1.2;
+                                          color:#d9e1ec}
+                                          .sidebar-nav a>span{
+                                            min-width:0;
+                                            white-space:nowrap;
+                                            overflow:hidden;
+                                            text-overflow:ellipsis}
+                                          .sidebar-nav a:hover{
+                                            background:#ffffff0c}
+                                            .sidebar-nav a.active{
+                                              background:#ffcb32;
+                                              color:#182633;
+                                              box-shadow:0 4px 14px #0002}
                                                     .sidebar-bottom{
-                                                      margin-top:auto}
+                                                      flex-shrink:0;
+                                                      margin-top:auto;
+                                                      border-top:1px solid #243b55}
                                                       .sprint-label{
-                                                        margin:35px 15px 22px;
+                                                        margin:10px 6px 2px;
                                                         color:#d2ddeb;
-                                                        font-size:12px}
+                                                        font-size:11px}
                                                         .sprint-label>span{
                                                           display:inline-block;
                                                           width:6px;
                                                           height:6px;
                                                           background:#ffcb32;
                                                           border-radius:50%;
-                                                          margin-right:9px}
+                                                          margin-right:8px}
                                                           .sprint-label small{
                                                             display:block;
-                                                            margin:8px 0 0 15px;
+                                                            margin:3px 0 0 14px;
                                                             color:#8da0b5;
-                                                            font-size:11px}
+                                                            font-size:10px}
                                                             .account{
                                                               border-top:1px solid #ffffff12;
                                                               display:flex;
@@ -653,9 +704,9 @@
                                                                                                                                                                                                                                                                                           }
                                                                                                                                                                                                                                                                                           @media(max-width:1150px){
                                                                                                                                                                                                                                                                                             .sidebar{
-                                                                                                                                                                                                                                                                                              width:190px}
+                                                                                                                                                                                                                                                                                              width:200px}
                                                                                                                                                                                                                                                                                               .workspace{
-                                                                                                                                                                                                                                                                                                margin-left:190px}
+                                                                                                                                                                                                                                                                                                margin-left:200px}
                                                                                                                                                                                                                                                                                                 .container{
                                                                                                                                                                                                                                                                                                   padding:24px}
                                                                                                                                                                                                                                                                                                   .topbar{
@@ -676,8 +727,16 @@
                                                                                                                                                                                                                                                                                                                 padding-inline:13px}
                                                                                                                                                                                                                                                                                                                 .product-description{
                                                                                                                                                                                                                                                                                                                   max-width:165px}
-                                                                                                                                                                                                                                                                                                                  .brand{
-                                                                                                                                                                                                                                                                                                                    font-size:20px}
+                                                                                                                                                                                                                                                                                                                  .sidebar{
+  padding-inline:10px}
+.brand-text strong{
+  font-size:18px}
+.brand-text small{
+  font-size:9.5px}
+.sidebar-nav a{
+  font-size:13px;
+  gap:9px;
+  padding-inline:9px}
                                                                                                                                                                                                                                                                                                                   }
                                                                                                                                                                                                                                                                                                                   @media(max-width:760px){
                                                                                                                                                                                                                                                                                                                     .app{
@@ -687,25 +746,30 @@
                                                                                                                                                                                                                                                                                                                         width:100%;
                                                                                                                                                                                                                                                                                                                         padding:16px}
                                                                                                                                                                                                                                                                                                                         .brand{
-                                                                                                                                                                                                                                                                                                                          padding:0;
-                                                                                                                                                                                                                                                                                                                          font-size:18px}
-                                                                                                                                                                                                                                                                                                                          .brand-mark{
-                                                                                                                                                                                                                                                                                                                            font-size:29px}
-                                                                                                                                                                                                                                                                                                                            .brand small{
-                                                                                                                                                                                                                                                                                                                              font-size:9px}
-                                                                                                                                                                                                                                                                                                                              .nav-caption,.sidebar-bottom{
-                                                                                                                                                                                                                                                                                                                                display:none}
-                                                                                                                                                                                                                                                                                                                                .sidebar nav{
-                                                                                                                                                                                                                                                                                                                                  display:flex;
-                                                                                                                                                                                                                                                                                                                                  gap:5px;
-                                                                                                                                                                                                                                                                                                                                  overflow:auto;
-                                                                                                                                                                                                                                                                                                                                  margin-top:18px}
-                                                                                                                                                                                                                                                                                                                                  .sidebar nav a{
-                                                                                                                                                                                                                                                                                                                                    padding:10px;
-                                                                                                                                                                                                                                                                                                                                    font-size:12px;
-                                                                                                                                                                                                                                                                                                                                    gap:7px}
-                                                                                                                                                                                                                                                                                                                                    .nav-dot{
-                                                                                                                                                                                                                                                                                                                                      display:none}
+  padding:0 2px 12px}
+.brand-mark{
+  width:34px;
+  height:34px}
+.brand-text strong{
+  font-size:16px}
+.brand-text small{
+  font-size:9.5px}
+.nav-caption,.sidebar-bottom{
+  display:none}
+.nav-group{
+  display:contents}
+.sidebar-nav{
+  flex:none;
+  flex-direction:row;
+  gap:5px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:12px 0 2px}
+.sidebar-nav a{
+  padding:8px 11px;
+  font-size:13px;
+  gap:7px;
+  min-height:38px}
                                                                                                                                                                                                                                                                                                                                       .workspace{
                                                                                                                                                                                                                                                                                                                                         margin-left:0}
                                                                                                                                                                                                                                                                                                                                         .topbar{
