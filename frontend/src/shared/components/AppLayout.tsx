@@ -40,8 +40,8 @@ const navigation: NavSection[] = [
       { to: '/proveedores', label: 'Proveedores', icon: 'users' },
       { to: '/reposicion', label: 'Reposición', icon: 'refresh' },
       { to: '/pedidos', label: 'Pedidos', icon: 'cart' },
-      { to: '/compras', label: 'Compras', icon: 'calendar' },
       { to: '/recepciones', label: 'Recepciones', icon: 'check' },
+      { to: '/compras', label: 'Compras', icon: 'calendar' },
     ],
   },
 ]
