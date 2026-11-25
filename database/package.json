@@ -19,6 +19,7 @@
     "./migrations/limpiezaEsquema": "./src/migrations/limpiezaEsquema.ts",
     "./migrations/presentacionPedidos": "./src/migrations/presentacionPedidos.ts",
     "./migrations/recepcionConformidad": "./src/migrations/recepcionConformidad.ts",
+    "./migrations/usuarios": "./src/migrations/usuarios.ts",
     "./repositories/productoRepository": "./src/repositories/productoRepository.ts",
     "./repositories/tipoProductoRepository": "./src/repositories/tipoProductoRepository.ts",
     "./repositories/precioRepository": "./src/repositories/precioRepository.ts",
@@ -37,7 +38,8 @@
     "./repositories/detalleCompraRepository": "./src/repositories/detalleCompraRepository.ts",
     "./repositories/recepcionRepository": "./src/repositories/recepcionRepository.ts",
     "./repositories/detalleRecepcionRepository": "./src/repositories/detalleRecepcionRepository.ts",
-    "./repositories/circuitoAbastecimientoRepository": "./src/repositories/circuitoAbastecimientoRepository.ts"
+    "./repositories/circuitoAbastecimientoRepository": "./src/repositories/circuitoAbastecimientoRepository.ts",
+    "./repositories/usuarioRepository": "./src/repositories/usuarioRepository.ts"
   },
   "scripts": {
     "build": "tsc",

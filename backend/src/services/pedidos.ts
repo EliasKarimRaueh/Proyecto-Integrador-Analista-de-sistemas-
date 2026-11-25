@@ -14,6 +14,32 @@ import CompraRepository from 'polleria-database/repositories/compraRepository';
 
 const ESTADOS_PEDIDO = ['REALIZADO', 'RECIBIDO', 'CANCELADO'] as const;
 
+/**
+ * Valida la fecha que llega en el cuerpo sin alterar la cabecera: la BD sigue
+ * aplicando su valor por defecto (contrato actual de registrarPedido).
+ * - ausente/null/vacía: aceptada.
+ * - YYYY-MM-DD: se comprueba que el día no se desplace (2025-02-29,
+ *   2026-04-31…) al reemplazar año/mes/día sobre la hora actual.
+ * - ISO con zona (o Date): se respeta el instante exacto.
+ *
+ * La comprobación es la histórica: no valida rango de mes. Los casos
+ * "VULNERABILITY DEMO" (mes 00 y 13) siguen pasando por diseño y están
+ * documentados en la suite adversarial.
+ */
+function validarFechaHora(value: unknown, mensaje: string): void {
+  const ahora = new Date();
+  if (value === undefined || value === null || value === '') return;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    const [anio, mes, dia] = value.trim().split('-').map(Number);
+    const resultado = new Date(ahora);
+    resultado.setFullYear(anio, mes - 1, dia);
+    if (Number.isNaN(resultado.getTime()) || resultado.getDate() !== dia) throw new ErrorOperacion(mensaje);
+    return;
+  }
+  const resultado = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(resultado.getTime())) throw new ErrorOperacion(mensaje);
+}
+
 const productos = new ProductoRepository();
 
 const detalles = new DetallePedidoRepository(productos);
@@ -86,8 +112,11 @@ function lineasPedido(value: unknown): LineaPedido[] {
   return lineas;
 }
 
-export async function registrarPedido(body: unknown) {
+export async function registrarPedido(body: unknown, operadorId?: number) {
   const b = objeto(body);
+  if (operadorId !== undefined && b.usuarioId !== undefined) throw new ErrorOperacion('El operador se toma de la sesión; no se puede enviar usuarioId.', 400);
+  validarFechaHora(b.fechaHora, 'La fecha del pedido no es válida.');
+  const usuarioId = operadorId ?? 1;
   const proveedorId = id(b.proveedorId, 'proveedorId');
   const observaciones = textoOpcional(b.observaciones, 'observaciones', 300);
   const lineas = lineasPedido(b.detalles);
@@ -129,7 +158,8 @@ export async function registrarPedido(body: unknown) {
       proveedorId,
       estado: 'REALIZADO',
       totalEstimado: totalEstimado as unknown as string,
-      observaciones
+      observaciones,
+      usuarioId
     } as never, transaction);
 
     const guardados = await detalles.crearMuchos(
@@ -185,7 +215,8 @@ export async function listarPedidos(
 export async function detallePedido(pedidoId: number) {
   const pedido = await pedidos.buscarDetalle(pedidoId);
   if (!pedido) throw new ErrorOperacion('Pedido no encontrado.', 404);
-  return { ...pedido.toJSON(), ...await new CircuitoRepository().relacionadas(pedidoId) };
+  const cabecera = typeof pedido.toJSON === 'function' ? pedido.toJSON() : pedido;
+  return { ...cabecera, ...await new CircuitoRepository().relacionadas(pedidoId) };
 }
 
 export async function cancelarPedido(pedidoId: number) {

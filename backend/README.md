@@ -4,6 +4,37 @@ Desde `database`, instalar dependencias con `npm ci`. Guardar la conexión provi
 
 Supabase utiliza SSL por defecto. Para PostgreSQL local configurar `DATABASE_SSL=false`. `SQL_LOG=true` habilita el registro de consultas. El puerto predeterminado es 3000; `PORT` permite cambiarlo.
 
+## Autenticación y usuarios
+
+Toda la API (excepto `/api/health` y `/api/auth/*`) requiere `Authorization: Bearer <accessToken>`. El access token vive en memoria; el refresh token viaja en una cookie `httpOnly` (`credentials: 'include'` en el cliente). Las sesiones se registran en `sesiones_usuario` con un `jti` revocable: al cerrar sesión, dar de baja un usuario o rotar el refresh, el token anterior deja de ser válido.
+
+Variables nuevas en `backend/.env` (ver `.env.example`):
+
+```
+JWT_SECRET=...                 # secreto del access token
+JWT_REFRESH_SECRET=...         # secreto del refresh token (distinto)
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_DIAS=1
+JWT_REFRESH_DIAS_RECORDARME=7
+COOKIE_SECURE=false            # true sólo en HTTPS
+ADMIN_EMAIL=propietario@polleria.local
+ADMIN_PASSWORD=...             # contraseña del primer Propietario
+```
+
+Al arrancar se ejecuta la migración idempotente `migrateUsuarios()` (equivalente a `database/sql/usuarios_supabase.sql`) y se crea el propietario inicial si no existe. Las contraseñas se guardan con bcrypt; ninguna respuesta devuelve el hash.
+
+| Método | Ruta | Función | Rol |
+| --- | --- | --- | --- |
+| POST | `/api/auth/login` | Iniciar sesión con `{ identificador, password, recordarme? }` | público |
+| POST | `/api/auth/refresh` | Rotar refresh y obtener nuevo access token | cookie httpOnly |
+| POST | `/api/auth/logout` | Revocar sesión y limpiar cookie | público |
+| GET | `/api/auth/me` | Operador autenticado | autenticado |
+| GET/POST | `/api/usuarios` | Listar (búsqueda y filtros) / crear | Propietario |
+| GET/PUT/DELETE | `/api/usuarios/:id` | Detalle / editar / baja lógica | Propietario |
+| PUT | `/api/usuarios/:id/reactivar` | Reactivar | Propietario |
+
+Roles: `PROPIETARIO` y `EMPLEADO`. El empleado opera (caja, ventas, stock, abastecimiento) pero no gestiona usuarios, precios, ofertas ni el catálogo de productos. No se puede dar de baja al último propietario activo ni a uno mismo. El operador de cada operación se toma siempre del token (`req.usuario.id`); enviar `usuarioId` en el body se rechaza.
+
 ## Proveedores
 
 | Método | Ruta | Función |
@@ -61,7 +92,6 @@ Cotización y venta reciben el mismo cuerpo:
 
 ```json
 {
-  "usuarioId": 1,
   "tipoPrecio": "MINORISTA",
   "detalles": [
     { "productoId": 1, "cantidad": 1.25 },

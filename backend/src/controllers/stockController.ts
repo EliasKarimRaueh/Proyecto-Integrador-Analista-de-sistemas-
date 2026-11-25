@@ -3,11 +3,12 @@ import Producto from 'polleria-database/models/Producto';
 import MovimientoStock from 'polleria-database/models/MovimientoStock';
 import ProductoProveedor from 'polleria-database/models/ProductoProveedor';
 import Proveedor from 'polleria-database/models/Proveedor';
+import Usuario from 'polleria-database/models/Usuario';
 import { Op } from 'sequelize';
 import { registrarMovimiento as guardarMovimiento, fraccionar, estadoStock, id, numero, objeto, ErrorOperacion } from '../services/operaciones.js';
-import { ejecutar, paginacion, rangoFechas } from './operacionesController.js';
+import { ejecutar, operadorId, paginacion, rangoFechas } from './operacionesController.js';
 import { registrarInventario as guardarInventario } from '../services/inventario.js';
-export const registrarInventario = (req: Request, res: Response) => ejecutar(res, () => guardarInventario(req.body), 201);
+export const registrarInventario = (req: Request, res: Response) => ejecutar(res, () => guardarInventario(req.body, operadorId(req)), 201);
 
 export const getEstadoStock = (req: Request, res: Response) => ejecutar(res, async () => {
   const { page, limit } = paginacion(req);
@@ -16,9 +17,9 @@ export const getEstadoStock = (req: Request, res: Response) => ejecutar(res, asy
   return resultado.rows.map(p => ({ id: p.id, codigo: p.codigo, nombre: p.nombre, stockActual: p.stockActual, stockMinimo: p.stockMinimo, margenStock: p.margenStock, unidadVenta: p.unidadVenta, unidadCompra: p.unidadCompra, factorConversion: p.factorConversion, estado: estadoStock(p.stockActual, p.stockMinimo) }));
 });
 
-export const registrarMovimiento = (req: Request, res: Response) => ejecutar(res, () => guardarMovimiento(req.body), 201);
+export const registrarMovimiento = (req: Request, res: Response) => ejecutar(res, () => guardarMovimiento(req.body, operadorId(req)), 201);
 
-export const registrarFraccionamiento = (req: Request, res: Response) => ejecutar(res, () => fraccionar(req.body), 201);
+export const registrarFraccionamiento = (req: Request, res: Response) => ejecutar(res, () => fraccionar(req.body, operadorId(req)), 201);
 
 export const getMovimientos = (req: Request, res: Response) => ejecutar(res, async () => {
   const { page, limit } = paginacion(req);
@@ -36,7 +37,25 @@ export const getMovimientos = (req: Request, res: Response) => ejecutar(res, asy
     if (req.query.tipo !== 'INGRESO' && req.query.tipo !== 'EGRESO') throw new ErrorOperacion('Tipo inválido.');
     where.tipo = req.query.tipo;
   }
-  return MovimientoStock.findAndCountAll({ where, order: [['fechaHora', 'DESC'], ['id', 'DESC']], limit, offset: (page - 1) * limit, include: [{ model: Producto,as: "producto", attributes: ['nombre'] }] });
+  const resultado = await MovimientoStock.findAndCountAll({
+    where,
+    order: [['fechaHora', 'DESC'], ['id', 'DESC']],
+    limit,
+    offset: (page - 1) * limit,
+    include: [
+      { model: Producto, as: 'producto', attributes: ['nombre'] },
+      { model: Usuario, as: 'usuario', attributes: ['nombre', 'apellido'], required: false }
+    ]
+  });
+  return {
+    ...resultado,
+    rows: resultado.rows.map(movimiento => ({
+      ...movimiento.toJSON(),
+      usuarioNombre: movimiento.get('usuario')
+        ? `${(movimiento.get('usuario') as Usuario).nombre} ${(movimiento.get('usuario') as Usuario).apellido}`
+        : null
+    }))
+  };
 });
 
 export const configurarReposicion = (req: Request, res: Response) => ejecutar(res, async () => {

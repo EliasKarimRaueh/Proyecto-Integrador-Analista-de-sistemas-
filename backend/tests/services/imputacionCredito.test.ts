@@ -8,11 +8,16 @@ import Aplicacion from 'polleria-database/models/PagoPorCuenta';
 import Cuenta from 'polleria-database/models/CuentaProveedor';
 import Compra from 'polleria-database/models/Compra';
 import PagoPorCuentaRepository from 'polleria-database/repositories/pagoPorCuentaRepository';
-import { instancia as cuentas } from '../mocks/cuentaProveedorRepository.js';
+import CuentaProveedorRepository, { instancia as cuentas } from '../mocks/cuentaProveedorRepository.js';
 import type { Transaction } from 'sequelize';
 
 const tx = { LOCK: { UPDATE: 'UPDATE' } } as unknown as Transaction;
-beforeEach(() => jest.resetAllMocks());
+beforeEach(() => {
+  jest.resetAllMocks();
+  // resetAllMocks borra la implementación del constructor del doble; el
+  // repositorio real de pagos necesita una instancia con actualizarSaldoYEstado.
+  (CuentaProveedorRepository as unknown as jest.Mock).mockImplementation(() => cuentas);
+});
 
 test('imputa primero la compra más antigua, cubre parcialmente la siguiente y conserva centavos', async () => {
   const pago = { id: 7, proveedorId: 5, importePendiente: '15.15', update: jest.fn(async datos => { pago.importePendiente = datos.importePendiente }) };

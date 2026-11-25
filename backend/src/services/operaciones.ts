@@ -40,8 +40,9 @@ const movimientos = new MovimientoStockRepository();
 const ofertas = new OfertaProductoRepository();
 const detalles = new DetalleVentaRepository();
 
-export async function registrarMovimiento(body: unknown) {
-  const b = objeto(body), productoId = id(b.productoId), usuarioId = id(b.usuarioId ?? 1);
+export async function registrarMovimiento(body: unknown, operadorId?: number) {
+  const b = objeto(body), productoId = id(b.productoId), usuarioId = operadorId ?? id(b.usuarioId ?? 1);
+  if (operadorId !== undefined && b.usuarioId !== undefined) throw new ErrorOperacion('El operador se toma de la sesión; no se puede enviar usuarioId.', 400);
   const tipos = ['INGRESO', 'EGRESO', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'MERMA', 'PERDIDA', 'VENCIMIENTO', 'ROTURA', 'AJUSTE'];
   if (!tipos.includes(String(b.tipo))) throw new ErrorOperacion('Tipo de movimiento inválido.');
   const razon = motivo(b.motivo);
@@ -66,8 +67,9 @@ export async function registrarMovimiento(body: unknown) {
   });
 }
 
-export async function fraccionar(body: unknown) {
-  const b = objeto(body), productoOrigenId = id(b.productoOrigenId), usuarioId = id(b.usuarioId ?? 1);
+export async function fraccionar(body: unknown, operadorId?: number) {
+  const b = objeto(body), productoOrigenId = id(b.productoOrigenId), usuarioId = operadorId ?? id(b.usuarioId ?? 1);
+  if (operadorId !== undefined && b.usuarioId !== undefined) throw new ErrorOperacion('El operador se toma de la sesión; no se puede enviar usuarioId.', 400);
   const cantidadOrigen = numero(b.cantidadOrigen, 'cantidadOrigen'), merma = numero(b.merma ?? 0, 'merma', true), razon = motivo(b.motivo);
   if (merma >= cantidadOrigen) throw new ErrorOperacion('La merma debe ser menor a la cantidad de origen.');
   if (!Array.isArray(b.derivados) || !b.derivados.length || b.derivados.length > 100) throw new ErrorOperacion('Debe indicar entre 1 y 100 derivados.');
@@ -96,8 +98,9 @@ export async function fraccionar(body: unknown) {
   });
 }
 
-export async function vender(body: unknown, cotizacion = false) {
-  const b = objeto(body), usuarioId = id(b.usuarioId ?? 1);
+export async function vender(body: unknown, cotizacion = false, operadorId?: number) {
+  const b = objeto(body), usuarioId = operadorId ?? id(b.usuarioId ?? 1);
+  if (operadorId !== undefined && b.usuarioId !== undefined) throw new ErrorOperacion('El operador se toma de la sesión; no se puede enviar usuarioId.', 400);
   if (!Array.isArray(b.detalles) || !b.detalles.length || b.detalles.length > 100) throw new ErrorOperacion('Debe indicar entre 1 y 100 detalles.');
   const lineas = b.detalles.map(value => {
     const d = objeto(value);
@@ -181,7 +184,7 @@ export async function vender(body: unknown, cotizacion = false) {
     const total = formatearImporte(totalCentavos);
     if (cotizacion) return { total, detalles: calculados };
     if (lineas.some(l => !l.despachoEntrada && despachos.get(l)?.some(p => p.unidadVenta === 'KILOS'))) throw new ErrorOperacion('La venta de una promoción por peso requiere el despacho real de sus componentes.');
-    const venta = await Venta.create({ fechaHora: new Date(), total }, { transaction });
+    const venta = await Venta.create({ fechaHora: new Date(), total, usuarioId }, { transaction });
     const guardados = [];
     for (const [indice, l] of calculados.entries()) guardados.push(await detalles.create({ ventaId: venta.id, numeroItem: indice + 1, cantidad: l.cantidad, productoId: l.productoId ?? null, ofertaId: l.ofertaId ?? null, nombre: l.nombre, importeUnitario: Number(l.importeUnitario), subtotal: Number(l.subtotal), ...(l.despacho ? { despacho: l.despacho } : {}) }, { transaction }));
     for (const [productoId, cantidad] of consumos) await movimientos.registrarEgreso(productoId, cantidad, usuarioId, null, venta.id, transaction);

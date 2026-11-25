@@ -708,7 +708,7 @@ describe('API /api/stock', () => {
 
     expect(res.status).toBe(201);
     expect(res.body).toEqual({ id: 100 });
-    expect(mockOperaciones.registrarMovimiento).toHaveBeenCalledWith(body);
+    expect(mockOperaciones.registrarMovimiento).toHaveBeenCalledWith(body, 2);
   });
 
   it('POST /movimientos traduce el conflicto de stock a 409', async () => {
@@ -741,7 +741,7 @@ describe('API /api/stock', () => {
 
     expect(res.status).toBe(201);
     expect(res.body).toEqual({ operacionId: '53fabc20-051f-4b13-9f51-01103abc1a35' });
-    expect(mockOperaciones.fraccionar).toHaveBeenCalledWith(body);
+    expect(mockOperaciones.fraccionar).toHaveBeenCalledWith(body, 2);
   });
 
   it('GET /movimientos lista el historial paginado', async () => {
@@ -862,10 +862,12 @@ describe('API /api/ventas', () => {
       total: '30.00',
       detalles: [expect.objectContaining({ importeUnitario: '15.00', subtotal: '30.00' })],
     });
-    // El segundo argumento true es lo que distingue cotizar de vender.
+    // El segundo argumento true distingue cotizar de vender; el tercero es el
+    // operador autenticado (id=2 con el bypass de tests).
     expect(mockOperaciones.vender).toHaveBeenCalledWith(
       { detalles: [{ productoId: 10, cantidad: 2 }] },
       true,
+      2,
     );
   });
 
@@ -875,7 +877,7 @@ describe('API /api/ventas', () => {
 
     expect(res.status).toBe(201);
     expect(res.body).toEqual({ venta: { id: 55 }, detalles: [] });
-    expect(mockOperaciones.vender).toHaveBeenCalledWith(body);
+    expect(mockOperaciones.vender).toHaveBeenCalledWith(body, false, 2);
   });
 
   it('POST / traduce stock insuficiente a 409', async () => {

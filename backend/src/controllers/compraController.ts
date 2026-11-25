@@ -1,5 +1,5 @@
 import { type Request, type Response } from 'express';
-import { ejecutar, paginacion, rangoFechas } from './operacionesController.js';
+import { ejecutar, operadorId, paginacion, rangoFechas } from './operacionesController.js';
 import { ErrorOperacion, id } from '../services/operaciones.js';
 import * as compras from '../services/compras.js';
 
@@ -38,5 +38,5 @@ export const getReposicion = (req: Request, res: Response) => ejecutar(res, asyn
 });
 
 export const postCompra = (req: Request, res: Response) => ejecutar(res, () =>
-  compras.registrarCompra(req.body), 201
+  compras.registrarCompra(req.body, operadorId(req)), 201
 );

@@ -116,7 +116,7 @@ describe('registrarMovimiento', () => {
 
     await registrarMovimiento(crearReq({ body }), res);
 
-    expect(operaciones.registrarMovimiento).toHaveBeenCalledWith(body);
+    expect(operaciones.registrarMovimiento).toHaveBeenCalledWith(body, 2);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 100 });
   });
@@ -144,7 +144,7 @@ describe('registrarFraccionamiento', () => {
 
     await registrarFraccionamiento(crearReq({ body }), res);
 
-    expect(operaciones.fraccionar).toHaveBeenCalledWith(body);
+    expect(operaciones.fraccionar).toHaveBeenCalledWith(body, 2);
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
@@ -226,7 +226,10 @@ describe('getMovimientos', () => {
         order: [['fechaHora', 'DESC'], ['id', 'DESC']],
         limit: 50,
         offset: 0,
-        include: [expect.objectContaining({ as: 'producto', attributes: ['nombre'] })],
+        include: [
+          expect.objectContaining({ as: 'producto', attributes: ['nombre'] }),
+          expect.objectContaining({ as: 'usuario', attributes: ['nombre', 'apellido'], required: false }),
+        ],
       }),
     );
   });

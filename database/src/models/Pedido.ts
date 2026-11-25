@@ -12,6 +12,7 @@ class Pedido extends Model {
     declare usuarioRecepcion: string | number | null;
     declare fechaHoraRecepcion: Date | null;
     declare observaciones: string | null;
+    declare usuarioId: number;
 }
 
 Pedido.init(
@@ -95,6 +96,12 @@ Pedido.init(
             type: DataTypes.STRING(300),
             allowNull: true,
             defaultValue: null
+        },
+
+        usuarioId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 1
         }
     },
     {

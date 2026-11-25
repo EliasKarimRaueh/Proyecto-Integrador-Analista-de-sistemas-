@@ -3,8 +3,9 @@ import Producto from 'polleria-database/models/Producto';
 import MovimientoStockRepository from 'polleria-database/repositories/movimientoStockRepository';
 import { ErrorOperacion, id, numero, objeto } from './validacion.js';
 
-export async function registrarInventario(body: unknown) {
-  const b = objeto(body), usuarioId = id(b.usuarioId ?? 1);
+export async function registrarInventario(body: unknown, operadorId?: number) {
+  const b = objeto(body), usuarioId = operadorId ?? id(b.usuarioId ?? 1);
+  if (operadorId !== undefined && b.usuarioId !== undefined) throw new ErrorOperacion('El operador se toma de la sesión; no se puede enviar usuarioId.', 400);
   if (!Array.isArray(b.productos) || !b.productos.length || b.productos.length > 10000) throw new ErrorOperacion('Indicá entre 1 y 10000 productos.');
   const motivo = typeof b.motivo === 'string' ? b.motivo.trim() : '';
   if (motivo.length < 5 || motivo.length > 200) throw new ErrorOperacion('Indicá un motivo de entre 5 y 200 caracteres.');

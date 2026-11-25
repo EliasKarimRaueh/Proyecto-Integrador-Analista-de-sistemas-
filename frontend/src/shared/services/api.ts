@@ -1,4 +1,5 @@
 import type { Product, ProductDraft } from '../../features/products/products'
+import type { RespuestaAutenticacion, Usuario } from '../../features/auth/types'
 
 // Agregamos nuestra llamada usando el apiRequest que ya existe
 export async function fetchProducts(): Promise<Product[]> {
@@ -39,11 +40,70 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * El accessToken se guarda sólo en memoria: AuthProvider es el dueño del
+ * estado que se renderiza y este módulo mantiene una copia sincronizada para
+ *adjuntarlo a las peticiones. Nunca se escribe en localStorage.
+ */
+type SesionApi = {
+  onTokenRenovado: (accessToken: string, usuario: Usuario) => void
+  onSesionFinalizada: () => void
+}
+
+const sesionSinIniciar: SesionApi = {
+  onTokenRenovado: () => {},
+  onSesionFinalizada: () => {},
+}
+
+let sesionApi: SesionApi = sesionSinIniciar
+let tokenEnMemoria: string | null = null
+
+export function configurarSesionApi(sesion: SesionApi) {
+  sesionApi = sesion
+}
+
+/** Mantiene sincronizada la copia en memoria con el estado de AuthProvider. */
+export function guardarTokenEnMemoria(token: string | null) {
+  tokenEnMemoria = token
+}
+
+type ControlInterno = { autenticar?: boolean; reintentado?: boolean }
+
+let renovacionEnCurso: Promise<RespuestaAutenticacion> | null = null
+
+/**
+ * Refresca la sesión una sola vez aunque varias peticiones reciban un 401
+ * al mismo tiempo. Si falla, se cierra la sesión local.
+ */
+export function renovarSesion(): Promise<RespuestaAutenticacion> {
+  if (!renovacionEnCurso) {
+    renovacionEnCurso = apiRequest<RespuestaAutenticacion>(
+      'auth/refresh',
+      { method: 'POST' },
+      undefined,
+      { autenticar: false },
+    )
+      .then(respuesta => {
+        tokenEnMemoria = respuesta.accessToken
+        sesionApi.onTokenRenovado(respuesta.accessToken, respuesta.usuario)
+        return respuesta
+      })
+      .catch(error => {
+        tokenEnMemoria = null
+        sesionApi.onSesionFinalizada()
+        throw error
+      })
+      .finally(() => { renovacionEnCurso = null })
+  }
+  return renovacionEnCurso
+}
+
 /** Envía una solicitud a un endpoint que devuelve JSON. */
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
   metadata?: { total?: number },
+  control: ControlInterno = {},
 ): Promise<T> {
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
@@ -51,12 +111,24 @@ export async function apiRequest<T>(
     headers.set('Content-Type', 'application/json')
   }
 
+  const autenticar = control.autenticar !== false && !path.replace(/^\//, '').startsWith('auth/')
+  if (autenticar && !headers.has('Authorization') && tokenEnMemoria) {
+    headers.set('Authorization', `Bearer ${tokenEnMemoria}`)
+  }
+
   const response = await fetch(`${apiUrl}/${path.replace(/^\//, '')}`, {
     ...options,
     headers,
+    // La cookie httpOnly de refresh viaja en todas las peticiones.
+    credentials: options.credentials ?? 'include',
   })
 
   if (!response.ok) {
+    if (response.status === 401 && autenticar && !control.reintentado) {
+      await renovarSesion()
+      return apiRequest<T>(path, options, metadata, { ...control, reintentado: true })
+    }
+
     const payload = await response.json().catch(() => null) as { message?: string } | null
     throw new ApiError(
       payload?.message || `Error en la API: ${response.status} ${response.statusText}`,
@@ -75,4 +147,3 @@ export async function apiRequest<T>(
 
   return response.json() as Promise<T>
 }
-

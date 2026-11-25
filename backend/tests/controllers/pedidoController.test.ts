@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
+// detallePedido/cancelarPedido consultan el circuito de abastecimiento. El doble
+// de sequelize de estos tests sólo expone transaction(), así que hay que proveer
+// el repositorio; sin él la suite aborta con "sequelize.query is not a function".
+const relacionadas = jest.fn().mockResolvedValue({
+  recepciones: [], compras: [], recepcion: null, compra: null,
+});
+const relacionadasPorPedidos = jest.fn().mockResolvedValue(new Map());
+jest.mock('polleria-database/repositories/circuitoAbastecimientoRepository', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({ relacionadas, relacionadasPorPedidos })),
+}));
 jest.mock('polleria-database/repositories/pedidoRepository', () => require('../mocks/pedidoRepository.js'));
 jest.mock('polleria-database/repositories/detallePedidoRepository', () => require('../mocks/detallePedidoRepository.js'));
 jest.mock('polleria-database/repositories/compraRepository', () => require('../mocks/compraRepository.js'));
@@ -36,7 +47,10 @@ function pedido(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   usarTransaccionFalsa();
   proveedorRepo.buscarPorId.mockResolvedValue({ id: 5, nombre: 'Distribuidora Sur', activo: true });
-  productoRepo.findById.mockResolvedValue({ id: 10, nombre: 'Pollo', activo: true, unidadVenta: 'KILOS' });
+  productoRepo.findById.mockResolvedValue({
+    id: 10, nombre: 'Pollo', activo: true, unidadVenta: 'KILOS',
+    unidadCompra: 'CAJONES', factorConversion: 10, costoActual: '100.00',
+  });
   relacionRepo.findByRelation.mockResolvedValue({ productoId: 10, proveedorId: 5, activo: true });
   pedidoRepo.crear.mockResolvedValue(pedido());
   pedidoRepo.buscarDetalle.mockResolvedValue(pedido({ detalles: [] }));
@@ -187,7 +201,10 @@ describe('getPedidoById', () => {
     const res = crearRes();
     await getPedidoById(crearReq({ params: { id: '3' } }), res);
 
-    expect(res.json).toHaveBeenCalledWith(pedido({ detalles: [] }));
+    expect(res.json).toHaveBeenCalledWith(pedido({
+      detalles: [],
+      recepciones: [], compras: [], recepcion: null, compra: null,
+    }));
   });
 
   it('responde 404 si no existe', async () => {

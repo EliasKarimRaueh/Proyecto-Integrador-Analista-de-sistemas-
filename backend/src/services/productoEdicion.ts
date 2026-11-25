@@ -40,9 +40,10 @@ function monto(valor: unknown) {
   return Number(valor).toFixed(2);
 }
 
-export async function guardarComplementos(producto: Producto, body: Record<string, unknown>, transaction: Transaction) {
+export async function guardarComplementos(producto: Producto, body: Record<string, unknown>, transaction: Transaction, operadorId?: number) {
+  if (operadorId !== undefined && body.usuarioId !== undefined) throw new ErrorOperacion('El operador se toma de la sesión; no se puede enviar usuarioId.', 400);
   if (body.stockActual !== undefined && Number(body.stockActual) !== producto.stockActual) {
-    await new MovimientoStockRepository().ajustarStock(producto.id, Number(body.stockActual), id(body.usuarioId ?? 1), 'AJUSTE desde catálogo de productos', transaction);
+    await new MovimientoStockRepository().ajustarStock(producto.id, Number(body.stockActual), operadorId ?? id(body.usuarioId ?? 1), 'AJUSTE desde catálogo de productos', transaction);
     await producto.reload({ transaction });
   }
   if (body.proveedorIds !== undefined) {

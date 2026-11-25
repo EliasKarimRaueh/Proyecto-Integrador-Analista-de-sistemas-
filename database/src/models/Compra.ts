@@ -16,6 +16,7 @@ class Compra extends Model {
     declare observaciones: string | null;
     declare estado: typeof ESTADOS[number];
     declare recepcionId: number | null;
+    declare usuarioId: number;
 }
 
 Compra.init({
@@ -126,6 +127,12 @@ Compra.init({
             model: 'recepciones',
             key: 'id'
         }
+    },
+
+    usuarioId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1
     }
 
 }, {

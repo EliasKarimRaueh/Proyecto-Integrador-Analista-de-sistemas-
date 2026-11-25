@@ -452,6 +452,7 @@ describe('getReposicion', () => {
     expect(productoRepo.buscarParaReposicion).toHaveBeenCalledWith({
       proveedorId: undefined,
       incluirProximos: false,
+      incluirNormales: false,
       q: undefined,
       page: 1,
       limit: 50,
@@ -475,6 +476,7 @@ describe('getReposicion', () => {
     expect(productoRepo.buscarParaReposicion).toHaveBeenCalledWith({
       proveedorId: 5,
       incluirProximos: true,
+      incluirNormales: false,
       q: 'pollo',
       page: 1,
       limit: 50,

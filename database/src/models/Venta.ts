@@ -5,6 +5,7 @@ class Venta extends Model {
     declare id: number;
     declare fechaHora: Date;
     declare total: number;
+    declare usuarioId: number;
 }
 
 Venta.init(
@@ -36,6 +37,12 @@ Venta.init(
                     }
                 }
             }
+        },
+
+        usuarioId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 1
         }
     },
     {

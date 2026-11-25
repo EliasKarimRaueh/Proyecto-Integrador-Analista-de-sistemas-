@@ -15,7 +15,7 @@ import Cuenta from 'polleria-database/models/CuentaProveedor';
 import Pago from 'polleria-database/models/Pago';
 import Aplicacion from 'polleria-database/models/PagoPorCuenta';
 import { activarCuenta, aplicarCredito, comprobantePago, asociarProductos, estadoCuenta, filtrosCuenta, montoPositivo, registrarComprobante, registrarPago } from '../../src/services/proveedores.js';
-import { instancia as imputaciones } from '../mocks/pagoPorCuentaRepository.js';
+import PagoPorCuentaRepository, { instancia as imputaciones } from '../mocks/pagoPorCuentaRepository.js';
 import { sequelize } from '../mocks/configDatabase.js';
 
 type Modelo = { findByPk: jest.Mock; findAll: jest.Mock; findOne: jest.Mock; create: jest.Mock; sum: jest.Mock; findAndCountAll: jest.Mock };
@@ -25,6 +25,9 @@ const tx = { LOCK: { UPDATE: 'UPDATE', SHARE: 'SHARE' } };
 let cuenta1: { id: number; importePendiente: string; update: jest.Mock }, cuenta2: typeof cuenta1;
 beforeEach(() => {
   jest.resetAllMocks();
+  // resetAllMocks también borra la implementación del constructor del doble;
+  // sin restaurarla, new PagoPorCuentaRepository() devuelve un objeto vacío.
+  (PagoPorCuentaRepository as unknown as jest.Mock).mockImplementation(() => imputaciones);
   sequelize.transaction.mockImplementation(async (...args: unknown[]) => (args.at(-1) as (t: unknown) => Promise<unknown>)(tx));
   proveedor.findByPk.mockResolvedValue({ id: 5, activo: true, ctaCte: true });
   pagos.findOne.mockResolvedValue(null); compras.findOne.mockResolvedValue(null);

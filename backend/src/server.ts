@@ -11,6 +11,8 @@ import { migrateZonaHorariaRecepcion } from 'polleria-database/migrations/zonaHo
 import { migrateLimpiezaEsquema } from 'polleria-database/migrations/limpiezaEsquema';
 import { migratePresentacionPedidos } from 'polleria-database/migrations/presentacionPedidos';
 import { migrateRecepcionConformidad } from 'polleria-database/migrations/recepcionConformidad';
+import { migrateUsuarios } from 'polleria-database/migrations/usuarios';
+import { asegurarPropietarioInicial } from './services/auth.js';
 
 const PORT = process.env.PORT || 3000;
 
@@ -87,6 +89,14 @@ try {
   //tiempoFin = Date.now();
   //console.log(`Migración Recepción Conformidad realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
 
+
+  // USUARIOS Y SESIONES: idempotente, ya aplicado en Supabase pero se ejecuta en cada arranque.
+  tiempoInicio = Date.now();
+  await migrateUsuarios();
+  tiempoFin = Date.now();
+  console.log(`Migración Usuarios realizada, duración: ${((tiempoFin - tiempoInicio) / 1000).toFixed(2)} segundos`);
+
+  await asegurarPropietarioInicial();
 
   console.log(`Tiempo total de inicialización: ${((Date.now() - inicioTotal) / 1000).toFixed(2)} segundos`);
   console.log('Conexión exitosa con la base de datos');

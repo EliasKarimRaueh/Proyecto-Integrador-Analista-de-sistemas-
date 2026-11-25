@@ -22,17 +22,31 @@ export function crearRes(): ResFalsa {
 }
 
 /**
- * Request falsa con params/query/body planos. Los controladores solo leen
- * esas tres propiedades (más `req.params.id` y `req.params.productoId`).
+ * Request falsa con params/query/body planos y un operador autenticado por
+ * defecto. Los controladores toman `usuarioId` de `req.usuario.id` (nunca del
+ * body), así que la request falsa debe imitar al middleware de autenticación.
  */
 export function crearReq(overrides: {
   params?: Record<string, unknown>;
   query?: Record<string, unknown>;
   body?: unknown;
+  usuario?: Request['usuario'];
 } = {}): Request {
+  const usuario = overrides.usuario === undefined
+    ? {
+        id: 2,
+        nombre: 'Operador',
+        apellido: 'De prueba',
+        email: 'operador@test.local',
+        rol: 'PROPIETARIO' as const,
+        activo: true,
+        jti: 'test-request'
+      }
+    : overrides.usuario;
   return {
     params: overrides.params ?? {},
     query: overrides.query ?? {},
     body: overrides.body ?? {},
+    usuario
   } as unknown as Request;
 }

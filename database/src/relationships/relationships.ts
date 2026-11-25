@@ -22,6 +22,9 @@ import DetalleCompra from '../models/DetalleCompra.js';
 import Recepcion from '../models/Recepcion.js';
 import DetalleRecepcion from '../models/DetalleRecepcion.js';
 
+import Usuario from '../models/Usuario.js';
+import SesionUsuario from '../models/SesionUsuario.js';
+
 
 // TipoProducto 1 ─── N Producto ────────────────────────────────────
 
@@ -441,4 +444,82 @@ Recepcion.hasOne(Compra, {
 Compra.belongsTo(Recepcion, {
     foreignKey: 'recepcionId',
     as: 'recepcion'
+});
+
+// ============================================================================
+// Usuario 1 ─── N (asociaciones lógicas, SIN FK)
+// Las columnas "usuarioId" ya existen en la BD; constraints: false evita que
+// Sequelize intente crear/validar foreign keys sobre datos históricos.
+// ============================================================================
+
+Usuario.hasMany(SesionUsuario, {
+    foreignKey: 'usuarioId',
+    as: 'sesiones',
+    constraints: false
+});
+
+SesionUsuario.belongsTo(Usuario, {
+    foreignKey: 'usuarioId',
+    as: 'usuario',
+    constraints: false
+});
+
+Usuario.hasMany(Venta, {
+    foreignKey: 'usuarioId',
+    as: 'ventas',
+    constraints: false
+});
+
+Venta.belongsTo(Usuario, {
+    foreignKey: 'usuarioId',
+    as: 'usuario',
+    constraints: false
+});
+
+Usuario.hasMany(Compra, {
+    foreignKey: 'usuarioId',
+    as: 'compras',
+    constraints: false
+});
+
+Compra.belongsTo(Usuario, {
+    foreignKey: 'usuarioId',
+    as: 'usuario',
+    constraints: false
+});
+
+Usuario.hasMany(Pedido, {
+    foreignKey: 'usuarioId',
+    as: 'pedidos',
+    constraints: false
+});
+
+Pedido.belongsTo(Usuario, {
+    foreignKey: 'usuarioId',
+    as: 'usuario',
+    constraints: false
+});
+
+Usuario.hasMany(MovimientoStock, {
+    foreignKey: 'usuarioId',
+    as: 'movimientosStock',
+    constraints: false
+});
+
+MovimientoStock.belongsTo(Usuario, {
+    foreignKey: 'usuarioId',
+    as: 'usuario',
+    constraints: false
+});
+
+Usuario.hasMany(Recepcion, {
+    foreignKey: 'usuarioId',
+    as: 'recepciones',
+    constraints: false
+});
+
+Recepcion.belongsTo(Usuario, {
+    foreignKey: 'usuarioId',
+    as: 'usuario',
+    constraints: false
 });

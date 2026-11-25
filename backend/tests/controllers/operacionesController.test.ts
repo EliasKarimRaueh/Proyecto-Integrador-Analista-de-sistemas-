@@ -39,7 +39,7 @@ describe('crearVenta', () => {
 
     await crearVenta(crearReq({ body }), res);
 
-    expect(operaciones.vender).toHaveBeenCalledWith(body);
+    expect(operaciones.vender).toHaveBeenCalledWith(body, false, 2);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ venta: { id: 55 }, detalles: [] });
   });
@@ -91,7 +91,7 @@ describe('cotizarVenta', () => {
 
     await cotizarVenta(crearReq({ body: { detalles: [] } }), res);
 
-    expect(operaciones.vender).toHaveBeenCalledWith({ detalles: [] }, true);
+    expect(operaciones.vender).toHaveBeenCalledWith({ detalles: [] }, true, 2);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ total: '30.00', detalles: [] });
   });

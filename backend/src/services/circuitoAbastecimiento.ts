@@ -8,6 +8,7 @@ import DetalleRecepcion from 'polleria-database/models/DetalleRecepcion';
 import DetalleCompra from 'polleria-database/models/DetalleCompra';
 import MovimientoStock from 'polleria-database/models/MovimientoStock';
 import CuentaProveedor from 'polleria-database/models/CuentaProveedor';
+import Usuario from 'polleria-database/models/Usuario';
 import MovimientoStockRepository from 'polleria-database/repositories/movimientoStockRepository';
 import { Op, type Transaction } from 'sequelize';
 import { ErrorOperacion, objeto, numero, id } from './validacion.js';
@@ -29,8 +30,21 @@ async function esquema(transaction: Transaction) {
   if (!await circuito.esquemaDisponible(transaction)) throw new ErrorOperacion('Falta aplicar el cambio de BD de Jeremías: Compra.recepcionId y Recepción sin compraId obligatorio. No se registró la operación.', 409);
 }
 
-export async function crearRecepcion(body: unknown) {
-  const b = objeto(body), pedidoId = id(b.pedidoId, 'pedidoId'), usuarioId = 1;
+/** Devuelve undefined cuando no hay operador identificable o la consulta falla. */
+async function nombreOperador(usuarioId: unknown): Promise<string | null | undefined> {
+  const id = Number(usuarioId);
+  if (!Number.isSafeInteger(id) || id <= 0) return undefined;
+  try {
+    const usuario = await Usuario.findByPk(id, { attributes: ['nombre', 'apellido'] });
+    return usuario ? `${usuario.nombre} ${usuario.apellido}` : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function crearRecepcion(body: unknown, operadorId?: number) {
+  const b = objeto(body), pedidoId = id(b.pedidoId, 'pedidoId'), usuarioId = operadorId ?? 1;
+  if (operadorId !== undefined && b.usuarioId !== undefined) throw new ErrorOperacion('El operador se toma de la sesión; no se puede enviar usuarioId.', 400);
   if (b.compraId !== undefined) throw new ErrorOperacion('La recepción nace de un pedido; no debe indicar compraId.');
   const observaciones = texto(b.observaciones, 300);
   if (!Array.isArray(b.detalles) || !b.detalles.length || b.detalles.length > 100) throw new ErrorOperacion('Indicá entre 1 y 100 detalles.');
@@ -80,8 +94,10 @@ export async function crearRecepcion(body: unknown) {
   });
 }
 
-export async function crearCompra(body: unknown) {
+export async function crearCompra(body: unknown, operadorId?: number) {
   const b = objeto(body), recepcionId = id(b.recepcionId, 'recepcionId');
+  if (operadorId !== undefined && b.usuarioId !== undefined) throw new ErrorOperacion('El operador se toma de la sesión; no se puede enviar usuarioId.', 400);
+  const usuarioId = operadorId ?? 1;
   const tipoComprobante = texto(b.tipoComprobante, 20)?.toUpperCase() ?? null;
   if (tipoComprobante && !['FACTURA', 'REMITO', 'OTRO'].includes(tipoComprobante)) throw new ErrorOperacion('Tipo de comprobante inválido.');
   const numeroComprobante = texto(b.numeroComprobante, 80), observaciones = texto(b.observaciones, 300);
@@ -107,7 +123,7 @@ export async function crearCompra(body: unknown) {
     if (!recibidos.length || recibidos.length !== costos.length || recibidos.some(d => !costos.some(c => c.productoId === d.productoId))) throw new ErrorOperacion('La compra debe incluir exactamente los productos aceptados en la recepción.');
     const total = importe(costos.reduce((s, c) => s + centavos(1, c.costo), 0n));
     if (Number(total) > 99999999.99) throw new ErrorOperacion('El total supera el máximo permitido.');
-    const compra = await circuito.crearCompra({ recepcionId, pedidoId: recepcion.pedidoId, proveedorId: recepcion.proveedorId, tipoComprobante, numeroComprobante, formaPago, observaciones, total }, transaction);
+    const compra = await circuito.crearCompra({ recepcionId, pedidoId: recepcion.pedidoId, proveedorId: recepcion.proveedorId, tipoComprobante, numeroComprobante, formaPago, observaciones, total, usuarioId }, transaction);
     const detalles = [];
     const pedidoDetalles = await DetallePedido.findAll({ where: { pedidoId: recepcion.pedidoId }, transaction });
     for (const [indice, d] of recibidos.entries()) {
@@ -135,7 +151,8 @@ export async function consultarRecepcion(recepcionId: number) {
   const pedidos = recepcion.pedidoId ? await DetallePedido.findAll({ where: { pedidoId: recepcion.pedidoId } }) : [];
   const proveedor = await Proveedor.findByPk(recepcion.proveedorId, { attributes: ['id', 'nombre', 'ctaCte'] });
   const movimientosStock = await MovimientoStock.findAll({ where: { recepcionId }, order: [['id', 'ASC']] });
-  return { ...recepcion, proveedor, usuarioNombre: 'Dueño', pedido: recepcion.pedidoId ? { id: recepcion.pedidoId } : null, movimientosStock, detalles: detalles.map(d => ({ ...d.toJSON(), cantidadSobranteBase: redondear(Math.max(0, Number(d.cantidadBase) + Number(d.cantidadRechazadaBase) - Number(pedidos.find(p => p.productoId === d.productoId)?.cantidad ?? 0))) })) };
+  const usuarioNombre = await nombreOperador(recepcion.usuarioId);
+  return { ...recepcion, proveedor, ...(usuarioNombre === undefined ? {} : { usuarioNombre }), pedido: recepcion.pedidoId ? { id: recepcion.pedidoId } : null, movimientosStock, detalles: detalles.map(d => ({ ...d.toJSON(), cantidadSobranteBase: redondear(Math.max(0, Number(d.cantidadBase) + Number(d.cantidadRechazadaBase) - Number(pedidos.find(p => p.productoId === d.productoId)?.cantidad ?? 0))) })) };
 }
 
 export async function consultarCompra(compraId: number) {
@@ -143,7 +160,8 @@ export async function consultarCompra(compraId: number) {
   if (!compra) throw new ErrorOperacion('Compra no encontrada.', 404);
   const detalles = await DetalleCompra.findAll({ where: { compraId }, include: [{ model: Producto, as: 'producto', attributes: ['id', 'nombre', 'unidadCompra', 'unidadVenta', 'factorConversion'] }] });
   const cuenta = await CuentaProveedor.findOne({ where: { compraId } });
-  return { compra: { ...compra, pedido: compra.pedidoId ? { id: compra.pedidoId } : null, detalles }, cuenta, totalRecibido: null };
+  const usuarioNombre = await nombreOperador(compra.usuarioId);
+  return { compra: { ...compra, pedido: compra.pedidoId ? { id: compra.pedidoId } : null, detalles }, cuenta, ...(usuarioNombre === undefined ? {} : { usuarioNombre }), totalRecibido: null };
 }
 
 export async function consultarCompras(page: number, limit: number, proveedorId?: number, desde?: Date, hasta?: Date, estado?: string) {

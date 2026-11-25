@@ -1,7 +1,9 @@
-﻿import { NavLink, Outlet, useLocation } from 'react-router-dom'
+﻿import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon, type IconName } from './Icon'
 import { useApiResource } from '../hooks/useApiResource'
+import { useAuth } from '../hooks/useAuth'
 import { apiRequest } from '../services/api'
+import { nombreCompleto } from '../../features/auth/types'
 
 type NavItem = { to: string; label: string; icon: IconName }
 type NavSection = { id: string; label: string; items: NavItem[] }
@@ -48,10 +50,23 @@ const navigation: NavSection[] = [
 
 export function AppLayout() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const { usuario, logout } = useAuth()
   const health = useApiResource(() => apiRequest<{ status: string }>('health'))
-  const current = navigation
+  const esPropietario = usuario?.rol === 'PROPIETARIO'
+  // El empleado opera, pero no gestiona catálogo de precios ni ofertas.
+  const visibles = esPropietario ? navigation : navigation.filter(seccion => seccion.id !== 'catalogo')
+  const secciones = esPropietario
+    ? [...visibles, { id: 'administracion', label: 'Administración', items: [{ to: '/usuarios', label: 'Usuarios', icon: 'users' as const }] }]
+    : visibles
+  const current = secciones
     .flatMap(section => section.items)
     .find(item => item.to === pathname)?.label ?? 'Gestión'
+
+  async function cerrarSesion() {
+    await logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className="app">
@@ -68,7 +83,7 @@ export function AppLayout() {
         </NavLink>
 
         <nav className="sidebar-nav" aria-label="Navegación principal">
-          {navigation.map(section => (
+          {secciones.map(section => (
             <div className="nav-group" key={section.id} role="group" aria-labelledby={`nav-${section.id}`}>
               <span className="nav-caption" id={`nav-${section.id}`}>{section.label}</span>
               {section.items.map(({ to, label, icon }) => (
@@ -93,9 +108,18 @@ export function AppLayout() {
             <strong>{current.toUpperCase()}</strong>
             <p>Sistema de gestión de Pollerias</p>
           </div>
-          <button className={`workspace-tag connection-state ${health.error ? 'offline' : ''}`} onClick={health.refetch} title="Comprobar conexión">
-            <span />{health.loading ? 'Conectando…' : health.error ? 'API sin conexión · reintentar' : 'API conectada'}
-          </button>
+          <div className="topbar-actions">
+            <button className={`workspace-tag connection-state ${health.error ? 'offline' : ''}`} onClick={health.refetch} title="Comprobar conexión">
+              <span />{health.loading ? 'Conectando…' : health.error ? 'API sin conexión · reintentar' : 'API conectada'}
+            </button>
+            {usuario && <div className="topbar-user">
+              <span className="topbar-user-name">{nombreCompleto(usuario)}</span>
+              <small>{usuario.rol === 'PROPIETARIO' ? 'Propietario' : 'Empleado'}</small>
+            </div>}
+            <button className="button logout-button" onClick={cerrarSesion} title="Cerrar sesión">
+              <Icon name="key" size={16} /> Cerrar sesión
+            </button>
+          </div>
         </header>
         <main id="contenido" className="container" tabIndex={-1}>
           <Outlet />

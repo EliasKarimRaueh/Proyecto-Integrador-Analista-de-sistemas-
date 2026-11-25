@@ -2,6 +2,7 @@ import sequelize from 'polleria-database/config/database';
 import ProductoProveedor from 'polleria-database/models/ProductoProveedor';
 import { camposProducto, guardarComplementos } from '../services/productoEdicion.js';
 import { ErrorOperacion } from '../services/validacion.js';
+import { operadorId } from './operacionesController.js';
 import { type Request, type Response } from 'express';
 import ProductoRepository from 'polleria-database/repositories/productoRepository';
 import TipoProductoRepository from 'polleria-database/repositories/tipoProductoRepository';
@@ -179,7 +180,7 @@ export const createProducto = async (req: Request, res: Response) => {
         ...adicionales,
         stockActual: 0,
       }, { transaction });
-      await guardarComplementos(product, req.body, transaction);
+      await guardarComplementos(product, req.body, transaction, operadorId(req));
       return product;
     });
     res.status(201).json({ ...presentProduct(product, input.category), proveedorIds: (await ProductoProveedor.findAll({ where: { productoId: product.id, activo: true } })).map(r => r.proveedorId) });

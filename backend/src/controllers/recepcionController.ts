@@ -1,5 +1,5 @@
 import { type Request, type Response } from 'express';
-import { ejecutar, paginacion, rangoFechas } from './operacionesController.js';
+import { ejecutar, operadorId, paginacion, rangoFechas } from './operacionesController.js';
 import { id } from '../services/operaciones.js';
 import * as recepciones from '../services/recepciones.js';
 
@@ -22,5 +22,5 @@ export const getRecepcionById = (req: Request, res: Response) => ejecutar(res, (
 );
 
 export const postRecepcion = (req: Request, res: Response) => ejecutar(res, () =>
-  recepciones.registrarRecepcion(req.body), 201
+  recepciones.registrarRecepcion(req.body, operadorId(req)), 201
 );

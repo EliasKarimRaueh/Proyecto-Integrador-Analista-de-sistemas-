@@ -3,7 +3,7 @@ import sequelize from '../config/database.js';
 
 export type CabeceraCircuito = {
     id: number; pedidoId: number | null; proveedorId: number; fechaHora: Date;
-    observaciones: string | null; recepcionId?: number; total?: string;
+    observaciones: string | null; usuarioId: number; recepcionId?: number; total?: string;
     formaPago?: 'PAGADO' | 'A CUENTA'; conformidad?: string;
     proveedor?: { id: number; nombre: string }; compra?: { id: number } | null;
     recepcion?: { id: number; pedidoId: number } | null;
@@ -89,9 +89,13 @@ export default class CircuitoAbastecimientoRepository {
         return resultado;
     }
 
-    async crearCompra(datos: { recepcionId: number; pedidoId: number; proveedorId: number; tipoComprobante: string | null; numeroComprobante: string | null; formaPago: string; observaciones: string | null; total: string }, transaction: Transaction) {
-        const rows = await sequelize.query<CabeceraCircuito>(`INSERT INTO compras ("recepcionId", "pedidoId", "proveedorId", "fechaHora", "tipoComprobante", "numeroComprobante", "formaPago", observaciones, total, estado)
-            VALUES (:recepcionId, :pedidoId, :proveedorId, CURRENT_TIMESTAMP, :tipoComprobante, :numeroComprobante, :formaPago, :observaciones, :total, 'RECIBIDA') RETURNING *`, { replacements: datos, type: QueryTypes.SELECT, transaction });
+    async crearCompra(datos: { recepcionId: number; pedidoId: number; proveedorId: number; tipoComprobante: string | null; numeroComprobante: string | null; formaPago: string; observaciones: string | null; total: string; usuarioId?: number }, transaction: Transaction) {
+        // El backend envía usuarioId desde el token. Se admite que falte para no
+        // romper callers anteriores: en ese caso queda el usuario histórico (1).
+        const valores = { ...datos, usuarioId: datos.usuarioId ?? 1 };
+        const rows = await sequelize.query<CabeceraCircuito>(`INSERT INTO compras ("recepcionId", "pedidoId", "proveedorId", "fechaHora", "tipoComprobante", "numeroComprobante", "formaPago", observaciones, total, "usuarioId", estado)
+            VALUES (:recepcionId, :pedidoId, :proveedorId, CURRENT_TIMESTAMP, :tipoComprobante, :numeroComprobante, :formaPago, :observaciones, :total, :usuarioId, 'RECIBIDA')
+            RETURNING id, "pedidoId", "proveedorId", "fechaHora", "tipoComprobante", "numeroComprobante", "claveOperacion", "formaPago", observaciones, total, "recepcionId", "usuarioId", estado`, { replacements: valores, type: QueryTypes.SELECT, transaction });
         return rows[0]!;
     }
 

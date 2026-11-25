@@ -1,5 +1,9 @@
 import express, { type Application, type ErrorRequestHandler } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import authRoutes from './routes/authRoutes.js';
+import usuarioRoutes from './routes/usuarioRoutes.js';
+import { autenticar, soloPropietario } from './middlewares/auth.js';
 import productoRoutes from './routes/productoRoutes.js';
 import precioRoutes from './routes/precioRoutes.js';
 import ofertaRoutes from './routes/ofertaRoutes.js';
@@ -43,6 +47,7 @@ const corsOptions: cors.CorsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use('/api/stock/inventarios', express.json({ limit: '2mb' }));
 app.use(express.json());
 
@@ -51,10 +56,20 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'API de AvixSoft conectada y funcionando' });
 });
 
+// Autenticación: login/refresh/logout son públicos; /me valida su token.
+app.use('/api/auth', authRoutes);
+
+// Gestión de usuarios: sólo Propietario.
+app.use('/api/usuarios', usuarioRoutes);
+
+// El resto de la API exige un operador autenticado.
+app.use('/api', autenticar);
+
 // NUESTRAS RUTAS DE NEGOCIO
 app.use('/api/productos', productoRoutes); // <-- Conectamos la ruta
-app.use('/api/precios', precioRoutes);
-app.use('/api/ofertas', ofertaRoutes);
+// Precios y ofertas son decisiones comerciales: sólo el propietario las gestiona.
+app.use('/api/precios', soloPropietario, precioRoutes);
+app.use('/api/ofertas', soloPropietario, ofertaRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/ventas', ventaRoutes);
 app.use('/api/proveedores', proveedorRoutes);
