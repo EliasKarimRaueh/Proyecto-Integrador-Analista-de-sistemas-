@@ -13,7 +13,8 @@ export type DespachoVenta = { productoId: number; nombre: string; unidadVenta: U
 export type LineaVenta = { productoId?: number; ofertaId?: number; cantidad: number; tipoPrecio?: ListaPrecio; despacho?: { productoId: number; cantidadReal: number }[] }
 export type DetalleVenta = Omit<LineaVenta, 'despacho'> & { numeroItem?: number; nombre: string; importeUnitario: string | number; subtotal: string | number; despacho?: DespachoVenta[] | null }
 export type Venta = { id: number; fechaHora: string; total: string | number }
-export type VentaCompleta = { venta: Venta; detalles: DetalleVenta[] }
+/** `usuarioNombre` se agrega al registrar la venta y se conserva aunque el operador se dé de baja. */
+export type VentaCompleta = { venta: Venta; detalles: DetalleVenta[]; usuarioNombre?: string | null }
 export type Cotizacion = { total: string; detalles: DetalleVenta[] }
 export type Movimiento = {
   id: number; productoId: number; numeroMovimiento: number; fechaHora: string

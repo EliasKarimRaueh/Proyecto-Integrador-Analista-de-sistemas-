@@ -8,6 +8,7 @@ class Pago extends Model {
     declare proveedorId: number;
     declare importe: number;
     declare importePendiente: number;
+    declare usuarioId: number;
 }
 
 Pago.init({
@@ -55,6 +56,13 @@ Pago.init({
                 }
             }
         }
+    },
+
+    // Operador autenticado que registró el pago. Históricos quedaron en 1.
+    usuarioId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1
     }
 }, {
     sequelize,

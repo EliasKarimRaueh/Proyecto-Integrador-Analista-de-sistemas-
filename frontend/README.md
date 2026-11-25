@@ -38,7 +38,7 @@ En producción, configurar un proxy `/api` hacia el backend o definir `VITE_API_
 | `/ventas` | Historial paginado, fechas, comprobantes y egresos vinculados |
 | `/movimientos` | Historial paginado con producto, fechas, tipo, venta y operación de desposte |
 
-Pedidos, clientes y autenticación conservan sus rutas iniciales, fuera de los módulos operativos de este Sprint. No se presentan como funcionalidades terminadas en el menú principal.
+El acceso se hace desde `/login` con el token en memoria y la sesión renovable mediante cookie `httpOnly`. `/usuarios` (sólo Propietario) permite alta, consulta con filtros, edición, baja lógica y reactivación. Pedidos y clientes conservan sus rutas iniciales, fuera de los módulos operativos de este Sprint.
 
 ## Sprint 3, primera parte
 

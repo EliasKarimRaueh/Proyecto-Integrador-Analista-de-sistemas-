@@ -100,5 +100,13 @@ export async function migrateUsuarios() {
         await query('ALTER TABLE pedidos ALTER COLUMN "usuarioId" SET DEFAULT 1');
         await query('ALTER TABLE pedidos ALTER COLUMN "usuarioId" SET NOT NULL');
         await query('CREATE INDEX IF NOT EXISTS pedidos_usuario_id_idx ON pedidos ("usuarioId")');
+
+        // Pagos also belong to the authenticated operator. DEFAULT avoids a
+        // full-table rewrite when adding NOT NULL on existing installations.
+        await query('ALTER TABLE pagos ADD COLUMN IF NOT EXISTS "usuarioId" INTEGER');
+        await query('UPDATE pagos SET "usuarioId" = 1 WHERE "usuarioId" IS NULL');
+        await query('ALTER TABLE pagos ALTER COLUMN "usuarioId" SET DEFAULT 1');
+        await query('ALTER TABLE pagos ALTER COLUMN "usuarioId" SET NOT NULL');
+        await query('CREATE INDEX IF NOT EXISTS pagos_usuario_id_idx ON pagos ("usuarioId")');
     });
 }

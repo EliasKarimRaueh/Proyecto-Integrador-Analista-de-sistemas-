@@ -7,8 +7,9 @@ const pagos = new PagoRepository();
 const aplicaciones = new PagoPorCuentaRepository();
 const proveedores = new ProveedorRepository();
 
-export async function registrarPago(body: unknown) {
+export async function registrarPago(body: unknown, operadorId?: number) {
   const b = objeto(body);
+  if (operadorId !== undefined && b.usuarioId !== undefined) throw new ErrorOperacion('El operador se toma de la sesión; no se puede enviar usuarioId.', 400);
   const proveedorId = id(b.proveedorId, 'proveedorId');
   const importe = numero(b.importe, 'importe');
   const monto = importe.toFixed(2);
@@ -22,7 +23,8 @@ export async function registrarPago(body: unknown) {
   return await pagos.registrarPagoYAplicar({
     proveedorId,
     importe: monto as unknown as number,
-    fechaHora
+    fechaHora,
+    usuarioId: operadorId ?? 1
   } as never);
 }
 

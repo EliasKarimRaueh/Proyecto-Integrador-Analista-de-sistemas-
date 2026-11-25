@@ -102,3 +102,15 @@ UPDATE pedidos SET "usuarioId" = 1 WHERE "usuarioId" IS NULL;
 ALTER TABLE pedidos ALTER COLUMN "usuarioId" SET DEFAULT 1;
 ALTER TABLE pedidos ALTER COLUMN "usuarioId" SET NOT NULL;
 CREATE INDEX IF NOT EXISTS pedidos_usuario_id_idx ON pedidos ("usuarioId");
+
+-- ----------------------------------------------------------------------------
+-- v2 (2026-11-25) — Auditoría de pagos. Idempotente; sin FK hacia usuarios.
+-- Ejecutar este bloque en Supabase o dejar que migrateUsuarios() lo aplique
+-- al arrancar el backend. El DEFAULT 1 evita reescribir toda la tabla.
+-- ----------------------------------------------------------------------------
+
+ALTER TABLE pagos ADD COLUMN IF NOT EXISTS "usuarioId" INTEGER;
+UPDATE pagos SET "usuarioId" = 1 WHERE "usuarioId" IS NULL;
+ALTER TABLE pagos ALTER COLUMN "usuarioId" SET DEFAULT 1;
+ALTER TABLE pagos ALTER COLUMN "usuarioId" SET NOT NULL;
+CREATE INDEX IF NOT EXISTS pagos_usuario_id_idx ON pagos ("usuarioId");

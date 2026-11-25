@@ -8,6 +8,8 @@ Supabase utiliza SSL por defecto. Para PostgreSQL local configurar `DATABASE_SSL
 
 Toda la API (excepto `/api/health` y `/api/auth/*`) requiere `Authorization: Bearer <accessToken>`. El access token vive en memoria; el refresh token viaja en una cookie `httpOnly` (`credentials: 'include'` en el cliente). Las sesiones se registran en `sesiones_usuario` con un `jti` revocable: al cerrar sesión, dar de baja un usuario o rotar el refresh, el token anterior deja de ser válido.
 
+**Decisión OAuth 2.0 (US 38):** el login es ROPC de primera parte (`/api/auth/login`), equivalente al *Resource Owner Password Credentials grant* de OAuth 2.0. No se integra un proveedor de identidad externo: las credenciales se validan contra la tabla `usuarios` con bcrypt y los tokens los emite esta API. No hay registro público: el propietario crea las cuentas desde Administración → Usuarios. La trazabilidad completa de los US 38–42 está en `docs/autenticacion.md`.
+
 Variables nuevas en `backend/.env` (ver `.env.example`):
 
 ```
@@ -33,7 +35,7 @@ Al arrancar se ejecuta la migración idempotente `migrateUsuarios()` (equivalent
 | GET/PUT/DELETE | `/api/usuarios/:id` | Detalle / editar / baja lógica | Propietario |
 | PUT | `/api/usuarios/:id/reactivar` | Reactivar | Propietario |
 
-Roles: `PROPIETARIO` y `EMPLEADO`. El empleado opera (caja, ventas, stock, abastecimiento) pero no gestiona usuarios, precios, ofertas ni el catálogo de productos. No se puede dar de baja al último propietario activo ni a uno mismo. El operador de cada operación se toma siempre del token (`req.usuario.id`); enviar `usuarioId` en el body se rechaza.
+Roles: `PROPIETARIO` y `EMPLEADO`. El empleado opera (caja, ventas, stock, abastecimiento) pero no gestiona usuarios, precios, ofertas ni el catálogo de productos. No se puede dar de baja al último propietario activo ni a uno mismo. El operador de cada operación se toma siempre del token (`req.usuario.id`); enviar `usuarioId` en el body se rechaza. Esto incluye ventas, movimientos, inventarios, desposte, pedidos, recepciones, compras y pagos. El nombre del operador se conserva en el historial aunque la cuenta se dé de baja.
 
 ## Proveedores
 
@@ -260,7 +262,7 @@ Ventas, movimientos, pedidos, compras y recepciones admiten `fechaDesde`/`fechaH
 
 Los productos se bloquean en orden de ID para serializar modificaciones de stock y reducir interbloqueos. Ventas, fraccionamientos, compras y recepciones se ejecutan en una única transacción: cualquier falla revierte todos sus cambios. No se mantienen transacciones abiertas entre solicitudes HTTP.
 
-La autenticación de usuarios todavía queda fuera de alcance. Se conserva el usuario predeterminado 1 del modelo existente; el `usuarioId` enviado en ventas, movimientos y recepciones todavía no representa una identidad autenticada.
+La autenticación de usuarios está implementada (ver la sección «Autenticación y usuarios»). Se conserva el usuario predeterminado 1 sólo para las operaciones históricas; en las nuevas operaciones `usuarioId` siempre viene del operador autenticado, nunca del cuerpo de la solicitud.
 
 Las migraciones `productCatalog`, `preciosOfertas`, `comprasSprint4` y `recepcionConformidad` se ejecutan al iniciar el servidor. La migración del Sprint 4 es idempotente y crea las tablas de pedidos, detalles, recepciones, así como las columnas y restricciones nuevas de compras y movimientos de stock. `recepcionConformidad` agrega las columnas de rechazo, faltante, motivo y conformidad de forma idempotente.
 

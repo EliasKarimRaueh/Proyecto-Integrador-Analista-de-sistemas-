@@ -37,7 +37,7 @@ describe('postPago', () => {
     await postPago(crearReq({ body: { proveedorId: 5, importe: 1000 } }), res);
 
     expect(pagoRepo.registrarPagoYAplicar).toHaveBeenCalledWith(
-      expect.objectContaining({ proveedorId: 5, importe: '1000.00' }),
+      expect.objectContaining({ proveedorId: 5, importe: '1000.00', usuarioId: 2 }),
     );
     expect(res.status).toHaveBeenCalledWith(201);
   });
@@ -64,6 +64,15 @@ describe('postPago', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ message: 'La fecha del pago no es válida.' });
+  });
+
+  it('rechaza usuarioId en el body: el operador se toma de la sesión', async () => {
+    const res = crearRes();
+    await postPago(crearReq({ body: { proveedorId: 5, importe: 1000, usuarioId: 99 } }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'El operador se toma de la sesión; no se puede enviar usuarioId.' });
+    expect(pagoRepo.registrarPagoYAplicar).not.toHaveBeenCalled();
   });
 });
 

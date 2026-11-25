@@ -1,5 +1,5 @@
 import { type Request, type Response } from 'express';
-import { ejecutar, paginacion, rangoFechas } from './operacionesController.js';
+import { ejecutar, operadorId, paginacion, rangoFechas } from './operacionesController.js';
 import { id } from '../services/operaciones.js';
 import * as pagos from '../services/pagos.js';
 
@@ -18,5 +18,5 @@ export const getPagoById = (req: Request, res: Response) => ejecutar(res, () =>
 );
 
 export const postPago = (req: Request, res: Response) => ejecutar(res, () =>
-  pagos.registrarPago(req.body), 201
+  pagos.registrarPago(req.body, operadorId(req)), 201
 );
